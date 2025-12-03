@@ -4,7 +4,6 @@ import Navbar from '@/components/Navbar';
 export default function CuraCore() {
   return (
     <>
-      <Navbar />
       <main className="min-h-screen bg-gray-50">
         <section className="bg-gradient-to-r from-blue-900 to-blue-700 text-white py-24">
           <div className="max-w-7xl mx-auto px-6 text-center">
