@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     payment_method_types: ['card'],
     line_items: [{ price: priceId, quantity: 1 }],
     mode: 'subscription',
-    success_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://curacore-centraltech-website.netlify.app'}/portal/dashboard`,
+    success_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://curacore-centraltech-website.netlify.app'}/portal/dashboard?success=true`,
     cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://curacore-centraltech-website.netlify.app'}/buy`,
   });
 
