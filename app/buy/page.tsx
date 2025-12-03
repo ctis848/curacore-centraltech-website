@@ -11,8 +11,7 @@ export default function BuyLicense() {
     const stripe = await stripePromise;
     if (!stripe) return alert('Stripe failed to load');
 
-    // This bypasses the TypeScript confusion once and for all
-    // @ts-ignore
+    // @ts-ignore – we know it's the correct browser instance
     await stripe.redirectToCheckout({
       lineItems: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
@@ -46,4 +45,24 @@ export default function BuyLicense() {
                 MOST POPULAR
               </div>
               <h2 className="text-4xl font-bold mb-4">Pro</h2>
-              <p className="
+              <p className="text-7xl font-bold">$15<span className="text-3xl">/mo</span></p>
+              <button onClick={() => handleCheckout('price_1PRO_ID')} className="mt-10 w-full bg-white text-blue-900 py-6 rounded-xl text-2xl font-bold hover:bg-gray-100">
+                Buy Pro Now
+              </button>
+            </div>
+
+            {/* Lifetime */}
+            <div className="bg-gradient-to-br from-green-600 to-green-700 text-white rounded-3xl shadow-2xl p-10 hover:scale-105 transition-all">
+              <h2 className="text-3xl font-bold mb-4">Lifetime Deal</h2>
+              <p className="text-6xl font-bold">$399<span className="text-2xl"> one-time</span></p>
+              <button onClick={() => handleCheckout('price_1LIFETIME_ID')} className="mt-10 w-full bg-yellow-400 text-blue-900 py-6 rounded-xl text-2xl font-bold hover:bg-yellow-300">
+                Buy Lifetime
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
