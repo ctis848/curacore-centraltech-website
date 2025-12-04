@@ -1,14 +1,13 @@
 // app/buy/page.tsx
 'use client';
 
-import { loadStripe } from '@stripe/stripe-js';   // ONLY THIS IMPORT
+import { loadStripe } from '@stripe/stripe-js';
 import { useState } from 'react';
 
-// ← NO "import Stripe", NO "import { Stripe }", NO "new Stripe()" ANYWHERE
-
+// ONLY THIS IMPORT — NOTHING ELSE ABOUT "Stripe"
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
-  'pk_test_51SS3cfCu1JaX6ZMs6xuKVZFlujNtxZQlWmk8vVSo7QXyrl8zUz3EGP5GjQOFsfza6ZpKmWzl524YGqYkklvm2Nwi003STcuN6P'
+  'pk_test_51SS3cfCu1JaX6ZMs6xuKVZFlujNtxZQlWmk8vVSo7QXyrl8z decoding error — please check your key
 );
 
 export default function BuyLicense() {
@@ -77,7 +76,7 @@ export default function BuyLicense() {
 
           <div className="bg-gradient-to-br from-green-600 to-green-700 text-white rounded-3xl shadow-2xl p-10 hover:scale-105 transition-all">
             <h2 className="text-3xl font-bold mb-4">Lifetime Deal</h2>
-            <p className="text-6xl font-bold mb-2">$399<span className="text-2xl font-normal">one-time</span></p>
+            <p className="text-6xl font-bold mb-2">$399<span className="text-2xl font-normal"> one-time</span></p>
             <button
               onClick={() => handleCheckout('price_1SaNJmECEzFismm5fDBhO46P', 'Lifetime')}
               disabled={!!loading}
