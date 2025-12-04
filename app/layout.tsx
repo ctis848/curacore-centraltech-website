@@ -3,12 +3,13 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'CuraCore – Central Tech Information Systems',
-  description: 'Global Leader in Healthcare & Enterprise Technology Solutions',
+  description: 'The #1 Offline Hospital Management System in Nigeria',
 };
 
 export default function RootLayout({
@@ -26,6 +27,7 @@ export default function RootLayout({
         <main className="pt-16 md:pt-20 min-h-screen">
           {children}
         </main>
+        <Footer />
       </body>
     </html>
   );
