@@ -1,10 +1,11 @@
 // app/buy/page.tsx
 'use client';
 
-import { loadStripe } from '@stripe/stripe-js';  // ← ONLY THIS — NO "Stripe" TYPE IMPORT
+import { loadStripe } from '@stripe/stripe-js';   // ONLY THIS IMPORT
 import { useState } from 'react';
 
-// Load Stripe correctly — client-side only
+// ← NO "import Stripe", NO "import { Stripe }", NO "new Stripe()" ANYWHERE
+
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
   'pk_test_51SS3cfCu1JaX6ZMs6xuKVZFlujNtxZQlWmk8vVSo7QXyrl8zUz3EGP5GjQOFsfza6ZpKmWzl524YGqYkklvm2Nwi003STcuN6P'
@@ -15,10 +16,10 @@ export default function BuyLicense() {
 
   const handleCheckout = async (priceId: string, planName: string) => {
     setLoading(planName);
-
     const stripe = await stripePromise;
+
     if (!stripe) {
-      alert('Stripe failed to load. Check your publishable key.');
+      alert('Stripe failed to load');
       setLoading(null);
       return;
     }
@@ -31,14 +32,12 @@ export default function BuyLicense() {
         cancelUrl: `${window.location.origin}/buy?canceled=true`,
       });
     } catch (err) {
-      console.error('Checkout error:', err);
-      alert('Something went wrong. Please try again.');
-    } finally {
-      setLoading(null);
+      console.error(err);
+      alert('Checkout failed');
     }
+    setLoading(null);
   };
 
-  // Your beautiful UI stays the same...
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-24 px-6">
       <div className="max-w-7xl mx-auto text-center">
@@ -48,7 +47,7 @@ export default function BuyLicense() {
         <p className="text-2xl text-gray-700 mb-16">The #1 Hospital System in Africa</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 max-w-6xl mx-auto">
-          {/* Starter */}
+
           <div className="bg-white rounded-3xl shadow-2xl p-10 hover:scale-105 transition-all">
             <h2 className="text-3xl font-bold text-blue-900 mb-4">Starter</h2>
             <p className="text-6xl font-bold text-gray-900 mb-2">$11<span className="text-2xl font-normal">/month</span></p>
@@ -61,7 +60,6 @@ export default function BuyLicense() {
             </button>
           </div>
 
-          {/* Pro */}
           <div className="bg-gradient-to-br from-blue-900 to-blue-800 text-white rounded-3xl shadow-2xl p-12 transform scale-110 border-8 border-yellow-400 relative">
             <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-yellow-400 text-blue-900 px-10 py-3 rounded-full text-xl font-black">
               MOST POPULAR
@@ -77,7 +75,6 @@ export default function BuyLicense() {
             </button>
           </div>
 
-          {/* Lifetime */}
           <div className="bg-gradient-to-br from-green-600 to-green-700 text-white rounded-3xl shadow-2xl p-10 hover:scale-105 transition-all">
             <h2 className="text-3xl font-bold mb-4">Lifetime Deal</h2>
             <p className="text-6xl font-bold mb-2">$399<span className="text-2xl font-normal">one-time</span></p>
@@ -89,6 +86,7 @@ export default function BuyLicense() {
               {loading === 'Lifetime' ? 'Loading...' : 'Buy Lifetime Access'}
             </button>
           </div>
+
         </div>
 
         <p className="mt-16 text-sm text-gray-500">
