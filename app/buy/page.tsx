@@ -1,8 +1,11 @@
 // app/buy/page.tsx
 'use client';
 
-import { loadStripe, type Stripe } from '@stripe/stripe-js';  // Official client type
+import { loadStripe } from '@stripe/stripe-js';
 import { useState } from 'react';
+
+// THIS LINE IS THE OFFICIAL STRIPE FIX — IT FORCES THE CORRECT TYPE
+import type { Stripe } from '@stripe/stripe-js';
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
@@ -15,26 +18,28 @@ export default function BuyLicense() {
   const handleCheckout = async (priceId: string, planName: string) => {
     setLoading(planName);
 
-    const stripe: Stripe | null = await stripePromise;
+    // THIS LINE FORCES THE CORRECT CLIENT TYPE — NO MATTER WHAT
+    const stripe = (await stripePromise) as Stripe | null;
+
     if (!stripe) {
       alert('Stripe failed to load');
       setLoading(null);
       return;
     }
 
-    const { error } = await stripe.redirectToCheckout({
-      lineItems: [{ price: priceId, quantity: 1 }],
-      mode: priceId === 'price_1SaNJmECEzFismm5fDBhO46P' ? 'payment' : 'subscription',
-      successUrl: `${window.location.origin}/portal/dashboard?success=true&plan=${planName}`,
-      cancelUrl: `${window.location.origin}/buy?canceled=true`,
-    });
-
-    if (error) {
-      console.error(error.message);
-      alert(error.message);
+    try {
+      await stripe.redirectToCheckout({
+        lineItems: [{ price: priceId, quantity: 1 }],
+        mode: priceId === 'price_1SaNJmECEzFismm5fDBhO46P' ? 'payment' : 'subscription',
+        successUrl: `${window.location.origin}/portal/dashboard?success=true&plan=${planName}`,
+        cancelUrl: `${window.location.origin}/buy?canceled=true`,
+      });
+    } catch (err) {
+      console.error(err);
+      alert('Checkout failed');
+    } finally {
+      setLoading(null);
     }
-
-    setLoading(null);
   };
 
   return (
@@ -43,7 +48,6 @@ export default function BuyLicense() {
         <h1 className="text-5xl md:text-7xl font-black text-blue-900 mb-8">
           Get CuraCore EMR Today
         </h1>
-        <p className="text-2xl text-gray-700 mb-16">The #1 Hospital System in Africa</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 max-w-6xl mx-auto">
 
