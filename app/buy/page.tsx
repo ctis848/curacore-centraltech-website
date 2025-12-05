@@ -1,7 +1,7 @@
 // app/buy/page.tsx
 'use client';
 
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, type Stripe } from '@stripe/stripe-js';  // ← OFFICIAL STRIPE DOCS FIX
 import { useState } from 'react';
 
 const stripePromise = loadStripe(
@@ -15,32 +15,26 @@ export default function BuyLicense() {
   const handleCheckout = async (priceId: string, planName: string) => {
     setLoading(planName);
 
-    const stripe = await stripePromise;
+    const stripe: Stripe | null = await stripePromise;
     if (!stripe) {
       alert('Stripe failed to load');
       setLoading(null);
       return;
     }
 
-    try {
-      // OFFICIAL STRIPE DOCS METHOD — no type, just call it
-      const { error } = await stripe.redirectToCheckout({
-        lineItems: [{ price: priceId, quantity: 1 }],
-        mode: priceId === 'price_1SaNJmECEzFismm5fDBhO46P' ? 'payment' : 'subscription',
-        successUrl: `${window.location.origin}/portal/dashboard?success=true&plan=${planName}`,
-        cancelUrl: `${window.location.origin}/buy?canceled=true`,
-      });
+    const { error } = await stripe.redirectToCheckout({
+      lineItems: [{ price: priceId, quantity: 1 }],
+      mode: priceId === 'price_1SaNJmECEzFismm5fDBhO46P' ? 'payment' : 'subscription',
+      successUrl: `${window.location.origin}/portal/dashboard?success=true&plan=${planName}`,
+      cancelUrl: `${window.location.origin}/buy?canceled=true`,
+    });
 
-      if (error) {
-        console.error(error.message);
-        alert(error.message);
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Checkout failed — try again');
-    } finally {
-      setLoading(null);
+    if (error) {
+      console.error(error.message);
+      alert(error.message);
     }
+
+    setLoading(null);
   };
 
   return (
@@ -95,7 +89,7 @@ export default function BuyLicense() {
         </div>
 
         <p className="mt-20 text-sm text-gray-500">
-          Test mode — Card: 4242 4242 4242 4242
+          Test mode • Card: 4242 4242 4242 4242
         </p>
       </div>
     </div>
