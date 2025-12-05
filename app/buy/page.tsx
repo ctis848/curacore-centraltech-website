@@ -1,7 +1,7 @@
 // app/buy/page.tsx
 'use client';
 
-import { loadStripe, type Stripe } from '@stripe/stripe-js';  // ← OFFICIAL STRIPE DOCS FIX
+import { loadStripe, type Stripe } from '@stripe/stripe-js';  // Official client type
 import { useState } from 'react';
 
 const stripePromise = loadStripe(
