@@ -3,9 +3,7 @@
 
 import { loadStripe } from '@stripe/stripe-js';
 import { useState } from 'react';
-
-// OFFICIAL STRIPE FIX — import the client type to override the server one
-import type { Stripe } from '@stripe/stripe-js';
+import type { Stripe } from '@stripe/stripe-js';  // <-- THIS LINE IS THE WINNER
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
