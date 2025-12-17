@@ -21,9 +21,8 @@ export default function BuyLicense() {
       window.location.href = url;
     } else {
       alert('Checkout failed');
+      setLoading(null);
     }
-
-    setLoading(null);
   };
 
   return (
