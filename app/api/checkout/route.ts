@@ -5,13 +5,14 @@ import Stripe from 'stripe';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(request: Request) {
-  const { priceId } = await request.json();
+  const { priceId, planName } = await request.json();
 
   const session = await stripe.checkout.sessions.create({
     line_items: [{ price: priceId, quantity: 1 }],
     mode: priceId === 'price_1SaNJmECEzFismm5fDBhO46P' ? 'payment' : 'subscription',
-    success_url: `${process.env.NEXT_PUBLIC_URL}/portal/dashboard?success=true`,
+    success_url: `${process.env.NEXT_PUBLIC_URL}/portal/dashboard?success=true&plan=${planName}`,
     cancel_url: `${process.env.NEXT_PUBLIC_URL}/buy?canceled=true`,
+    metadata: { plan: planName },
   });
 
   return NextResponse.json({ url: session.url });

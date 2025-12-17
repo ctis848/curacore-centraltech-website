@@ -6,13 +6,13 @@ import { useState } from 'react';
 export default function BuyLicense() {
   const [loading, setLoading] = useState<string | null>(null);
 
-  const handleCheckout = async (priceId: string) => {
-    setLoading(priceId);
+  const handleCheckout = async (priceId: string, planName: string) => {
+    setLoading(planName);
 
     const res = await fetch('/api/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ priceId }),
+      body: JSON.stringify({ priceId, planName }),
     });
 
     const { url } = await res.json();
@@ -31,6 +31,7 @@ export default function BuyLicense() {
         <h1 className="text-5xl md:text-7xl font-black text-blue-900 mb-8">
           Get CuraCore EMR Today
         </h1>
+        <p className="text-2xl text-gray-700 mb-16">The #1 Hospital System in Africa</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 max-w-6xl mx-auto">
 
@@ -38,11 +39,11 @@ export default function BuyLicense() {
             <h2 className="text-3xl font-bold text-blue-900 mb-4">Starter</h2>
             <p className="text-6xl font-bold text-gray-900 mb-2">$11<span className="text-2xl font-normal">/month</span></p>
             <button
-              onClick={() => handleCheckout('price_1SaN5sECEzFismm5enqBvUCk')}
+              onClick={() => handleCheckout('price_1SaN5sECEzFismm5enqBvUCk', 'Starter')}
               disabled={!!loading}
               className="w-full mt-8 bg-blue-900 text-white py-5 rounded-xl text-xl font-bold hover:bg-blue-800 disabled:opacity-60"
             >
-              {loading === 'price_1SaN5sECEzFismm5enqBvUCk' ? 'Loading...' : 'Buy Starter'}
+              {loading === 'Starter' ? 'Loading...' : 'Buy Starter'}
             </button>
           </div>
 
@@ -53,11 +54,11 @@ export default function BuyLicense() {
             <h2 className="text-4xl font-bold mb-4">Pro</h2>
             <p className="text-7xl font-bold mb-2">$15<span className="text-3xl font-normal">/month</span></p>
             <button
-              onClick={() => handleCheckout('price_1SaNH7ECEzFismm5X0PzxHOT')}
+              onClick={() => handleCheckout('price_1SaNH7ECEzFismm5X0PzxHOT', 'Pro')}
               disabled={!!loading}
               className="w-full mt-10 bg-white text-blue-900 py-6 rounded-xl text-2xl font-bold hover:bg-gray-100 disabled:opacity-60"
             >
-              {loading === 'price_1SaNH7ECEzFismm5X0PzxHOT' ? 'Loading...' : 'Buy Pro Now'}
+              {loading === 'Pro' ? 'Loading...' : 'Buy Pro Now'}
             </button>
           </div>
 
@@ -65,15 +66,19 @@ export default function BuyLicense() {
             <h2 className="text-3xl font-bold mb-4">Lifetime Deal</h2>
             <p className="text-6xl font-bold mb-2">$399<span className="text-2xl font-normal"> one-time</span></p>
             <button
-              onClick={() => handleCheckout('price_1SaNJmECEzFismm5fDBhO46P')}
+              onClick={() => handleCheckout('price_1SaNJmECEzFismm5fDBhO46P', 'Lifetime')}
               disabled={!!loading}
               className="w-full mt-10 bg-yellow-400 text-blue-900 py-6 rounded-xl text-xl font-bold hover:bg-yellow-300 disabled:opacity-60"
             >
-              {loading === 'price_1SaNJmECEzFismm5fDBhO46P' ? 'Loading...' : 'Buy Lifetime Access'}
+              {loading === 'Lifetime' ? 'Loading...' : 'Buy Lifetime Access'}
             </button>
           </div>
 
         </div>
+
+        <p className="mt-20 text-sm text-gray-500">
+          Test mode • Card: 4242 4242 4242 4242
+        </p>
       </div>
     </div>
   );
