@@ -3,7 +3,9 @@
 
 import { loadStripe } from '@stripe/stripe-js';
 import { useState } from 'react';
-import type { Stripe } from '@stripe/stripe-js';  // <-- THIS LINE IS THE WINNER
+
+// Import the client type to be safe
+import type { Stripe } from '@stripe/stripe-js';
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
@@ -16,7 +18,7 @@ export default function BuyLicense() {
   const handleCheckout = async (priceId: string, planName: string) => {
     setLoading(planName);
 
-    const stripe = (await stripePromise) as Stripe | null;
+    const stripe = await stripePromise as Stripe | null;
     if (!stripe) {
       alert('Stripe failed to load');
       setLoading(null);
