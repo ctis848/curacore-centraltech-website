@@ -4,7 +4,6 @@
 import { loadStripe } from '@stripe/stripe-js';
 import { useState } from 'react';
 
-// ← ONLY THIS LINE — NO import Stripe from 'stripe' ANYWHERE
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
   'pk_test_51SS3cfCu1JaX6ZMs6xuKVZFlujNtxZQlWmk8vVSo7QXyrl8zUz3EGP5GjQOFsfza6ZpKmWzl524YGqYkklvm2Nwi003STcuN6P'
