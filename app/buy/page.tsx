@@ -3,8 +3,6 @@
 
 import { loadStripe } from '@stripe/stripe-js';
 import { useState } from 'react';
-
-// THIS LINE IS THE MAGIC — forces the correct client type
 import type { Stripe } from '@stripe/stripe-js';
 
 const stripePromise = loadStripe(
@@ -66,7 +64,7 @@ export default function BuyLicense() {
             <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-yellow-400 text-blue-900 px-10 py-3 rounded-full text-xl font-black">
               MOST POPULAR
             </div>
-            <h2 class, className="text-4xl font-bold mb-4">Pro</h2>
+            <h2 className="text-4xl font-bold mb-4">Pro</h2>
             <p className="text-7xl font-bold mb-2">$15<span className="text-3xl font-normal">/month</span></p>
             <button
               onClick={() => handleCheckout('price_1SaNH7ECEzFismm5X0PzxHOT', 'Pro')}
