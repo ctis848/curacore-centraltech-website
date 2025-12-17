@@ -15,10 +15,10 @@ export default function BuyLicense() {
       body: JSON.stringify({ priceId }),
     });
 
-    const data = await res.json();
+    const { url } = await res.json();
 
-    if (data.url) {
-      window.location.href = data.url;
+    if (url) {
+      window.location.href = url;
     } else {
       alert('Checkout failed');
       setLoading(null);
