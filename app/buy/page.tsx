@@ -1,13 +1,7 @@
 // app/buy/page.tsx
 'use client';
 
-import { loadStripe } from '@stripe/stripe-js';
 import { useState } from 'react';
-
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
-  'pk_test_51SS3cfCu1JaX6ZMs6xuKVZFlujNtxZQlWmk8vVSo7QXyrl8zUz3EGP5GjQOFsfza6ZpKmWzl524YGqYkklvm2Nwi003STcuN6P'
-);
 
 export default function BuyLicense() {
   const [loading, setLoading] = useState<string | null>(null);
@@ -15,25 +9,18 @@ export default function BuyLicense() {
   const handleCheckout = async (priceId: string, planName: string) => {
     setLoading(planName);
 
-    const stripe = await stripePromise;
-    if (!stripe) {
-      alert('Stripe failed to load');
-      setLoading(null);
-      return;
-    }
-
-    // THIS LINE FIXES THE TYPE BUG FOREVER
-    // @ts-expect-error Next.js 16 type conflict with stripe packages — runtime works perfectly
-    const { error } = await stripe.redirectToCheckout({
-      lineItems: [{ price: priceId, quantity: 1 }],
-      mode: priceId === 'price_1SaNJmECEzFismm5fDBhO46P' ? 'payment' : 'subscription',
-      successUrl: `${window.location.origin}/portal/dashboard?success=true&plan=${planName}`,
-      cancelUrl: `${window.location.origin}/buy?canceled=true`,
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ priceId, planName }),
     });
 
-    if (error) {
-      console.error(error.message);
-      alert(error.message);
+    const { url } = await res.json();
+
+    if (url) {
+      window.location.href = url;
+    } else {
+      alert('Checkout failed');
     }
 
     setLoading(null);
@@ -45,7 +32,6 @@ export default function BuyLicense() {
         <h1 className="text-5xl md:text-7xl font-black text-blue-900 mb-8">
           Get CuraCore EMR Today
         </h1>
-        <p className="text-2xl text-gray-700 mb-16">The #1 Hospital System in Africa</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 max-w-6xl mx-auto">
 
@@ -89,10 +75,6 @@ export default function BuyLicense() {
           </div>
 
         </div>
-
-        <p className="mt-20 text-sm text-gray-500">
-          Test mode • Card: 4242 4242 4242 4242
-        </p>
       </div>
     </div>
   );

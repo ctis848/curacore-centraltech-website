@@ -2,20 +2,17 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-11-17.clover' as any,
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-export async function POST(req: Request) {
-  const { priceId } = await req.json();
+export async function POST(request: Request) {
+  const { priceId, planName } = await request.json();
 
   const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card'],
     line_items: [{ price: priceId, quantity: 1 }],
-    mode: 'subscription',
-    success_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://curacore-centraltech-website.netlify.app'}/portal/dashboard?success=true`,
-    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://curacore-centraltech-website.netlify.app'}/buy`,
+    mode: priceId === 'price_1SaNJmECEzFismm5fDBhO46P' ? 'payment' : 'subscription',
+    success_url: `${process.env.NEXT_PUBLIC_URL}/portal/dashboard?success=true&plan=${planName}`,
+    cancel_url: `${process.env.NEXT_PUBLIC_URL}/buy?canceled=true`,
   });
 
-  return NextResponse.json({ id: session.id });
+  return NextResponse.json({ url: session.url });
 }
