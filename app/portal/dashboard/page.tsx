@@ -1,26 +1,56 @@
 // app/portal/dashboard/page.tsx
 'use client';
 
-import { useUser } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function Dashboard() {
-  const user = useUser();
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) {
-      router.push('/portal/login');
-    }
-  }, [user, router]);
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) {
+        router.push('/portal/login');
+      } else {
+        setUser(data.user);
+      }
+      setLoading(false);
+    };
 
-  if (!user) {
+    getUser();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        router.push('/portal/login');
+      } else if (session?.user) {
+        setUser(session.user);
+      }
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, [router]);
+
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl">Loading...</p>
+        <p className="text-xl">Loading dashboard...</p>
       </div>
     );
+  }
+
+  if (!user) {
+    return null;
   }
 
   const plan = user.user_metadata?.plan || 'Starter';
