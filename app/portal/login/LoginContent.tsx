@@ -5,6 +5,8 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { createClient } from '@supabase/supabase-js';
 import { useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +17,19 @@ export default function LoginContent() {
   const searchParams = useSearchParams();
   const success = searchParams.get('success');
   const plan = searchParams.get('plan');
+  const router = useRouter();
+
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        router.push('/portal/dashboard');
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4">
@@ -36,7 +51,6 @@ export default function LoginContent() {
           theme="light"
           providers={['google']}
           magicLink={true}
-          redirectTo="https://curacore-centraltech-website.netlify.app/portal/dashboard"  // ← FULL URL TO DASHBOARD
         />
       </div>
     </div>
