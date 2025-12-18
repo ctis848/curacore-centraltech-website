@@ -25,8 +25,11 @@ export async function POST(request: Request) {
     const email = session.customer_email || session.customer_details?.email;
 
     if (email) {
+      const randomPassword = Math.random().toString(36).slice(-12); // strong random password
+
       const { data: user, error } = await supabase.auth.admin.createUser({
         email,
+        password: randomPassword,
         email_confirm: true,
         user_metadata: { plan: session.metadata?.plan || 'starter' },
       });
@@ -39,9 +42,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ received: true });
 }
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
