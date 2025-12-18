@@ -20,14 +20,14 @@ export default function LoginContent() {
   const router = useRouter();
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
         router.push('/portal/dashboard');
       }
     });
 
     return () => {
-      authListener.subscription.unsubscribe();
+      listener.subscription.unsubscribe();
     };
   }, [router]);
 
