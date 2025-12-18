@@ -36,7 +36,7 @@ export default function LoginContent() {
           theme="light"
           providers={['google']}
           magicLink={true}
-          redirectTo={`${window.location.origin}/portal/dashboard`}  // ← AUTO-REDIRECT TO DASHBOARD AFTER LOGIN
+          redirectTo="/portal/dashboard"  // ← THIS SENDS YOU DIRECTLY TO DASHBOARD AFTER LOGIN
         />
       </div>
     </div>
