@@ -14,53 +14,58 @@ export default function SuperAdminDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [admins, setAdmins] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user || data.user.user_metadata.role !== 'super-admin') {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || user.user_metadata?.role !== 'super-admin') {
         router.push('/portal/login');
-      } else {
-        setUser(data.user);
-        // Get admins
-        const { data: adminData } = await supabase.auth.admin.listUsers();
-        setAdmins(adminData.users.filter(u => u.user_metadata.role === 'admin'));
-        // Get users
-        setUsers(adminData.users.filter(u => u.user_metadata.role === 'user'));
+        return;
       }
+      setUser(user);
+
+      // Fetch users from server API
+      const res = await fetch('/api/list-users');
+      const { users } = await res.json();
+      setAdmins(users.filter((u: any) => u.user_metadata?.role === 'admin'));
+      setAllUsers(users.filter((u: any) => u.user_metadata?.role === 'user'));
       setLoading(false);
     };
 
-    getUser();
+    checkUser();
   }, [router]);
 
   const handleCreateAdmin = async () => {
     if (!newAdminEmail) return;
+    setCreating(true);
 
-    const randomPassword = Math.random().toString(36).slice(-12);
-    const { error } = await supabase.auth.admin.createUser({
-      email: newAdminEmail,
-      password: randomPassword,
-      email_confirm: true,
-      user_metadata: { role: 'admin' },
+    const res = await fetch('/api/create-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: newAdminEmail }),
     });
 
-    if (error) {
-      alert('Failed to create admin: ' + error.message);
+    const data = await res.json();
+
+    if (data.error) {
+      alert('Failed: ' + data.error);
     } else {
-      alert('Admin created successfully! Password: ' + randomPassword);
+      alert(`Admin created! Password: ${data.password}`);
       setNewAdminEmail('');
-      // Refresh admins
-      const { data: adminData } = await supabase.auth.admin.listUsers();
-      setAdmins(adminData.users.filter(u => u.user_metadata.role === 'admin'));
+      // Refresh list
+      const res2 = await fetch('/api/list-users');
+      const { users } = await res2.json();
+      setAdmins(users.filter((u: any) => u.user_metadata?.role === 'admin'));
     }
+    setCreating(false);
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><p className="text-2xl">Loading Super Admin Dashboard...</p></div>;
+    return <div className="min-h-screen flex items-center justify-center"><p className="text-2xl">Loading...</p></div>;
   }
 
   return (
@@ -83,9 +88,10 @@ export default function SuperAdminDashboard() {
               />
               <button
                 onClick={handleCreateAdmin}
-                className="bg-green-600 text-white px-8 py-4 rounded-xl text-xl font-bold hover:bg-green-700"
+                disabled={creating}
+                className="bg-green-600 text-white px-8 py-4 rounded-xl text-xl font-bold hover:bg-green-700 disabled:opacity-60"
               >
-                Create Admin
+                {creating ? 'Creating...' : 'Create Admin'}
               </button>
             </div>
             <table className="w-full text-left">
@@ -117,11 +123,11 @@ export default function SuperAdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {allUsers.map((u) => (
                   <tr key={u.id} className="border-b">
                     <td className="py-4">{u.email}</td>
-                    <td className="py-4">{u.user_metadata.role}</td>
-                    <td className="py-4">{u.user_metadata.quantity}</td>
+                    <td className="py-4">{u.user_metadata?.role || 'user'}</td>
+                    <td className="py-4">{u.user_metadata?.quantity || '1'}</td>
                   </tr>
                 ))}
               </tbody>
