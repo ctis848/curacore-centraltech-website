@@ -1,5 +1,7 @@
 // app/services/page.tsx
-import Image from 'next/image';
+'use client';
+
+import { useState } from 'react';
 
 const services = [
   {
@@ -60,6 +62,29 @@ const services = [
 ];
 
 export default function ServicesPage() {
+  const [showForm, setShowForm] = useState(false);
+  const [selectedService, setSelectedService] = useState('');
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    hospital: '',
+    message: '',
+  });
+
+  const handleRequestQuote = (title: string) => {
+    setSelectedService(title);
+    setShowForm(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // In real app, send to your backend or email service
+    alert(`Quote request sent for: ${selectedService}\nWe'll contact you soon!`);
+    setShowForm(false);
+    setFormData({ name: '', email: '', phone: '', hospital: '', message: '' });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* Hero Section */}
@@ -72,18 +97,12 @@ export default function ServicesPage() {
             End-to-end technology solutions for modern healthcare facilities
           </p>
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <a
-              href="/buy"
-              className="bg-yellow-400 text-blue-900 px-10 py-5 rounded-full text-2xl font-bold hover:bg-yellow-300 transition"
-            >
-              Get a Quote
-            </a>
-            <a
-              href="#services"
+            <button
+              onClick={() => window.scrollTo({ top: document.getElementById('services')?.offsetTop || 0, behavior: 'smooth' })}
               className="bg-white text-blue-900 px-10 py-5 rounded-full text-2xl font-bold hover:bg-gray-100 transition"
             >
               View Services
-            </a>
+            </button>
           </div>
         </div>
       </section>
@@ -99,29 +118,103 @@ export default function ServicesPage() {
             {services.map((service, index) => (
               <div
                 key={index}
-                className="bg-white rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl hover:scale-105 transition-all duration-300"
+                className="bg-white rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl hover:scale-105 transition-all duration-300 flex flex-col"
               >
                 <div className="relative h-64">
-                  <Image
+                  <img
                     src={service.image}
                     alt={service.title}
-                    fill
-                    className="object-cover"
+                    className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="p-8">
-                  <h3 className="text-3xl font-bold text-blue-900 mb-4 text-center">
-                    {service.title}
-                  </h3>
-                  <p className="text-lg text-gray-700 text-center">
-                    {service.description}
-                  </p>
+                <div className="p-8 flex-1 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-3xl font-bold text-blue-900 mb-4 text-center">
+                      {service.title}
+                    </h3>
+                    <p className="text-lg text-gray-700 text-center mb-8">
+                      {service.description}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleRequestQuote(service.title)}
+                    className="w-full bg-blue-900 text-white py-4 rounded-xl text-xl font-bold hover:bg-blue-800 transition"
+                  >
+                    Request Quote
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         </div>
       </section>
+
+      {/* Quote Request Modal */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-6">
+          <div className="bg-white rounded-3xl shadow-3xl p-10 max-w-2xl w-full">
+            <h2 className="text-4xl font-black text-blue-900 mb-6 text-center">
+              Request Quote: {selectedService}
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <input
+                type="text"
+                placeholder="Your Name"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-6 py-4 border border-gray-300 rounded-xl text-lg"
+              />
+              <input
+                type="email"
+                placeholder="Email Address"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-6 py-4 border border-gray-300 rounded-xl text-lg"
+              />
+              <input
+                type="tel"
+                placeholder="Phone Number"
+                required
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full px-6 py-4 border border-gray-300 rounded-xl text-lg"
+              />
+              <input
+                type="text"
+                placeholder="Hospital/Clinic Name"
+                required
+                value={formData.hospital}
+                onChange={(e) => setFormData({ ...formData, hospital: e.target.value })}
+                className="w-full px-6 py-4 border border-gray-300 rounded-xl text-lg"
+              />
+              <textarea
+                placeholder="Tell us about your requirements (optional)"
+                rows={4}
+                value={formData.message}
+                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                className="w-full px-6 py-4 border border-gray-300 rounded-xl text-lg"
+              />
+              <div className="flex gap-6 justify-center">
+                <button
+                  type="submit"
+                  className="bg-green-600 text-white px-10 py-4 rounded-xl text-xl font-bold hover:bg-green-700"
+                >
+                  Send Request
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="bg-gray-600 text-white px-10 py-4 rounded-xl text-xl font-bold hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* CTA Section */}
       <section className="bg-blue-900 text-white py-24 px-6">
