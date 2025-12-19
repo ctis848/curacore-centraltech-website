@@ -14,6 +14,8 @@ export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [licenses, setLicenses] = useState<any[]>([]);
+  const [requestKey, setRequestKey] = useState('');
+  const [activating, setActivating] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,18 +28,13 @@ export default function Dashboard() {
 
       setUser(user);
 
-      const { data: licenseData, error } = await supabase
+      const { data: licenseData } = await supabase
         .from('licenses')
         .select('*')
         .eq('user_id', user.id)
         .eq('active', true);
 
-      if (error) {
-        console.error(error);
-      } else {
-        setLicenses(licenseData || []);
-      }
-
+      setLicenses(licenseData || []);
       setLoading(false);
     };
 
@@ -55,6 +52,37 @@ export default function Dashboard() {
       listener.subscription.unsubscribe();
     };
   }, [router]);
+
+  const handleActivate = async () => {
+    if (!requestKey.trim()) {
+      alert('Please paste the request key from the desktop app');
+      return;
+    }
+
+    setActivating(true);
+
+    const { error } = await supabase.from('licenses').insert({
+      user_id: user.id,
+      plan: user.user_metadata?.plan || 'starter',
+      machine_id: requestKey.trim(),
+    });
+
+    if (error) {
+      alert('Activation failed: ' + error.message);
+    } else {
+      alert('License activated successfully!');
+      setRequestKey('');
+      // Refresh licenses
+      const { data: newLicenses } = await supabase
+        .from('licenses')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('active', true);
+      setLicenses(newLicenses || []);
+    }
+
+    setActivating(false);
+  };
 
   const handleRevoke = async (licenseId: string) => {
     const { error } = await supabase
@@ -88,7 +116,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-6">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-active">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl md:text-6xl font-black text-blue-900">
             Welcome back, {user.email}!
@@ -125,6 +153,26 @@ export default function Dashboard() {
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
             <h2 className="text-2xl font-bold text-blue-900 mb-4">Active Licenses</h2>
             <p className="text-5xl font-black text-green-600">{activeCount} / {totalQuantity}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-12">
+          <h2 className="text-3xl font-bold text-blue-900 mb-6">Activate New Computer</h2>
+          <div className="flex items-center gap-4">
+            <input
+              type="text"
+              placeholder="Paste request key from desktop app"
+              value={requestKey}
+              onChange={(e) => setRequestKey(e.target.value)}
+              className="flex-1 px-6 py-4 border border-gray-300 rounded-xl text-lg"
+            />
+            <button
+              onClick={handleActivate}
+              disabled={activating}
+              className="bg-green-600 text-white px-8 py-4 rounded-xl text-xl font-bold hover:bg-green-700 disabled:opacity-60"
+            >
+              {activating ? 'Activating...' : 'Activate'}
+            </button>
           </div>
         </div>
 
