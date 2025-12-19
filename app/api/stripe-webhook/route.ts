@@ -34,7 +34,7 @@ export async function POST(request: Request) {
         email_confirm: true,
         user_metadata: {
           plan: session.metadata?.plan || 'starter',
-          quantity: quantity
+          quantity: quantity  // This saves the number of licenses purchased
         },
       });
 
