@@ -23,15 +23,19 @@ export async function POST(request: Request) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
     const email = session.customer_email || session.customer_details?.email;
+    const quantity = session.metadata?.quantity || '1';
 
     if (email) {
-      const randomPassword = Math.random().toString(36).slice(-12); // strong random password
+      const randomPassword = Math.random().toString(36).slice(-12);
 
       const { data: user, error } = await supabase.auth.admin.createUser({
         email,
         password: randomPassword,
         email_confirm: true,
-        user_metadata: { plan: session.metadata?.plan || 'starter' },
+        user_metadata: {
+          plan: session.metadata?.plan || 'starter',
+          quantity: quantity
+        },
       });
 
       if (error && error.message !== 'User already registered') {

@@ -54,6 +54,7 @@ export default function Dashboard() {
   }
 
   const plan = user.user_metadata?.plan || 'Starter';
+  const quantity = user.user_metadata?.quantity || '1';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-6">
@@ -63,7 +64,7 @@ export default function Dashboard() {
         </h1>
         <p className="text-xl text-gray-700 mb-12">Your CuraCore EMR license is active.</p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
             <h2 className="text-2xl font-bold text-blue-900 mb-4">Current Plan</h2>
             <p className="text-5xl font-black text-green-600">{plan}</p>
@@ -77,6 +78,11 @@ export default function Dashboard() {
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
             <h2 className="text-2xl font-bold text-blue-900 mb-4">Billing</h2>
             <p className="text-3xl font-bold">{plan === 'Lifetime' ? 'One-time' : 'Monthly'}</p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+            <h2 className="text-2xl font-bold text-blue-900 mb-4">Total Licenses</h2>
+            <p className="text-5xl font-black text-green-600">{quantity}</p>
           </div>
         </div>
 
