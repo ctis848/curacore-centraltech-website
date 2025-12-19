@@ -51,6 +51,7 @@ export default function LoginContent() {
           theme="light"
           providers={['google']}
           magicLink={true}
+          redirectTo="https://curacore-centraltech-website.netlify.app/portal/dashboard"
         />
       </div>
     </div>
