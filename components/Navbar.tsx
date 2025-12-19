@@ -8,11 +8,12 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
 
   const navLinks = [
-  { name: 'Home', href: '/' },
-  { name: 'Products', href: '/products' },
-  { name: 'Buy Now', href: '/buy', highlight: true },
-  { name: 'Dashboard', href: '/portal/dashboard' },
-];
+    { name: 'Home', href: '/' },
+    { name: 'Products', href: '/products' },
+    { name: 'Services', href: '/services' },  // ← NEW SERVICES LINK ADDED
+    { name: 'Buy Now', href: '/buy', highlight: true },
+    { name: 'Dashboard', href: '/portal/dashboard' },
+  ];
 
   return (
     <nav className="bg-blue-900 text-white fixed top-0 left-0 right-0 z-50 shadow-2xl">
