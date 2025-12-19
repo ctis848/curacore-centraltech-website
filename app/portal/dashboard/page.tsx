@@ -72,7 +72,6 @@ export default function Dashboard() {
     } else {
       alert('License activated successfully!');
       setRequestKey('');
-      // Refresh licenses
       const { data: newLicenses } = await supabase
         .from('licenses')
         .select('*')
@@ -116,7 +115,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-6">
-      <div className="max-w-5xl mx-active">
+      <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl md:text-6xl font-black text-blue-900">
             Welcome back, {user.email}!
@@ -132,7 +131,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        <p className="text-xl text-gray-700 mb-12">Your CuraCore EMR license is active.</p>
+        <p className="text-xl text-gray-700 mb-12 text-center">Your CuraCore EMR license is active.</p>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
@@ -158,7 +157,7 @@ export default function Dashboard() {
 
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-12">
           <h2 className="text-3xl font-bold text-blue-900 mb-6">Activate New Computer</h2>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 max-w-2xl mx-auto">
             <input
               type="text"
               placeholder="Paste request key from desktop app"
@@ -181,31 +180,33 @@ export default function Dashboard() {
           {licenses.length === 0 ? (
             <p className="text-center text-gray-500 py-8">No computers activated yet.</p>
           ) : (
-            <table className="w-full text-left">
-              <thead className="border-b">
-                <tr>
-                  <th className="py-4">Machine ID</th>
-                  <th className="py-4">Activated On</th>
-                  <th className="py-4">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {licenses.map((license) => (
-                  <tr key={license.id} className="border-b">
-                    <td className="py-4">{license.machine_id}</td>
-                    <td className="py-4">{new Date(license.activated_at).toLocaleDateString()}</td>
-                    <td className="py-4">
-                      <button
-                        onClick={() => handleRevoke(license.id)}
-                        className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700"
-                      >
-                        Revoke
-                      </button>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="border-b">
+                  <tr>
+                    <th className="py-4">Machine ID</th>
+                    <th className="py-4">Activated On</th>
+                    <th className="py-4">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {licenses.map((license) => (
+                    <tr key={license.id} className="border-b">
+                      <td className="py-4">{license.machine_id}</td>
+                      <td className="py-4">{new Date(license.activated_at).toLocaleDateString()}</td>
+                      <td className="py-4">
+                        <button
+                          onClick={() => handleRevoke(license.id)}
+                          className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700"
+                        >
+                          Revoke
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
@@ -225,13 +226,13 @@ export default function Dashboard() {
               Upgrade Plan
             </a>
             <a
-              href="https://billing.stripe.com/p/login/your-customer-portal-link" // Replace with Stripe customer portal link
+              href="https://billing.stripe.com/p/login/test_00000000000000000000000000" // Replace with your real Stripe customer portal link
               className="bg-gray-600 text-white py-4 rounded-xl text-xl font-bold hover:bg-gray-700 text-center block"
             >
               View Invoices
             </a>
             <a
-              href="/support"
+              href="mailto:support@curacore.com" // Replace with your support email
               className="bg-yellow-500 text-blue-900 py-4 rounded-xl text-xl font-bold hover:bg-yellow-400 text-center block"
             >
               Contact Support
