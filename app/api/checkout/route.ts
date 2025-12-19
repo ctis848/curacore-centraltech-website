@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     mode: priceId === 'price_1SaNJmECEzFismm5fDBhO46P' ? 'payment' : 'subscription',
     success_url: `${process.env.NEXT_PUBLIC_URL}/portal/dashboard?success=true&plan=${planName}`,
     cancel_url: `${process.env.NEXT_PUBLIC_URL}/buy?canceled=true`,
-    metadata: { plan: planName },
+    metadata: { plan: planName, quantity: quantity.toString() },  // ← STORE QUANTITY
   });
 
   return NextResponse.json({ url: session.url });
