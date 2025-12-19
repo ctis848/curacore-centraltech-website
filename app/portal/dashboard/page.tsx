@@ -13,20 +13,35 @@ const supabase = createClient(
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [licenses, setLicenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
+    const getData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
         router.push('/portal/login');
-      } else {
-        setUser(data.user);
+        return;
       }
+
+      setUser(user);
+
+      const { data: licenseData, error } = await supabase
+        .from('licenses')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('active', true);
+
+      if (error) {
+        console.error(error);
+      } else {
+        setLicenses(licenseData || []);
+      }
+
       setLoading(false);
     };
 
-    getUser();
+    getData();
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
@@ -41,6 +56,20 @@ export default function Dashboard() {
     };
   }, [router]);
 
+  const handleRevoke = async (licenseId: string) => {
+    const { error } = await supabase
+      .from('licenses')
+      .update({ active: false })
+      .eq('id', licenseId)
+      .eq('user_id', user.id);
+
+    if (error) {
+      alert('Revocation failed');
+    } else {
+      setLicenses(licenses.filter(l => l.id !== licenseId));
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -54,7 +83,8 @@ export default function Dashboard() {
   }
 
   const plan = user.user_metadata?.plan || 'Starter';
-  const quantity = user.user_metadata?.quantity || '1';
+  const totalQuantity = parseInt(user.user_metadata?.quantity || '1', 10);
+  const activeCount = licenses.length;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-6">
@@ -93,9 +123,42 @@ export default function Dashboard() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-            <h2 className="text-2xl font-bold text-blue-900 mb-4">Total Licenses</h2>
-            <p className="text-5xl font-black text-green-600">{quantity}</p>
+            <h2 className="text-2xl font-bold text-blue-900 mb-4">Active Licenses</h2>
+            <p className="text-5xl font-black text-green-600">{activeCount} / {totalQuantity}</p>
           </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-12">
+          <h2 className="text-3xl font-bold text-blue-900 mb-6">Activated Computers</h2>
+          {licenses.length === 0 ? (
+            <p className="text-center text-gray-500 py-8">No computers activated yet.</p>
+          ) : (
+            <table className="w-full text-left">
+              <thead className="border-b">
+                <tr>
+                  <th className="py-4">Machine ID</th>
+                  <th className="py-4">Activated On</th>
+                  <th className="py-4">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {licenses.map((license) => (
+                  <tr key={license.id} className="border-b">
+                    <td className="py-4">{license.machine_id}</td>
+                    <td className="py-4">{new Date(license.activated_at).toLocaleDateString()}</td>
+                    <td className="py-4">
+                      <button
+                        onClick={() => handleRevoke(license.id)}
+                        className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700"
+                      >
+                        Revoke
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
