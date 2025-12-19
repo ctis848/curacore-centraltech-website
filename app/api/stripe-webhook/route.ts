@@ -4,10 +4,7 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -30,7 +27,6 @@ export async function POST(request: Request) {
     const quantity = parseInt(session.metadata?.quantity || '1', 10);
 
     if (email) {
-      // Get all users and find the one with matching email
       const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
 
       if (listError) {
@@ -39,11 +35,11 @@ export async function POST(request: Request) {
         const existingUser = usersData.users.find(u => u.email === email);
 
         if (existingUser) {
-          // Update existing user with new plan and quantity
           const { error: updateError } = await supabase.auth.admin.updateUserById(existingUser.id, {
             user_metadata: {
               plan: plan,
               quantity: quantity,
+              role: existingUser.user_metadata.role || 'user',  // Keep existing role if any
             },
           });
 
@@ -51,7 +47,6 @@ export async function POST(request: Request) {
             console.error('Error updating user:', updateError);
           }
         } else {
-          // Create new user
           const randomPassword = Math.random().toString(36).slice(-12);
           const { error: createError } = await supabase.auth.admin.createUser({
             email,
@@ -60,6 +55,7 @@ export async function POST(request: Request) {
             user_metadata: {
               plan: plan,
               quantity: quantity,
+              role: 'user',  // Default role
             },
           });
 
