@@ -228,7 +228,7 @@ export default function Dashboard() {
               Upgrade Plan
             </a>
             <a
-              href="https://billing.stripe.com/p/login/test_2dasXE9j6pZ4X8q8fE00"
+              href="https://billing.stripe.com/p/login/test_3cIaEXe9ig9P24X8ql9EI00"
               target="_blank"
               rel="noopener noreferrer"
               className="bg-gray-600 text-white py-4 rounded-xl text-xl font-bold hover:bg-gray-700 text-center block"
