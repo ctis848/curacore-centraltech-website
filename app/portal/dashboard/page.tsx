@@ -228,7 +228,7 @@ export default function Dashboard() {
               Upgrade Plan
             </a>
             <a
-              href="https://billing.stripe.com/p/login/your_real_portal_link" // Replace with your real Stripe customer portal
+              href="https://billing.stripe.com/p/login/bpc_1SqkAOECEzFismmS4oVvi6vh"
               target="_blank"
               rel="noopener noreferrer"
               className="bg-gray-600 text-white py-4 rounded-xl text-xl font-bold hover:bg-gray-700 text-center block"
