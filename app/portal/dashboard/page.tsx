@@ -214,7 +214,9 @@ export default function Dashboard() {
           <h2 className="text-3xl font-bold text-blue-900 mb-6">Quick Actions</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <a
-              href="https://your-desktop-app-download-link.com" // Replace with real link
+              href="https://your-desktop-app-download-link.com" // Replace with real download link
+              target="_blank"
+              rel="noopener noreferrer"
               className="bg-blue-900 text-white py-4 rounded-xl text-xl font-bold hover:bg-blue-800 text-center block"
             >
               Download Desktop App
@@ -226,13 +228,15 @@ export default function Dashboard() {
               Upgrade Plan
             </a>
             <a
-              href="https://billing.stripe.com/p/login/test_00000000000000000000000000" // Replace with your real Stripe customer portal link
+              href="https://billing.stripe.com/p/login/your_real_portal_link" // Replace with your real Stripe customer portal
+              target="_blank"
+              rel="noopener noreferrer"
               className="bg-gray-600 text-white py-4 rounded-xl text-xl font-bold hover:bg-gray-700 text-center block"
             >
               View Invoices
             </a>
             <a
-              href="mailto:support@curacore.com" // Replace with your support email
+              href="/support"
               className="bg-yellow-500 text-blue-900 py-4 rounded-xl text-xl font-bold hover:bg-yellow-400 text-center block"
             >
               Contact Support
