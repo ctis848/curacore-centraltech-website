@@ -1,14 +1,28 @@
 // app/page.tsx
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white">
-      {/* Hero Section - Teal Theme */}
-      <section className="relative bg-gradient-to-br from-teal-600 to-teal-800 text-white py-32 px-6 overflow-hidden">
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className="text-center">
-            <h1 className="text-5xl md:text-7xl font-black mb-6 leading-tight">
+    <div className="min-h-screen relative">
+      {/* Full Hero with Background Image */}
+      <div className="relative h-screen w-full">
+        <Image
+          src="https://www.shutterstock.com/image-photo/doctor-working-emr-electronic-medical-260nw-360657371.jpg"  // High-quality doctor using EMR
+          alt="Doctor using CuraCore EMR"
+          fill
+          className="object-cover"
+          priority
+        />
+        <div className="absolute inset-0 bg-teal-900/70" />  // Teal overlay for text readability
+
+        {/* Content Overlay */}
+        <div className="relative z-10 h-full flex flex-col justify-between">
+          {/* Navbar already included in layout, but ensure teal */}
+
+          {/* Hero Text */}
+          <div className="text-center text-white pt-32 px-6">
+            <h1 className="text-5xl md:text-7xl font-black mb-6">
               CuraCore EMR
             </h1>
             <p className="text-2xl md:text-4xl mb-12 font-light max-w-4xl mx-auto">
@@ -16,45 +30,37 @@ export default function HomePage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-8 justify-center">
               <Link
-                href="/products"
-                className="bg-white text-teal-700 px-12 py-6 rounded-full text-2xl font-bold hover:bg-gray-100 transition shadow-lg"
-              >
-                Explore Features
-              </Link>
-              <Link
                 href="/buy"
                 className="bg-yellow-400 text-teal-900 px-12 py-6 rounded-full text-2xl font-bold hover:bg-yellow-300 transition shadow-lg"
               >
                 Buy License Now
               </Link>
+              <Link
+                href="/products"
+                className="bg-white/20 backdrop-blur-md text-white border-2 border-white px-12 py-6 rounded-full text-2xl font-bold hover:bg-white/30 transition"
+              >
+                Explore Features
+              </Link>
             </div>
           </div>
-        </div>
 
-        {/* Overlapping Dashboard Mockups - Placeholder */}
-        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/3 w-full max-w-6xl pointer-events-none">
-          <div className="relative">
-            <div className="absolute left-0 -bottom-20 w-96 md:w-[500px] shadow-2xl rounded-2xl overflow-hidden rotate-[-8deg] border-8 border-white">
-              <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-64 md:h-80 flex items-center justify-center text-gray-500">
-                Dashboard Screenshot 1
-              </div>
-            </div>
-            <div className="absolute left-1/3 bottom-0 w-96 md:w-[550px] shadow-2xl rounded-2xl overflow-hidden rotate-[-3deg] border-8 border-white z-10">
-              <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-72 md:h-96 flex items-center justify-center text-gray-500">
-                Dashboard Screenshot 2
-              </div>
-            </div>
-            <div className="absolute right-0 -bottom-10 w-96 md:w-[500px] shadow-2xl rounded-2xl overflow-hidden rotate-[6deg] border-8 border-white">
-              <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-64 md:h-80 flex items-center justify-center text-gray-500">
-                Dashboard Screenshot 3
-              </div>
-            </div>
+          {/* Bottom CTA */}
+          <div className="text-center text-white pb-20 px-6">
+            <h2 className="text-4xl md:text-5xl font-black mb-8">
+              Ready to Modernize Your Practice?
+            </h2>
+            <Link
+              href="/buy"
+              className="bg-yellow-400 text-teal-900 px-16 py-8 rounded-full text-3xl font-bold hover:bg-yellow-300 inline-block shadow-2xl transition"
+            >
+              Get Started Today
+            </Link>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Trust Section */}
-      <section className="py-24 px-6 bg-white">
+      {/* Trusted Section (below hero) */}
+      <section className="py-24 px-6 bg-teal-50">
         <div className="max-w-5xl mx-auto text-center">
           <h2 className="text-4xl md:text-5xl font-black text-teal-800 mb-8">
             Trusted by Healthcare Providers Worldwide
@@ -62,21 +68,6 @@ export default function HomePage() {
           <p className="text-xl text-gray-700 max-w-3xl mx-auto">
             Join thousands of hospitals and clinics transforming patient care with CuraCore EMR — secure, intuitive, and powerful.
           </p>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="bg-teal-700 text-white py-20 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-black mb-8">
-            Ready to Modernize Your Practice?
-          </h2>
-          <Link
-            href="/buy"
-            className="bg-yellow-400 text-teal-900 px-16 py-8 rounded-full text-3xl font-bold hover:bg-yellow-300 inline-block shadow-2xl transition"
-          >
-            Get Started Today
-          </Link>
         </div>
       </section>
     </div>
