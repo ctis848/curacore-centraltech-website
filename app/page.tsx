@@ -5,16 +5,16 @@ import Image from 'next/image';
 export default function HomePage() {
   return (
     <div className="min-h-screen relative">
-      {/* Hero with Doctor EMR Background */}
+      {/* Hero with Doctor EMR Background - Image 2 */}
       <div className="relative h-screen w-full">
         <Image
-          src="https://www.shutterstock.com/image-photo/doctor-working-on-laptop-computer-260nw-2288887381.jpg"  // Clean doctor using EMR (replace if needed with exact from [image:3])
+          src="https://www.shutterstock.com/image-photo/doctor-working-on-laptop-tablet-260nw-2689078631.jpg"  // Image 2 - Clean doctor using EMR laptop/tablet
           alt="Doctor using CuraCore EMR system"
           fill
           className="object-cover object-center"
           priority
         />
-        <div className="absolute inset-0 bg-teal-900/70" /> {/* Teal overlay */}
+        <div className="absolute inset-0 bg-teal-900/70" /> {/* Teal overlay for text readability */}
 
         {/* Hero Content */}
         <div className="relative z-10 h-full flex flex-col justify-center items-center text-center text-white px-6">
