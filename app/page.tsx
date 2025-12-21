@@ -5,10 +5,10 @@ import Image from 'next/image';
 export default function HomePage() {
   return (
     <div className="min-h-screen relative">
-      {/* Hero with Futuristic Doctor EMR Background */}
+      {/* Hero with Futuristic Doctor EMR Background - Now Local */}
       <div className="relative h-screen w-full">
         <Image
-          src="https://thumbs.dreamstime.com/b/doctor-uses-tablet-futuristic-medical-interface-lab-telemedicine-service-analyzing-patient-digital-data-ehr-emr-telehealth-367464679.jpg"
+          src="/image-2.jpg"  // Local file in /public/image-2.jpg
           alt="Doctor using futuristic tablet interface for EHR/EMR and telemedicine"
           fill
           className="object-cover object-center"
