@@ -43,24 +43,24 @@ export default function HomePage() {
       {/* Trusted Section */}
       <section className="py-24 px-6 bg-teal-50">
         <div className="max-w-5xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-black text-teal-800 mb-8">
+          <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-8">
             Trusted by Healthcare Providers Worldwide
           </h2>
-          <p className="text-xl text-gray-700 max-w-3xl mx-auto">
+          <p className="text-xl md:text-2xl text-gray-700 max-w-4xl mx-auto leading-relaxed">
             Join thousands of hospitals and clinics transforming patient care with CuraCore EMR — secure, intuitive, and powerful.
           </p>
         </div>
       </section>
 
       {/* Bottom CTA */}
-      <section className="py-20 px-6 bg-teal-800 text-white">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-black mb-8">
+      <section className="py-24 px-6 bg-teal-800 text-white">
+        <div className="max-w-5xl mx-auto text-center">
+          <h2 className="text-5xl md:text-6xl font-black mb-10">
             Ready to Modernize Your Practice?
           </h2>
           <Link
             href="/buy"
-            className="bg-yellow-400 text-teal-900 px-16 py-8 rounded-full text-3xl font-bold hover:bg-yellow-300 inline-block shadow-2xl transition"
+            className="bg-yellow-400 text-teal-900 px-16 py-8 rounded-full text-3xl font-bold hover:bg-yellow-300 transition shadow-2xl inline-block"
           >
             Get Started Today
           </Link>

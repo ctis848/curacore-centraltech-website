@@ -19,7 +19,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
-      if (!data.user || (data.user.user_metadata.role !== 'admin' && data.user.user_metadata.role !== 'super-admin')) {
+      if (!data.user || !['admin', 'super-admin'].includes(data.user.user_metadata.role)) {
         router.push('/portal/login');
       } else {
         setUser(data.user);
@@ -28,45 +28,65 @@ export default function AdminDashboard() {
       }
       setLoading(false);
     };
-
     getUser();
   }, [router]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><p className="text-2xl">Loading Admin Dashboard...</p></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-teal-50">
+        <p className="text-3xl font-bold text-teal-900">Loading Admin Dashboard...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-6">
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-5xl font-black text-blue-900 mb-12 text-center">
-          Admin Dashboard
-        </h1>
+    <>
+      <section className="py-20 px-6 bg-teal-50">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-6xl md:text-7xl font-black text-teal-900 text-center mb-16">
+            Admin Dashboard
+          </h1>
 
-        <div className="bg-white rounded-3xl shadow-2xl p-10">
-          <h2 className="text-3xl font-bold text-blue-900 mb-6">Manage Users</h2>
-          <table className="w-full text-left">
-            <thead className="border-b">
-              <tr>
-                <th className="py-4">Email</th>
-                <th className="py-4">Plan</th>
-                <th className="py-4">Licenses</th>
-                <th className="py-4">Created At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-b">
-                  <td className="py-4">{u.email}</td>
-                  <td className="py-4">{u.user_metadata.plan}</td>
-                  <td className="py-4">{u.user_metadata.quantity}</td>
-                  <td className="py-4">{new Date(u.created_at).toLocaleDateString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="bg-white rounded-3xl shadow-2xl p-10 border border-teal-100">
+            <h2 className="text-4xl font-black text-teal-900 mb-10 text-center">
+              Manage Customer Accounts
+            </h2>
+
+            {users.length === 0 ? (
+              <p className="text-center text-gray-500 text-xl py-12">
+                No customer accounts found.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="border-b-4 border-teal-300">
+                    <tr>
+                      <th className="py-6 text-teal-900 font-bold text-lg">Email</th>
+                      <th className="py-6 text-teal-900 font-bold text-lg">Plan</th>
+                      <th className="py-6 text-teal-900 font-bold text-lg">License Seats</th>
+                      <th className="py-6 text-teal-900 font-bold text-lg">Joined</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => (
+                      <tr key={u.id} className="border-b border-teal-100 hover:bg-teal-50 transition">
+                        <td className="py-6 font-medium text-gray-800">{u.email}</td>
+                        <td className="py-6 font-semibold text-teal-700">
+                          {u.user_metadata.plan || 'Starter'}
+                        </td>
+                        <td className="py-6">{u.user_metadata.quantity || 1}</td>
+                        <td className="py-6 text-gray-600">
+                          {new Date(u.created_at).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </>
   );
 }
