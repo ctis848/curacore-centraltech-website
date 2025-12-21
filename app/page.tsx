@@ -5,11 +5,11 @@ import Image from 'next/image';
 export default function HomePage() {
   return (
     <div className="min-h-screen relative">
-      {/* Hero with Doctor EMR Background - Image 2 */}
+      {/* Hero with Futuristic Doctor EMR Background */}
       <div className="relative h-screen w-full">
         <Image
-          src="https://www.shutterstock.com/image-photo/doctor-working-on-laptop-tablet-260nw-2689078631.jpg"  // Image 2 - Clean doctor using EMR laptop/tablet
-          alt="Doctor using CuraCore EMR system"
+          src="https://thumbs.dreamstime.com/b/doctor-uses-tablet-futuristic-medical-interface-lab-telemedicine-service-analyzing-patient-digital-data-ehr-emr-telehealth-367464679.jpg"
+          alt="Doctor using futuristic tablet interface for EHR/EMR and telemedicine"
           fill
           className="object-cover object-center"
           priority
