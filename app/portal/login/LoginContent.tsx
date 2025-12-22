@@ -71,8 +71,6 @@ export default function LoginContent() {
                   inputText: '#0f172a',
                   inputLabelText: '#0f172a',
                   inputPlaceholder: '#94a3b8',
-                  messageText: '#dc2626',
-                  messageTextDanger: '#dc2626',
                 },
               },
             },
@@ -84,8 +82,8 @@ export default function LoginContent() {
             },
           }}
           theme="light"
-          providers={['google']}
-          magicLink={true}
+          providers={[]}  // Empty array = No social providers (Google removed)
+          magicLink={true} // Keeps passwordless Magic Link login
           redirectTo="https://curacore-centraltech-website.netlify.app/portal/dashboard"
         />
       </div>

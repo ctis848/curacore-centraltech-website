@@ -97,7 +97,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-teal-50">
-        <p className="text-2xl text-teal-900 font-bold">Loading dashboard...</p>
+        <p className="text-3xl font-black text-teal-900">Loading dashboard...</p>
       </div>
     );
   }
@@ -112,42 +112,46 @@ export default function Dashboard() {
     <>
       <section className="py-20 px-6 bg-teal-50">
         <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-12">
-            <h1 className="text-5xl md:text-6xl font-black text-teal-900 mb-6 md:mb-0">
-              Welcome back, {user.email}!
-            </h1>
+          {/* Welcome Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-16">
+            <div>
+              <h1 className="text-5xl md:text-6xl font-black text-teal-900 mb-4">
+                Welcome back,
+              </h1>
+              <p className="text-3xl font-bold text-teal-800">{user.email}!</p>
+            </div>
             <button
               onClick={async () => {
                 await supabase.auth.signOut();
                 router.push('/portal/login');
               }}
-              className="bg-red-600 text-white px-10 py-5 rounded-full text-xl font-bold hover:bg-red-700 transition shadow-lg"
+              className="bg-red-600 text-white px-10 py-5 rounded-full text-xl font-bold hover:bg-red-700 transition shadow-lg mt-6 md:mt-0"
             >
               Logout
             </button>
           </div>
 
-          <p className="text-2xl text-gray-700 text-center mb-16">
-            Your CuraCore EMR license is active and ready to use.
+          <p className="text-2xl text-gray-700 text-center mb-16 max-w-4xl mx-auto">
+            Your CuraCore EMR license is active.
           </p>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-16">
-            <div className="bg-white rounded-3xl shadow-xl p-8 text-center border border-teal-100">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-20">
+            <div className="bg-white rounded-3xl shadow-xl p-10 text-center border border-teal-100">
               <h2 className="text-2xl font-bold text-teal-900 mb-4">Current Plan</h2>
               <p className="text-5xl font-black text-teal-700">{plan}</p>
             </div>
-            <div className="bg-white rounded-3xl shadow-xl p-8 text-center border border-teal-100">
+            <div className="bg-white rounded-3xl shadow-xl p-10 text-center border border-teal-100">
               <h2 className="text-2xl font-bold text-teal-900 mb-4">Status</h2>
               <p className="text-4xl font-black text-green-600">Active</p>
             </div>
-            <div className="bg-white rounded-3xl shadow-xl p-8 text-center border border-teal-100">
+            <div className="bg-white rounded-3xl shadow-xl p-10 text-center border border-teal-100">
               <h2 className="text-2xl font-bold text-teal-900 mb-4">Billing</h2>
-              <p className="text-3xl font-bold text-teal-700">
+              <p className="text-3xl font-black text-teal-700">
                 {plan === 'Lifetime' ? 'One-time' : 'Monthly'}
               </p>
             </div>
-            <div className="bg-white rounded-3xl shadow-xl p-8 text-center border border-teal-100">
+            <div className="bg-white rounded-3xl shadow-xl p-10 text-center border border-teal-100">
               <h2 className="text-2xl font-bold text-teal-900 mb-4">Active Licenses</h2>
               <p className="text-5xl font-black text-teal-700">
                 {activeCount} / {totalQuantity}
@@ -156,8 +160,8 @@ export default function Dashboard() {
           </div>
 
           {/* Activate New Computer */}
-          <div className="bg-white rounded-3xl shadow-xl p-10 mb-16 border border-teal-100">
-            <h2 className="text-4xl font-black text-teal-900 mb-8 text-center">
+          <div className="bg-white rounded-3xl shadow-xl p-12 mb-20 border border-teal-100">
+            <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-10 text-center">
               Activate New Computer
             </h2>
             <div className="flex flex-col sm:flex-row items-center gap-6 max-w-3xl mx-auto">
@@ -166,21 +170,21 @@ export default function Dashboard() {
                 placeholder="Paste request key from desktop app"
                 value={requestKey}
                 onChange={(e) => setRequestKey(e.target.value)}
-                className="flex-1 w-full px-8 py-5 border-2 border-teal-200 rounded-xl text-lg focus:border-teal-500 focus:outline-none transition"
+                className="flex-1 w-full px-8 py-6 border-2 border-teal-200 rounded-xl text-lg focus:border-teal-500 focus:outline-none transition"
               />
               <button
                 onClick={handleActivate}
                 disabled={activating}
-                className="bg-yellow-400 text-teal-900 px-12 py-5 rounded-xl text-2xl font-bold hover:bg-yellow-300 disabled:opacity-60 transition shadow-lg"
+                className="bg-yellow-400 text-teal-900 px-12 py-6 rounded-xl text-2xl font-bold hover:bg-yellow-300 disabled:opacity-60 transition shadow-lg"
               >
                 {activating ? 'Activating...' : 'Activate'}
               </button>
             </div>
           </div>
 
-          {/* Activated Computers */}
-          <div className="bg-white rounded-3xl shadow-xl p-10 mb-16 border border-teal-100">
-            <h2 className="text-4xl font-black text-teal-900 mb-8 text-center">
+          {/* Activated Computers Table */}
+          <div className="bg-white rounded-3xl shadow-xl p-12 mb-20 border border-teal-100">
+            <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-10 text-center">
               Activated Computers
             </h2>
             {licenses.length === 0 ? (
@@ -190,24 +194,24 @@ export default function Dashboard() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                  <thead className="border-b-2 border-teal-200">
+                  <thead className="border-b-4 border-teal-300">
                     <tr>
-                      <th className="py-6 text-teal-900 font-bold">Machine ID</th>
-                      <th className="py-6 text-teal-900 font-bold">Activated On</th>
-                      <th className="py-6 text-teal-900 font-bold">Action</th>
+                      <th className="py-6 text-teal-900 font-black text-xl">Machine ID</th>
+                      <th className="py-6 text-teal-900 font-black text-xl">Activated On</th>
+                      <th className="py-6 text-teal-900 font-black text-xl">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {licenses.map((license) => (
-                      <tr key={license.id} className="border-b border-teal-100">
-                        <td className="py-6 font-medium">{license.machine_id}</td>
-                        <td className="py-6">
+                      <tr key={license.id} className="border-b border-teal-100 hover:bg-teal-50 transition">
+                        <td className="py-6 font-medium text-gray-800">{license.machine_id}</td>
+                        <td className="py-6 text-gray-700">
                           {new Date(license.activated_at).toLocaleDateString()}
                         </td>
                         <td className="py-6">
                           <button
                             onClick={() => handleRevoke(license.id)}
-                            className="bg-red-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-red-700 transition"
+                            className="bg-red-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-red-700 transition shadow"
                           >
                             Revoke
                           </button>
@@ -221,13 +225,13 @@ export default function Dashboard() {
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-white rounded-3xl shadow-xl p-10 border border-teal-100">
-            <h2 className="text-4xl font-black text-teal-900 mb-10 text-center">
+          <div className="bg-white rounded-3xl shadow-xl p-12 border border-teal-100">
+            <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-12 text-center">
               Quick Actions
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               <a
-                href="https://your-desktop-app-download-link.com"
+                href="https://your-desktop-app-download-link.com" // Replace with real link
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-teal-800 text-white py-6 rounded-xl text-xl font-bold hover:bg-teal-700 text-center block transition shadow-lg"
@@ -255,6 +259,15 @@ export default function Dashboard() {
                 Contact Support
               </a>
             </div>
+          </div>
+
+          <div className="mt-20 text-center">
+            <a
+              href="/products"
+              className="inline-block bg-teal-700 text-white px-12 py-6 rounded-full text-2xl font-bold hover:bg-teal-600 transition shadow-2xl"
+            >
+              Explore CuraCore EMR Features
+            </a>
           </div>
         </div>
       </section>
