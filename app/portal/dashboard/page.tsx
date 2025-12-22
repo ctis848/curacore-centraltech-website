@@ -17,11 +17,8 @@ export default function Dashboard() {
   const [requestKey, setRequestKey] = useState('');
   const [activating, setActivating] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  // New states for cancellation
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     const getData = async () => {
@@ -99,46 +96,59 @@ export default function Dashboard() {
     }
   };
 
-  // Cancel Subscription (Monthly Plans Only)
-  const handleCancelSubscription = async () => {
-    if (user.user_metadata?.plan === 'Lifetime') {
-      alert('Lifetime plans cannot be cancelled.');
-      setShowCancelModal(false);
+  // Open Stripe Customer Portal for billing management & cancellation
+  const handleManageBilling = async () => {
+    setProcessing(true);
+
+    const stripeCustomerId = user.user_metadata?.stripe_customer_id;
+
+    if (!stripeCustomerId) {
+      alert('No billing information found. Please contact support.');
+      setProcessing(false);
       return;
     }
 
-    setProcessing(true);
-    // In production: Call your backend or Stripe API to cancel subscription
-    // Example: await fetch('/api/cancel-subscription', { method: 'POST' })
-
-    // For now, we'll simulate by updating metadata
-    const { error } = await supabase.auth.updateUser({
-      data: { plan: 'cancelled', cancelled_at: new Date().toISOString() }
+    const res = await fetch('/api/create-portal-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerId: stripeCustomerId }),
     });
 
-    if (error) {
-      alert('Cancellation failed: ' + error.message);
+    const data = await res.json();
+
+    if (data.url) {
+      window.location.href = data.url;
     } else {
-      alert('Your subscription has been cancelled. Access continues until end of billing period.');
-      setUser({ ...user, user_metadata: { ...user.user_metadata, plan: 'cancelled' } });
+      alert('Failed to open billing portal: ' + (data.error || 'Unknown error'));
+      setProcessing(false);
     }
-    setProcessing(false);
-    setShowCancelModal(false);
   };
 
-  // Delete Account (Permanent)
+  // Permanent account deletion via server-side API
   const handleDeleteAccount = async () => {
-    if (!confirm('This will permanently delete your account and all data. Are you absolutely sure?')) {
+    if (!confirm('WARNING: This will PERMANENTLY delete your account, all licenses, and data. This cannot be undone. Continue?')) {
       return;
     }
 
     setProcessing(true);
 
-    // In production: Use Supabase Admin API or backend to delete user
-    // For demo: Just sign out
-    await supabase.auth.signOut();
-    alert('Your account has been scheduled for deletion. Goodbye!');
-    router.push('/');
+    const res = await fetch('/api/delete-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      await supabase.auth.signOut();
+      alert('Your account has been permanently deleted.');
+      router.push('/');
+    } else {
+      alert('Account deletion failed: ' + (data.error || 'Unknown error'));
+    }
+    setProcessing(false);
+    setShowDeleteModal(false);
   };
 
   if (loading) {
@@ -153,7 +163,6 @@ export default function Dashboard() {
 
   const plan = user.user_metadata?.plan || 'Starter';
   const isLifetime = plan === 'Lifetime';
-  const isCancelled = plan === 'cancelled';
   const totalQuantity = parseInt(user.user_metadata?.quantity || '1', 10);
   const activeCount = licenses.length;
 
@@ -161,7 +170,7 @@ export default function Dashboard() {
     <>
       <section className="py-20 px-6 bg-teal-50">
         <div className="max-w-6xl mx-auto">
-          {/* Welcome Header */}
+          {/* Header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-16">
             <div>
               <h1 className="text-5xl md:text-6xl font-black text-teal-900 mb-4">
@@ -180,20 +189,15 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* Plan Status Alert */}
-          {isCancelled && (
-            <div className="bg-orange-100 border-l-4 border-orange-500 p-6 mb-12 rounded-r-xl">
-              <p className="text-xl font-bold text-orange-800">
-                Your subscription is cancelled. Access continues until the end of your billing period.
-              </p>
-            </div>
-          )}
+          <p className="text-2xl text-gray-700 text-center mb-16 max-w-4xl mx-auto">
+            Your CuraCore EMR license is active and ready to use.
+          </p>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-20">
             <div className="bg-white rounded-3xl shadow-xl p-10 text-center border border-teal-100">
               <h2 className="text-2xl font-bold text-teal-900 mb-4">Current Plan</h2>
-              <p className="text-5xl font-black text-teal-700">{isCancelled ? 'Cancelled' : plan}</p>
+              <p className="text-5xl font-black text-teal-700">{plan}</p>
             </div>
             <div className="bg-white rounded-3xl shadow-xl p-10 text-center border border-teal-100">
               <h2 className="text-2xl font-bold text-teal-900 mb-4">Status</h2>
@@ -202,7 +206,7 @@ export default function Dashboard() {
             <div className="bg-white rounded-3xl shadow-xl p-10 text-center border border-teal-100">
               <h2 className="text-2xl font-bold text-teal-900 mb-4">Billing</h2>
               <p className="text-3xl font-black text-teal-700">
-                {isLifetime ? 'One-time' : isCancelled ? 'Ended' : 'Monthly'}
+                {isLifetime ? 'One-time' : 'Monthly'}
               </p>
             </div>
             <div className="bg-white rounded-3xl shadow-xl p-10 text-center border border-teal-100">
@@ -213,21 +217,84 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Existing sections: Activate, Activated Computers, Quick Actions */}
-          {/* ... (keep your existing code here - unchanged) ... */}
+          {/* Activate New Computer */}
+          <div className="bg-white rounded-3xl shadow-xl p-12 mb-20 border border-teal-100">
+            <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-10 text-center">
+              Activate New Computer
+            </h2>
+            <div className="flex flex-col sm:flex-row items-center gap-6 max-w-3xl mx-auto">
+              <input
+                type="text"
+                placeholder="Paste request key from desktop app"
+                value={requestKey}
+                onChange={(e) => setRequestKey(e.target.value)}
+                className="flex-1 w-full px-8 py-6 border-2 border-teal-200 rounded-xl text-lg focus:border-teal-500 focus:outline-none transition"
+              />
+              <button
+                onClick={handleActivate}
+                disabled={activating}
+                className="bg-yellow-400 text-teal-900 px-12 py-6 rounded-xl text-2xl font-bold hover:bg-yellow-300 disabled:opacity-60 transition shadow-lg"
+              >
+                {activating ? 'Activating...' : 'Activate'}
+              </button>
+            </div>
+          </div>
 
-          {/* New: Account Management Section */}
-          <div className="bg-white rounded-3xl shadow-xl p-12 border border-teal-100 mt-20">
+          {/* Activated Computers Table */}
+          <div className="bg-white rounded-3xl shadow-xl p-12 mb-20 border border-teal-100">
+            <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-10 text-center">
+              Activated Computers
+            </h2>
+            {licenses.length === 0 ? (
+              <p className="text-center text-gray-500 text-xl py-12">
+                No computers activated yet.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="border-b-4 border-teal-300">
+                    <tr>
+                      <th className="py-6 text-teal-900 font-black text-xl">Machine ID</th>
+                      <th className="py-6 text-teal-900 font-black text-xl">Activated On</th>
+                      <th className="py-6 text-teal-900 font-black text-xl">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {licenses.map((license) => (
+                      <tr key={license.id} className="border-b border-teal-100 hover:bg-teal-50 transition">
+                        <td className="py-6 font-medium text-gray-800">{license.machine_id}</td>
+                        <td className="py-6 text-gray-700">
+                          {new Date(license.activated_at).toLocaleDateString()}
+                        </td>
+                        <td className="py-6">
+                          <button
+                            onClick={() => handleRevoke(license.id)}
+                            className="bg-red-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-red-700 transition shadow"
+                          >
+                            Revoke
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Account Management */}
+          <div className="bg-white rounded-3xl shadow-xl p-12 border border-teal-100">
             <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-12 text-center">
               Account Management
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-4xl mx-auto">
-              {!isLifetime && !isCancelled && (
+              {!isLifetime && (
                 <button
-                  onClick={() => setShowCancelModal(true)}
-                  className="bg-orange-600 text-white py-8 rounded-2xl text-2xl font-bold hover:bg-orange-700 transition shadow-xl"
+                  onClick={handleManageBilling}
+                  disabled={processing}
+                  className="bg-orange-600 text-white py-8 rounded-2xl text-2xl font-bold hover:bg-orange-700 disabled:opacity-60 transition shadow-xl"
                 >
-                  Cancel Subscription
+                  {processing ? 'Opening Portal...' : 'Manage Billing & Cancel Plan'}
                 </button>
               )}
               <button
@@ -238,60 +305,67 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* Cancel Subscription Modal */}
-      {showCancelModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
-          <div className="bg-white rounded-3xl shadow-3xl p-12 max-w-lg w-full">
-            <h3 className="text-4xl font-black text-teal-900 mb-8 text-center">
-              Cancel Subscription?
-            </h3>
-            <p className="text-xl text-gray-700 mb-10 text-center">
-              Your access will continue until the end of your current billing period.
-              You can resubscribe anytime.
-            </p>
-            <div className="flex gap-6 justify-center">
-              <button
-                onClick={handleCancelSubscription}
-                disabled={processing}
-                className="bg-orange-600 text-white px-12 py-5 rounded-xl text-xl font-bold hover:bg-orange-700 disabled:opacity-60"
+          {/* Quick Actions */}
+          <div className="bg-white rounded-3xl shadow-xl p-12 mt-20 border border-teal-100">
+            <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-12 text-center">
+              Quick Actions
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              <a
+                href="https://your-desktop-app-download-link.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-teal-800 text-white py-6 rounded-xl text-xl font-bold hover:bg-teal-700 text-center block transition shadow-lg"
               >
-                {processing ? 'Processing...' : 'Yes, Cancel'}
-              </button>
-              <button
-                onClick={() => setShowCancelModal(false)}
-                className="bg-gray-600 text-white px-12 py-5 rounded-xl text-xl font-bold hover:bg-gray-700"
+                Download Desktop App
+              </a>
+              <a
+                href="/buy"
+                className="bg-yellow-400 text-teal-900 py-6 rounded-xl text-xl font-bold hover:bg-yellow-300 text-center block transition shadow-lg"
               >
-                Keep Subscription
-              </button>
+                Upgrade Plan
+              </a>
+              <a
+                href="https://billing.stripe.com/p/login/test_..."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-gray-700 text-white py-6 rounded-xl text-xl font-bold hover:bg-gray-600 text-center block transition shadow-lg"
+              >
+                View Invoices
+              </a>
+              <a
+                href="/support"
+                className="bg-teal-600 text-white py-6 rounded-xl text-xl font-bold hover:bg-teal-500 text-center block transition shadow-lg"
+              >
+                Contact Support
+              </a>
             </div>
           </div>
         </div>
-      )}
+      </section>
 
       {/* Delete Account Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-3xl p-12 max-w-lg w-full">
             <h3 className="text-4xl font-black text-red-600 mb-8 text-center">
-              Delete Account?
+              Permanently Delete Account?
             </h3>
-            <p className="text-xl text-gray-700 mb-10 text-center">
-              This action is <strong>permanent</strong>. All your data, licenses, and account will be deleted.
+            <p className="text-xl text-gray-700 mb-10 text-center leading-relaxed">
+              This action is <strong>irreversible</strong>. All your licenses, data, and account will be permanently deleted.
             </p>
             <div className="flex gap-6 justify-center">
               <button
                 onClick={handleDeleteAccount}
                 disabled={processing}
-                className="bg-red-600 text-white px-12 py-5 rounded-xl text-xl font-bold hover:bg-red-700 disabled:opacity-60"
+                className="bg-red-600 text-white px-12 py-5 rounded-xl text-xl font-bold hover:bg-red-700 disabled:opacity-60 transition"
               >
-                {processing ? 'Deleting...' : 'Yes, Delete Account'}
+                {processing ? 'Deleting...' : 'Yes, Delete My Account'}
               </button>
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="bg-gray-600 text-white px-12 py-5 rounded-xl text-xl font-bold hover:bg-gray-700"
+                className="bg-gray-600 text-white px-12 py-5 rounded-xl text-xl font-bold hover:bg-gray-700 transition"
               >
                 Cancel
               </button>
