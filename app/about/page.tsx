@@ -1,17 +1,26 @@
 // app/about/page.tsx
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function AboutPage() {
   return (
     <>
-      {/* Hero Section */}
-      <section className="relative bg-teal-900 py-32 px-6 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-teal-800 to-teal-950 opacity-90"></div>
-        <div className="relative max-w-6xl mx-auto text-center text-white">
+      {/* Hero Section with Local Doctor Team Background */}
+      <section className="relative h-screen w-full">
+        <Image
+          src="/about-hero.jpg"  // Local file in /public/about-hero.jpg
+          alt="Diverse team of smiling doctors and nurses representing healthcare excellence"
+          fill
+          className="object-cover object-center"
+          priority
+        />
+        <div className="absolute inset-0 bg-teal-900/70" /> {/* Teal overlay for text readability */}
+
+        <div className="relative z-10 h-full flex flex-col justify-center items-center text-center text-white px-6">
           <h1 className="text-5xl md:text-7xl font-black mb-6 drop-shadow-2xl">
             About CuraCore EMR
           </h1>
-          <p className="text-2xl md:text-3xl mb-12 font-light max-w-4xl mx-auto drop-shadow-lg">
+          <p className="text-2xl md:text-4xl mb-12 font-light max-w-4xl drop-shadow-lg">
             Empowering Healthcare Excellence Across Africa
           </p>
         </div>
@@ -36,9 +45,8 @@ export default function AboutPage() {
               </p>
             </div>
             <div className="rounded-3xl overflow-hidden shadow-2xl border border-teal-100">
-              {/* Replace with your real team/office photo later */}
               <div className="bg-gray-200 border-2 border-dashed rounded-3xl w-full h-96 flex items-center justify-center text-gray-500 text-2xl">
-                Your Team/Office Photo Here
+                Your Real Team/Office Photo Here (Optional)
               </div>
             </div>
           </div>
@@ -70,7 +78,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Values / Why Choose Us */}
+      {/* Why Choose Us */}
       <section className="py-24 px-6 bg-teal-50">
         <div className="max-w-6xl mx-auto text-center">
           <h2 className="text-5xl md:text-6xl font-black text-teal-900 mb-16">
