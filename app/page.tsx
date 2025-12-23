@@ -1,11 +1,32 @@
 // app/page.tsx
 import Link from 'next/link';
 import Image from 'next/image';
+import { useState, useEffect } from 'react';
+
+const showcaseImages = [
+  { src: "/showcase/emr-dashboard.jpg", alt: "CuraCore EMR Dashboard - Personalized home page" },
+  { src: "/showcase/patient-chart.jpg", alt: "Digital Patient Chart - Real-time clinical notes and vitals" },
+  { src: "/showcase/pharmacy.jpg", alt: "Pharmacy Module - Prescription and inventory management" },
+  { src: "/showcase/lab-results.jpg", alt: "Laboratory Integration - Fast results and reporting" },
+  { src: "/showcase/cctv.jpg", alt: "CCTV Security Surveillance - Hospital-wide monitoring" },
+  { src: "/showcase/nurse-call.jpg", alt: "Nurse Call Bell System - Instant patient assistance" },
+  { src: "/showcase/digital-signage.jpg", alt: "Digital Signage - Patient information displays" },
+  { src: "/showcase/fiber-optic.jpg", alt: "Fiber Optic Network - High-speed connectivity" },
+];
 
 export default function HomePage() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % showcaseImages.length);
+    }, 5000); // Change every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <>
-      {/* Hero Section */}
+      {/* Hero */}
       <div className="relative h-screen w-full">
         <Image
           src="/image-2.jpg"
@@ -40,8 +61,43 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Trusted Section */}
+      {/* Big Rotating Flash Cards Carousel */}
       <section className="py-24 px-6 bg-teal-50">
+        <div className="max-w-7xl mx-auto text-center">
+          <h2 className="text-5xl md:text-6xl font-black text-teal-900 mb-16">
+            See CuraCore in Action
+          </h2>
+          <div className="relative max-w-5xl mx-auto">
+            <div className="overflow-hidden rounded-3xl shadow-2xl border-8 border-white">
+              <Image
+                src={showcaseImages[currentIndex].src}
+                alt={showcaseImages[currentIndex].alt}
+                width={1200}
+                height={800}
+                className="w-full h-auto object-contain transition-opacity duration-1000"
+                priority
+              />
+            </div>
+            <p className="text-xl text-gray-700 mt-8 italic">
+              {showcaseImages[currentIndex].alt}
+            </p>
+            <div className="flex justify-center gap-3 mt-8">
+              {showcaseImages.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentIndex(i)}
+                  className={`w-4 h-4 rounded-full transition ${
+                    i === currentIndex ? 'bg-teal-900' : 'bg-teal-300'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trusted Section */}
+      <section className="py-24 px-6 bg-white">
         <div className="max-w-5xl mx-auto text-center">
           <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-8">
             Trusted by Healthcare Providers Worldwide
