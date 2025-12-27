@@ -9,7 +9,7 @@ export default function Navbar() {
 
   const navLinks = [
     { name: 'Home', href: '/' },
-    { name: 'Products', href: '/products' },
+    { name: 'Features', href: '/products' },          // Changed "Products" → "Features" for clarity
     { name: 'Services', href: '/services' },
     { name: 'Resources', href: '/resources' },
     { name: 'Buy Now', href: '/buy', highlight: true },
@@ -20,10 +20,12 @@ export default function Navbar() {
     <nav className="bg-teal-700 text-white fixed top-0 left-0 right-0 z-50 shadow-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
+          {/* Logo - Updated to CentralCore EMR */}
           <Link href="/" className="text-2xl md:text-3xl font-black tracking-tight">
-            CuraCore
+            CentralCore
           </Link>
 
+          {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-1 lg:space-x-6">
             {navLinks.map((link) => (
               <Link
@@ -40,14 +42,17 @@ export default function Navbar() {
             ))}
           </div>
 
+          {/* Mobile Menu Button */}
           <button
             onClick={() => setOpen(!open)}
             className="md:hidden text-3xl focus:outline-none"
+            aria-label="Toggle menu"
           >
             {open ? '✕' : '☰'}
           </button>
         </div>
 
+        {/* Mobile Menu */}
         {open && (
           <div className="md:hidden bg-teal-600 px-4 py-6 space-y-4 text-center">
             {navLinks.map((link) => (
