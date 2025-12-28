@@ -2,6 +2,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 
 export default function Navbar() {
@@ -9,7 +10,7 @@ export default function Navbar() {
 
   const navLinks = [
     { name: 'Home', href: '/' },
-    { name: 'Features', href: '/products' },          // Changed "Products" → "Features" for clarity
+    { name: 'Features', href: '/products' },
     { name: 'Services', href: '/services' },
     { name: 'Resources', href: '/resources' },
     { name: 'Buy Now', href: '/buy', highlight: true },
@@ -20,9 +21,22 @@ export default function Navbar() {
     <nav className="bg-teal-700 text-white fixed top-0 left-0 right-0 z-50 shadow-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo - Updated to CentralCore EMR */}
-          <Link href="/" className="text-2xl md:text-3xl font-black tracking-tight">
-            CentralCore
+          {/* Logo + Branding */}
+          <Link href="/" className="flex items-center space-x-4">
+            <Image
+              src="/logo.png"
+              alt="CTIS Technologies - CentralCore EMR"
+              width={60}
+              height={60}
+              className="rounded-lg"
+              priority
+            />
+            <div className="hidden sm:block">
+              <div className="text-2xl font-black leading-none">CentralCore</div>
+              <div className="text-xs text-teal-200 tracking-wider">by CTIS Technologies</div>
+            </div>
+            {/* Mobile: Only logo */}
+            <div className="sm:hidden text-2xl font-black">CentralCore</div>
           </Link>
 
           {/* Desktop Menu */}
