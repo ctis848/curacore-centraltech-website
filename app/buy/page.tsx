@@ -3,22 +3,12 @@
 
 import { useState } from 'react';
 
-interface Plan {
-  id: string;
-  name: string;
-  price: number;
-  currency: string;
-  description: string;
-  features: string[];
-  paystackProduct?: string; // Optional if not always needed
-}
-
 export default function BuyPage() {
-  const [plan, setPlan] = useState<string>('starter');
-  const [quantity, setQuantity] = useState<number>(1);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [plan, setPlan] = useState('starter');
+  const [quantity, setQuantity] = useState(1);
+  const [loading, setLoading] = useState(false);
 
-  const plans: Plan[] = [
+  const plans = [
     {
       id: 'starter',
       name: 'Starter',
@@ -51,11 +41,7 @@ export default function BuyPage() {
   const selectedPlan = plans.find((p) => p.id === plan);
 
   const handleProceed = async () => {
-    if (!selectedPlan) {
-      alert('Please select a plan');
-      return;
-    }
-
+    if (!selectedPlan) return;
     setLoading(true);
 
     try {
@@ -66,22 +52,17 @@ export default function BuyPage() {
           plan: selectedPlan.id,
           quantity,
           amount: selectedPlan.price * quantity,
-          currency: selectedPlan.currency,
-          productName: selectedPlan.paystackProduct || selectedPlan.name,
+          currency: 'NGN',
+          productName: selectedPlan.paystackProduct,
         }),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Payment initiation failed');
-      }
 
       const data = await response.json();
 
       if (data.authorization_url) {
         window.location.href = data.authorization_url;
       } else {
-        alert('Failed to start payment: No authorization URL received');
+        alert('Failed to start payment: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
       const message =
@@ -103,7 +84,6 @@ export default function BuyPage() {
           Buy CentralCore EMR License
         </h1>
 
-        {/* Plans Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
           {plans.map((p) => (
             <div
@@ -133,7 +113,6 @@ export default function BuyPage() {
           ))}
         </div>
 
-        {/* Quantity Selector */}
         <div className="max-w-md mx-auto text-center mb-12">
           <label className="block text-xl font-bold text-teal-900 mb-4">
             Number of Licenses / Users
@@ -142,7 +121,6 @@ export default function BuyPage() {
             <button
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
               className="bg-teal-700 text-white w-12 h-12 rounded-full text-2xl font-bold hover:bg-teal-800 transition"
-              aria-label="Decrease quantity"
             >
               -
             </button>
@@ -150,14 +128,12 @@ export default function BuyPage() {
             <button
               onClick={() => setQuantity(quantity + 1)}
               className="bg-teal-700 text-white w-12 h-12 rounded-full text-2xl font-bold hover:bg-teal-800 transition"
-              aria-label="Increase quantity"
             >
               +
             </button>
           </div>
         </div>
 
-        {/* Total & Proceed */}
         <div className="text-center">
           {selectedPlan && (
             <p className="text-3xl font-bold text-teal-900 mb-6">
