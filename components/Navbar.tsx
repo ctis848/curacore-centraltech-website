@@ -13,6 +13,7 @@ export default function Navbar() {
     { name: 'Features', href: '/products' },
     { name: 'Services', href: '/services' },
     { name: 'Resources', href: '/resources' },
+    { name: 'Download', href: '/download' }, // ← NEW DOWNLOAD LINK
     { name: 'Buy Now', href: '/buy', highlight: true },
     { name: 'Dashboard', href: '/portal/dashboard' },
   ];
@@ -24,7 +25,7 @@ export default function Navbar() {
           {/* Logo + Branding */}
           <Link href="/" className="flex items-center space-x-4">
             <Image
-              src="/logo.png" // Replace with your real logo in /public/logo.png
+              src="/logo.png"
               alt="CentralCore EMR by CTIS Technologies"
               width={60}
               height={60}
@@ -35,7 +36,6 @@ export default function Navbar() {
               <div className="text-2xl font-black leading-none">CentralCore</div>
               <div className="text-xs text-teal-200 tracking-wider">by CTIS Technologies</div>
             </div>
-            {/* Mobile: Only brand name */}
             <div className="sm:hidden text-2xl font-black">CentralCore</div>
           </Link>
 

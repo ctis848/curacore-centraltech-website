@@ -10,7 +10,6 @@ export default function DownloadPage() {
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Send email to your backend (e.g., Supabase or email service)
     console.log('Subscribed:', email);
     setSubmitted(true);
     setEmail('');
@@ -22,28 +21,24 @@ export default function DownloadPage() {
       description: 'Try all features free for 30 days - no credit card needed',
       users: 'Up to 5 users',
       buttonText: 'Download Demo (Coming Soon)',
-      available: false,
     },
     {
       name: 'Starter',
       description: 'Perfect for small clinics - basic features to get started',
       users: '5 Users',
       buttonText: 'Download Starter (Coming Soon)',
-      available: false,
     },
     {
       name: 'Pro',
       description: 'Advanced tools for growing hospitals - full integration suite',
       users: '25 Users',
       buttonText: 'Download Pro (Coming Soon)',
-      available: false,
     },
     {
       name: 'Enterprise',
       description: 'Unlimited scale for large institutions - custom support included',
       users: 'Unlimited Users',
       buttonText: 'Download Enterprise (Coming Soon)',
-      available: false,
     },
   ];
 
@@ -57,19 +52,19 @@ export default function DownloadPage() {
           Choose your version below. All apps are secure, easy to install, and optimized for Windows/Mac/Linux. We're finalizing the downloads — join the waitlist to get notified first!
         </p>
 
-        {/* Versions Grid */}
+        {/* Versions Grid - Buttons now perfectly aligned */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-24">
           {versions.map((v) => (
             <div
               key={v.name}
-              className="p-8 rounded-3xl shadow-2xl bg-white border-4 border-teal-200 hover:border-yellow-400 transition-all duration-300"
+              className="p-8 rounded-3xl shadow-2xl bg-white border-4 border-teal-200 hover:border-yellow-400 transition-all duration-300 flex flex-col h-full"
             >
               <h3 className="text-3xl font-bold text-teal-900 mb-4">{v.name}</h3>
-              <p className="text-gray-700 mb-4">{v.description}</p>
+              <p className="text-gray-700 mb-4 flex-grow">{v.description}</p>
               <p className="text-lg font-medium text-teal-700 mb-6">Users: {v.users}</p>
               <button
                 onClick={() => alert('Coming soon — we\'re working hard on this! Join the waitlist below to get notified.')}
-                className="w-full bg-yellow-400 text-teal-900 py-4 rounded-full text-xl font-bold hover:bg-yellow-300 transition shadow-lg"
+                className="mt-auto w-full bg-yellow-400 text-teal-900 py-4 rounded-full text-xl font-bold hover:bg-yellow-300 transition shadow-lg"
               >
                 {v.buttonText}
               </button>
