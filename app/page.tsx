@@ -43,21 +43,27 @@ export default function HomePage() {
           <h1 className="text-5xl md:text-7xl font-black mb-6 drop-shadow-2xl">
             CentralCore EMR
           </h1>
-          <p className="text-2xl md:text-4xl mb-12 font-light max-w-4xl drop-shadow-lg">
+          <p className="text-2xl md:text-4xl mb-8 font-light max-w-4xl drop-shadow-lg">
             A Complete Electronic Medical Record System for Modern Healthcare
           </p>
-          <div className="flex flex-col sm:flex-row gap-8">
+          <div className="flex flex-col sm:flex-row gap-6 md:gap-8">
             <Link
               href="/buy"
-              className="bg-yellow-400 text-teal-900 px-12 py-6 rounded-full text-2xl font-bold hover:bg-yellow-300 transition shadow-2xl"
+              className="bg-yellow-400 text-teal-900 px-10 py-5 md:px-12 md:py-6 rounded-full text-xl md:text-2xl font-bold hover:bg-yellow-300 transition shadow-2xl"
             >
               Buy License Now
             </Link>
             <Link
               href="/products"
-              className="bg-white/20 backdrop-blur-md text-white border-2 border-white px-12 py-6 rounded-full text-2xl font-bold hover:bg-white/30 transition shadow-2xl"
+              className="bg-white/20 backdrop-blur-md text-white border-2 border-white px-10 py-5 md:px-12 md:py-6 rounded-full text-xl md:text-2xl font-bold hover:bg-white/30 transition shadow-2xl"
             >
               Explore Features
+            </Link>
+            <Link
+              href="/download"
+              className="bg-teal-500 text-white px-10 py-5 md:px-12 md:py-6 rounded-full text-xl md:text-2xl font-bold hover:bg-teal-600 transition shadow-2xl"
+            >
+              Download App
             </Link>
           </div>
         </div>
@@ -117,12 +123,20 @@ export default function HomePage() {
           <h2 className="text-5xl md:text-6xl font-black mb-10">
             Ready to Modernize Your Practice?
           </h2>
-          <Link
-            href="/buy"
-            className="bg-yellow-400 text-teal-900 px-16 py-8 rounded-full text-3xl font-bold hover:bg-yellow-300 transition shadow-2xl inline-block"
-          >
-            Get Started Today
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <Link
+              href="/buy"
+              className="bg-yellow-400 text-teal-900 px-12 py-6 rounded-full text-2xl md:text-3xl font-bold hover:bg-yellow-300 transition shadow-2xl"
+            >
+              Buy License Now
+            </Link>
+            <Link
+              href="/download"
+              className="bg-white text-teal-900 px-12 py-6 rounded-full text-2xl md:text-3xl font-bold hover:bg-gray-100 transition shadow-2xl"
+            >
+              Download App
+            </Link>
+          </div>
         </div>
       </section>
     </>
