@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 
 const showcaseImages = [
-  { src: "/showcase/emr-dashboard.jpg", alt: "CuraCore EMR Dashboard - Personalized home page" },
+  { src: "/showcase/emr-dashboard.jpg", alt: "CentralCore EMR Dashboard - Personalized home page" },
   { src: "/showcase/patient-chart.jpg", alt: "Digital Patient Chart - Real-time clinical notes and vitals" },
   { src: "/showcase/pharmacy.jpg", alt: "Pharmacy Module - Prescription and inventory management" },
   { src: "/showcase/lab-results.jpg", alt: "Laboratory Integration - Fast results and reporting" },
@@ -30,7 +30,7 @@ export default function HomePage() {
       <div className="relative h-screen w-full">
         <Image
           src="/image-2.jpg"
-          alt="Doctor using futuristic tablet interface for EHR/EMR and telemedicine"
+          alt="Doctor using futuristic tablet interface for CentralCore EMR and telemedicine"
           fill
           className="object-cover object-center"
           priority
@@ -39,7 +39,7 @@ export default function HomePage() {
 
         <div className="relative z-10 h-full flex flex-col justify-center items-center text-center text-white px-6">
           <h1 className="text-5xl md:text-7xl font-black mb-6 drop-shadow-2xl">
-            CuraCore EMR
+            CentralCore EMR
           </h1>
           <p className="text-2xl md:text-4xl mb-12 font-light max-w-4xl drop-shadow-lg">
             A Complete Electronic Medical Record System for Modern Healthcare
@@ -65,7 +65,7 @@ export default function HomePage() {
       <section className="py-24 px-6 bg-teal-50">
         <div className="max-w-7xl mx-auto text-center">
           <h2 className="text-5xl md:text-6xl font-black text-teal-900 mb-16">
-            See CuraCore in Action
+            See CentralCore EMR in Action
           </h2>
           <div className="relative max-w-5xl mx-auto">
             <div className="overflow-hidden rounded-3xl shadow-2xl border-8 border-white">
@@ -89,6 +89,7 @@ export default function HomePage() {
                   className={`w-4 h-4 rounded-full transition ${
                     i === currentIndex ? 'bg-teal-900' : 'bg-teal-300'
                   }`}
+                  aria-label={`Go to slide ${i + 1}`}
                 />
               ))}
             </div>
@@ -103,7 +104,7 @@ export default function HomePage() {
             Trusted by Healthcare Providers Worldwide
           </h2>
           <p className="text-xl md:text-2xl text-gray-700 max-w-4xl mx-auto leading-relaxed">
-            Join thousands of hospitals and clinics transforming patient care with CuraCore EMR — secure, intuitive, and powerful.
+            Join thousands of hospitals and clinics transforming patient care with CentralCore EMR — secure, intuitive, and powerful.
           </p>
         </div>
       </section>

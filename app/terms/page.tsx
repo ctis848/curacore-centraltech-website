@@ -30,10 +30,10 @@ export default function TermsPage() {
       <section className="py-24 px-6 bg-teal-50">
         <div className="max-w-4xl mx-auto prose prose-lg text-gray-700">
           <h2 className="text-4xl font-black text-teal-900 mb-8">1. Acceptance of Terms</h2>
-          <p>By accessing or using CuraCore EMR ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, you may not use the Service.</p>
+          <p>By accessing or using CentralCore EMR ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, you may not use the Service.</p>
 
           <h2 className="text-4xl font-black text-teal-900 mb-8 mt-16">2. Description of Service</h2>
-          <p>CuraCore EMR is a cloud-based Electronic Medical Record (EMR) system provided by Central Tech Information Systems Ltd. for healthcare providers.</p>
+          <p>CentralCore EMR is a cloud-based Electronic Medical Record (EMR) system provided by Central Tech Information Systems Ltd. for healthcare providers.</p>
 
           <h2 className="text-4xl font-black text-teal-900 mb-8 mt-16">3. User Accounts & Licenses</h2>
           <p>You are responsible for maintaining the confidentiality of your account credentials. Licenses are non-transferable and limited to the purchased quantity of users/computers.</p>

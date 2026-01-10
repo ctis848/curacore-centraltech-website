@@ -43,9 +43,9 @@ export default function ContactPage() {
               <div className="text-6xl mb-6">✉️</div>
               <h3 className="text-3xl font-bold text-teal-900 mb-4">Email</h3>
               <p className="text-xl text-gray-700 leading-relaxed">
-                info@curacore.com<br />
-                support@curacore.com<br />
-                sales@curacore.com
+                info@CentralCore.com<br />
+                support@CentralCore.com<br />
+                sales@CentralCore.com
               </p>
             </div>
           </div>

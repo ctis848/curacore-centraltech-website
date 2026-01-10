@@ -24,8 +24,8 @@ export default function Navbar() {
           {/* Logo + Branding */}
           <Link href="/" className="flex items-center space-x-4">
             <Image
-              src="/logo.png"
-              alt="CTIS Technologies - CentralCore EMR"
+              src="/logo.png" // Replace with your real logo in /public/logo.png
+              alt="CentralCore EMR by CTIS Technologies"
               width={60}
               height={60}
               className="rounded-lg"
@@ -35,7 +35,7 @@ export default function Navbar() {
               <div className="text-2xl font-black leading-none">CentralCore</div>
               <div className="text-xs text-teal-200 tracking-wider">by CTIS Technologies</div>
             </div>
-            {/* Mobile: Only logo */}
+            {/* Mobile: Only brand name */}
             <div className="sm:hidden text-2xl font-black">CentralCore</div>
           </Link>
 
@@ -66,7 +66,7 @@ export default function Navbar() {
           </button>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Dropdown */}
         {open && (
           <div className="md:hidden bg-teal-600 px-4 py-6 space-y-4 text-center">
             {navLinks.map((link) => (

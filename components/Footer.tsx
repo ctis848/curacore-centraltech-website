@@ -16,9 +16,9 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 2: Products */}
+          {/* Column 2: Product */}
           <div>
-            <h4 className="text-lg font-bold mb-6 text-yellow-400">Products</h4>
+            <h4 className="text-lg font-bold mb-6 text-yellow-400">CentralCore EMR</h4>
             <ul className="space-y-3 text-teal-200">
               <li><Link href="/products" className="hover:text-yellow-400 transition">Features</Link></li>
               <li><Link href="/buy" className="hover:text-yellow-400 transition">Pricing & License</Link></li>
@@ -41,9 +41,9 @@ export default function Footer() {
             <h4 className="text-lg font-bold mb-6 text-yellow-400">Contact</h4>
             <p className="text-teal-200 leading-relaxed">
               Central Tech Information Systems Ltd.<br />
-              Port Harcourt, Nigeria<br />
+              Lagos, Nigeria<br />
               +234 805 931 8564<br />
-              info@curacore.com
+              info@centraltechinformationsystems.com
             </p>
           </div>
 
@@ -62,7 +62,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="border-t border-teal-800 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-teal-300">
           <div className="mb-4 md:mb-0">
-            <p>© 2025 Central Tech Information Systems Ltd. All rights reserved.</p>
+            <p>© 2026 Central Tech Information Systems Ltd. All rights reserved.</p>
           </div>
           <div className="flex flex-wrap justify-center gap-6">
             <Link href="#" className="hover:text-yellow-400">Facebook</Link>

@@ -12,7 +12,7 @@ export default function ResourcesPage() {
             Resources
           </h1>
           <p className="text-2xl md:text-3xl mb-12 font-light max-w-4xl mx-auto drop-shadow-lg">
-            Everything you need to succeed with CuraCore EMR — support, guides, stories, and updates
+            Everything you need to succeed with CentralCore EMR — support, guides, stories, and updates
           </p>
         </div>
       </section>
@@ -58,7 +58,7 @@ export default function ResourcesPage() {
                 Comparisons & Success Stories
               </h3>
               <p className="text-lg text-gray-700 text-center flex-1 leading-relaxed">
-                See how CuraCore compares to competitors and read real client success stories
+                See how CentralCore compares to competitors and read real client success stories
               </p>
               <span className="text-teal-600 font-bold mt-6 text-center">
                 Coming Soon →

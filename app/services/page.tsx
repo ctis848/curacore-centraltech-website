@@ -15,7 +15,7 @@ const services = [
   { title: "RFID Door/Gate System", image: "/showcase/rfid-access.jpg", desc: "RFID access control for secure entry to restricted areas like pharmacy and wards." },
   { title: "Digital Signage System", image: "/showcase/digital-signage.jpg", desc: "Digital signage and information displays for waiting areas, directions, and announcements." },
   { title: "Smart Automation System", image: "/showcase/smart-home.jpg", desc: "Smart automation solutions for staff quarters or integrated hospital facilities." },
-  { title: "CuraCore EMR Implementation", image: "/showcase/emr-implementation.jpg", desc: "Full installation, training, data migration, and ongoing support for CuraCore EMR." },
+  { title: "CentralCore EMR Implementation", image: "/showcase/emr-implementation.jpg", desc: "Full installation, training, data migration, and ongoing support for CentralCore EMR." },
 ];
 
 export default function ServicesPage() {

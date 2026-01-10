@@ -18,7 +18,7 @@ export default function AboutPage() {
 
         <div className="relative z-10 h-full flex flex-col justify-center items-center text-center text-white px-6">
           <h1 className="text-5xl md:text-7xl font-black mb-6 drop-shadow-2xl">
-            About CuraCore EMR
+            About CentralCore EMR
           </h1>
           <p className="text-2xl md:text-4xl mb-12 font-light max-w-4xl drop-shadow-lg">
             Empowering Healthcare Excellence Across Africa
@@ -38,10 +38,10 @@ export default function AboutPage() {
                 Founded in Port Harcourt, Nigeria, Central Tech Information Systems Ltd. recognized a critical need: modern hospitals and clinics were struggling with outdated paper records, inefficient workflows, and fragmented systems.
               </p>
               <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                We built CuraCore EMR from the ground up — a powerful, secure, and intuitive Electronic Medical Record system designed specifically for the realities of African healthcare.
+                We built CentralCore EMR from the ground up — a powerful, secure, and intuitive Electronic Medical Record system designed specifically for the realities of African healthcare.
               </p>
               <p className="text-xl text-gray-700 leading-relaxed">
-                Today, thousands of healthcare providers trust CuraCore to deliver better patient care, streamline operations, and drive digital transformation.
+                Today, thousands of healthcare providers trust CentralCore to deliver better patient care, streamline operations, and drive digital transformation.
               </p>
             </div>
             <div className="rounded-3xl overflow-hidden shadow-2xl border border-teal-100">
@@ -82,7 +82,7 @@ export default function AboutPage() {
       <section className="py-24 px-6 bg-teal-50">
         <div className="max-w-6xl mx-auto text-center">
           <h2 className="text-5xl md:text-6xl font-black text-teal-900 mb-16">
-            Why Healthcare Providers Choose CuraCore
+            Why Healthcare Providers Choose CentralCore
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             <div className="bg-white rounded-3xl shadow-xl p-10 border border-teal-100">

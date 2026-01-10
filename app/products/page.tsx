@@ -92,7 +92,7 @@ export default function ProductsPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-teal-800 to-teal-950 opacity-90"></div>
         <div className="relative max-w-6xl mx-auto text-center text-white">
           <h1 className="text-5xl md:text-7xl font-black mb-6 drop-shadow-2xl">
-            CuraCore EMR Features
+            CentralCore EMR Features
           </h1>
           <p className="text-2xl md:text-3xl mb-12 font-light max-w-4xl mx-auto drop-shadow-lg">
             A Complete Hospital Information System Built for Modern Healthcare Excellence
@@ -148,7 +148,7 @@ export default function ProductsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             <div className="bg-teal-900/50 backdrop-blur-sm rounded-3xl p-10 border border-teal-700">
               <p className="text-xl mb-8 italic leading-relaxed">
-                "CuraCore transformed our hospital operations. Patient care is faster, records are secure, and billing is seamless."
+                "CentralCore transformed our hospital operations. Patient care is faster, records are secure, and billing is seamless."
               </p>
               <p className="font-bold text-2xl text-yellow-400">
                 Dr. Adebayo — Lagos University Teaching Hospital
@@ -164,7 +164,7 @@ export default function ProductsPage() {
             </div>
             <div className="bg-teal-900/50 backdrop-blur-sm rounded-3xl p-10 border border-teal-700">
               <p className="text-xl mb-8 italic leading-relaxed">
-                "Ward management and pharmacy module are game-changers. Highly recommend CuraCore."
+                "Ward management and pharmacy module are game-changers. Highly recommend CentralCore."
               </p>
               <p className="font-bold text-2xl text-yellow-400">
                 Dr. Fatima — Reddington Hospital
@@ -181,7 +181,7 @@ export default function ProductsPage() {
             Ready to Modernize Your Healthcare Facility?
           </h2>
           <p className="text-2xl mb-12 max-w-3xl mx-auto">
-            Join hundreds of hospitals and clinics already using CuraCore EMR.
+            Join hundreds of hospitals and clinics already using CentralCore EMR.
           </p>
           <a
             href="/buy"

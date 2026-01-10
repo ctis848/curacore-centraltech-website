@@ -18,7 +18,7 @@ export default function BlogPage() {
 
         <div className="relative z-10 h-full flex flex-col justify-center items-center text-center text-white px-6">
           <h1 className="text-5xl md:text-7xl font-black mb-6 drop-shadow-2xl">
-            CuraCore Blog
+            CentralCore Blog
           </h1>
           <p className="text-2xl md:text-4xl mb-12 font-light max-w-4xl drop-shadow-lg">
             Insights, Tips & Updates from Healthcare IT Experts
@@ -33,7 +33,7 @@ export default function BlogPage() {
             Blog Coming Soon
           </h2>
           <p className="text-2xl text-gray-700 mb-16 leading-relaxed">
-            Stay tuned for expert articles on EMR best practices, Nigerian healthcare digitalization, patient data security, offline EMR tips, and success stories from hospitals using CuraCore.
+            Stay tuned for expert articles on EMR best practices, Nigerian healthcare digitalization, patient data security, offline EMR tips, and success stories from hospitals using CentralCore.
           </p>
           <p className="text-xl text-gray-600 mb-20">
             Topics include: Going Paperless, Training Your Staff, Regulatory Compliance, and more.

@@ -46,11 +46,11 @@ export default function BuyLicense() {
       metadata: {
         plan,
         quantity: quantities[plan],
-        source: 'curacore-emr-website',
+        source: 'CentralCore-emr-website',
       },
       onSuccess: (transaction: any) => {
         alert(
-          `Payment Successful! 🎉\n\nReference: ${transaction.reference}\n\nYou will receive your login details via email shortly.\nThank you for choosing CuraCore EMR!`
+          `Payment Successful! 🎉\n\nReference: ${transaction.reference}\n\nYou will receive your login details via email shortly.\nThank you for choosing CentralCore EMR!`
         );
         // Redirect to portal login with success
         window.location.href = `/portal/login?success=true&plan=${plan}&ref=${transaction.reference}`;
@@ -67,7 +67,7 @@ export default function BuyLicense() {
       <section className="py-32 px-6 bg-teal-50">
         <div className="max-w-7xl mx-auto text-center">
           <h1 className="text-6xl md:text-7xl font-black text-teal-900 mb-8 drop-shadow-lg">
-            Get CuraCore EMR Today
+            Get CentralCore EMR Today
           </h1>
           <p className="text-3xl text-teal-800 mb-20 max-w-4xl mx-auto">
             The #1 Hospital Information System in Africa — Secure, Powerful, Affordable

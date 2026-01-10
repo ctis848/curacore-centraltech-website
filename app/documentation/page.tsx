@@ -9,7 +9,7 @@ export default function DocumentationPage() {
       <section className="relative h-screen w-full">
         <Image
           src="/docs-hero.jpg"
-          alt="CuraCore EMR user interface and documentation"
+          alt="CentralCore EMR user interface and documentation"
           fill
           className="object-cover object-center"
           priority

@@ -9,10 +9,10 @@ export default function SupportPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-teal-800 to-teal-950 opacity-90"></div>
         <div className="relative max-w-6xl mx-auto text-center text-white">
           <h1 className="text-5xl md:text-7xl font-black mb-6 drop-shadow-2xl">
-            CuraCore Support Center
+            CentralCore Support Center
           </h1>
           <p className="text-2xl md:text-3xl mb-12 font-light max-w-4xl mx-auto drop-shadow-lg">
-            We're here to help you get the most out of CuraCore EMR
+            We're here to help you get the most out of CentralCore EMR
           </p>
         </div>
       </section>
@@ -31,7 +31,7 @@ export default function SupportPage() {
                 Get help from our expert team — email, phone, and documentation
               </p>
               <Link
-                href="mailto:support@curacore.com"
+                href="mailto:support@CentralCore.com"
                 className="block w-full bg-teal-800 text-white py-5 rounded-xl text-xl font-bold hover:bg-teal-700 mt-8 transition text-center"
               >
                 Email Us →
