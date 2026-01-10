@@ -11,6 +11,7 @@ interface Plan {
   description: string;
   features: string[];
   paystackProduct?: string;
+  userLimit: number | string; // Fixed: added missing property
 }
 
 export default function BuyPage() {
@@ -31,6 +32,7 @@ export default function BuyPage() {
         'Maximum 5 users (seats/licenses)',
       ],
       paystackProduct: 'CentralTechCore-Starter',
+      userLimit: 5,
     },
     {
       id: 'pro',
@@ -44,6 +46,7 @@ export default function BuyPage() {
         'Maximum 25 users (seats/licenses)',
       ],
       paystackProduct: 'CentralTechCore-Pro',
+      userLimit: 25,
     },
     {
       id: 'enterprise',
@@ -58,6 +61,7 @@ export default function BuyPage() {
         '20% annual support fee included',
       ],
       paystackProduct: 'CentralTechCore-Enterprise',
+      userLimit: 'Unlimited',
     },
   ];
 
