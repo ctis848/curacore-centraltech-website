@@ -15,22 +15,22 @@ export default function BuyPage() {
       price: 15, // USD per month
       currency: 'USD',
       description: 'Basic EMR features for small clinics',
-      features: ['Patient Records', 'Appointments', 'Basic Billing', '1 User'],
+      features: ['Patient Records', 'Appointments', 'Basic Billing', '5 User'],
       paystackProduct: 'CentralTechCore-Starter',
     },
     {
       id: 'pro',
       name: 'Pro',
-      price: 30,
+      price: 30, // USD per month
       currency: 'USD',
       description: 'Advanced features for medium hospitals',
-      features: ['All Starter + Lab Integration', 'Pharmacy Module', 'CCTV Monitoring', 'Up to 10 Users'],
+      features: ['All Starter + Lab Integration', 'Pharmacy Module', 'CCTV Monitoring', 'Up to 25 Users'],
       paystackProduct: 'CentralTechCore-Pro',
     },
     {
       id: 'enterprise',
       name: 'Enterprise',
-      price: 750,
+      price: 750, // USD one-time
       currency: 'USD',
       description: 'Unlimited access + annual support',
       features: ['All Pro + Unlimited Users', 'Custom Integration', 'Priority Support', '20% Annual Support'],
@@ -51,7 +51,7 @@ export default function BuyPage() {
         body: JSON.stringify({
           plan: selectedPlan.id,
           quantity,
-          amount: selectedPlan.price * quantity,
+          amount: selectedPlan.price * quantity, // in USD (Paystack converts)
           currency: 'USD',
           productName: selectedPlan.paystackProduct,
         }),
@@ -65,7 +65,6 @@ export default function BuyPage() {
         alert('Failed to start payment: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
-      // Fixed: Safely narrow the unknown error type
       const message =
         error instanceof Error
           ? error.message
