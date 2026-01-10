@@ -3,19 +3,33 @@
 
 import { useState } from 'react';
 
-export default function BuyPage() {
-  const [plan, setPlan] = useState('starter');
-  const [quantity, setQuantity] = useState(1);
-  const [loading, setLoading] = useState(false);
+interface Plan {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  description: string;
+  features: string[];
+  paystackProduct?: string;
+}
 
-  const plans = [
+export default function BuyPage() {
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('starter');
+  const [quantity, setQuantity] = useState<number>(1);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const plans: Plan[] = [
     {
       id: 'starter',
       name: 'Starter',
       price: 11000,
       currency: 'NGN',
-      description: 'Basic EMR features for small clinics',
-      features: ['Patient Records', 'Appointments', 'Basic Billing', '1 User'],
+      description: 'Full access to all CentralCore EMR features — perfect for small clinics',
+      features: [
+        'Complete EMR: Patient Records, Appointments, Billing, Pharmacy, Lab, Radiology, Inventory, Wards, Nurses Module, Messaging, HL7, Reports & more',
+        'All modules and integrations included',
+        'Maximum 5 users (seats/licenses)',
+      ],
       paystackProduct: 'CentralTechCore-Starter',
     },
     {
@@ -23,8 +37,12 @@ export default function BuyPage() {
       name: 'Pro',
       price: 22000,
       currency: 'NGN',
-      description: 'Advanced features for medium hospitals',
-      features: ['All Starter + Lab Integration', 'Pharmacy Module', 'CCTV Monitoring', 'Up to 25 Users'],
+      description: 'Full access to all CentralCore EMR features — ideal for growing hospitals',
+      features: [
+        'Complete EMR: Patient Records, Appointments, Billing, Pharmacy, Lab, Radiology, Inventory, Wards, Nurses Module, Messaging, HL7, Reports & more',
+        'All modules and integrations included',
+        'Maximum 25 users (seats/licenses)',
+      ],
       paystackProduct: 'CentralTechCore-Pro',
     },
     {
@@ -32,80 +50,107 @@ export default function BuyPage() {
       name: 'Enterprise',
       price: 578550,
       currency: 'NGN',
-      description: 'Unlimited access + annual support',
-      features: ['All Pro + Unlimited Users', 'Custom Integration', 'Priority Support', '20% Annual Support'],
+      description: 'Full access to all CentralCore EMR features — for large institutions & networks',
+      features: [
+        'Complete EMR: Patient Records, Appointments, Billing, Pharmacy, Lab, Radiology, Inventory, Wards, Nurses Module, Messaging, HL7, Reports & more',
+        'All modules and integrations included',
+        'Unlimited users (seats/licenses)',
+        '20% annual support fee included',
+      ],
       paystackProduct: 'CentralTechCore-Enterprise',
     },
   ];
 
-  const selectedPlan = plans.find((p) => p.id === plan);
+  const selectedPlan = plans.find((p) => p.id === selectedPlanId);
 
   const handleProceed = async () => {
-    if (!selectedPlan) return;
-    setLoading(true);
+    if (!selectedPlan) {
+      alert('Please select a plan first');
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
       const response = await fetch('/api/create-paystack-checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           plan: selectedPlan.id,
           quantity,
           amount: selectedPlan.price * quantity,
-          currency: 'NGN',
-          productName: selectedPlan.paystackProduct,
+          currency: selectedPlan.currency,
+          productName: selectedPlan.paystackProduct || selectedPlan.name,
         }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Payment server error (${response.status})`);
+      }
+
       const data = await response.json();
 
-      if (data.authorization_url) {
+      if (data.authorization_url && typeof data.authorization_url === 'string') {
         window.location.href = data.authorization_url;
       } else {
-        alert('Failed to start payment: ' + (data.error || 'Unknown error'));
+        throw new Error('No valid authorization URL received from server');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       const message =
         error instanceof Error
           ? error.message
           : typeof error === 'string'
             ? error
-            : 'Unknown error occurred';
+            : 'An unknown error occurred during payment initiation';
       alert(`Error connecting to payment: ${message}`);
+      console.error('Payment initiation error:', error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white py-16 px-6">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-5xl md:text-6xl font-black text-teal-900 mb-12 text-center">
+        <h1 className="text-5xl md:text-6xl font-black text-teal-900 mb-6 text-center">
           Buy CentralCore EMR License
         </h1>
 
+        <p className="text-xl text-gray-700 mb-12 text-center max-w-4xl mx-auto">
+          All plans include <strong>full access</strong> to every CentralCore EMR feature.  
+          The only difference is the maximum number of users (seats/licenses).  
+          Upgrade anytime for more users — no feature restrictions!
+        </p>
+
+        {/* Plans Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
           {plans.map((p) => (
             <div
               key={p.id}
-              onClick={() => setPlan(p.id)}
-              className={`p-8 rounded-3xl shadow-2xl cursor-pointer transition-all duration-300 border-4 ${
-                plan === p.id
+              onClick={() => setSelectedPlanId(p.id)}
+              className={`p-8 rounded-3xl shadow-2xl cursor-pointer transition-all duration-300 border-4 flex flex-col ${
+                selectedPlanId === p.id
                   ? 'border-yellow-400 bg-white scale-105'
                   : 'border-transparent bg-white/80 hover:scale-105'
               }`}
             >
               <h3 className="text-3xl font-bold text-teal-900 mb-4">{p.name}</h3>
-              <p className="text-4xl font-black text-yellow-600 mb-6">
+              <p className="text-4xl font-black text-yellow-600 mb-2">
                 ₦{p.price.toLocaleString()} {p.currency}
                 {p.id !== 'enterprise' && <span className="text-xl font-normal">/month</span>}
-                {p.id === 'enterprise' && <span className="text-xl font-normal"> one-time</span>}
               </p>
-              <p className="text-gray-700 mb-6">{p.description}</p>
-              <ul className="space-y-3 text-gray-700">
-                {p.features.map((f, i) => (
-                  <li key={i} className="flex items-center">
-                    <span className="text-green-500 mr-2">✓</span> {f}
+              <p className="text-lg font-medium text-teal-700 mb-6">
+                {p.userLimit === 'Unlimited' ? 'Unlimited Users' : `Max ${p.userLimit} Users`}
+              </p>
+              <p className="text-gray-600 mb-6 italic flex-grow">{p.description}</p>
+              <ul className="space-y-3 text-gray-700 mt-auto">
+                {p.features.map((feature, index) => (
+                  <li key={index} className="flex items-center">
+                    <span className="text-green-500 mr-2">✓</span>
+                    {feature}
                   </li>
                 ))}
               </ul>
@@ -113,39 +158,49 @@ export default function BuyPage() {
           ))}
         </div>
 
+        {/* Quantity Selector */}
         <div className="max-w-md mx-auto text-center mb-12">
           <label className="block text-xl font-bold text-teal-900 mb-4">
             Number of Licenses / Users
           </label>
           <div className="flex items-center justify-center gap-6">
             <button
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              type="button"
+              onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
               className="bg-teal-700 text-white w-12 h-12 rounded-full text-2xl font-bold hover:bg-teal-800 transition"
+              aria-label="Decrease quantity"
             >
-              -
+              −
             </button>
-            <span className="text-4xl font-black text-teal-900">{quantity}</span>
+            <span className="text-4xl font-black text-teal-900 w-16 text-center">{quantity}</span>
             <button
-              onClick={() => setQuantity(quantity + 1)}
+              type="button"
+              onClick={() => setQuantity((prev) => prev + 1)}
               className="bg-teal-700 text-white w-12 h-12 rounded-full text-2xl font-bold hover:bg-teal-800 transition"
+              aria-label="Increase quantity"
             >
               +
             </button>
           </div>
         </div>
 
+        {/* Total & Proceed */}
         <div className="text-center">
           {selectedPlan && (
             <p className="text-3xl font-bold text-teal-900 mb-6">
               Total: ₦{(selectedPlan.price * quantity).toLocaleString()} {selectedPlan.currency}
             </p>
           )}
+
           <button
+            type="button"
             onClick={handleProceed}
-            disabled={loading || !selectedPlan}
-            className="bg-yellow-400 text-teal-900 px-16 py-8 rounded-full text-3xl font-bold hover:bg-yellow-300 transition shadow-2xl disabled:opacity-50 mx-auto block"
+            disabled={isLoading || !selectedPlan}
+            className={`bg-yellow-400 text-teal-900 px-16 py-8 rounded-full text-3xl font-bold transition shadow-2xl mx-auto block ${
+              isLoading || !selectedPlan ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-300'
+            }`}
           >
-            {loading ? 'Processing...' : 'Proceed to Payment'}
+            {isLoading ? 'Processing...' : 'Proceed to Payment'}
           </button>
         </div>
 
