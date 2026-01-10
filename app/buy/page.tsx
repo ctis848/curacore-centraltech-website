@@ -3,16 +3,26 @@
 
 import { useState } from 'react';
 
-export default function BuyPage() {
-  const [plan, setPlan] = useState('starter');
-  const [quantity, setQuantity] = useState(1);
-  const [loading, setLoading] = useState(false);
+interface Plan {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  description: string;
+  features: string[];
+  paystackProduct?: string; // Optional if not always needed
+}
 
-  const plans = [
+export default function BuyPage() {
+  const [plan, setPlan] = useState<string>('starter');
+  const [quantity, setQuantity] = useState<number>(1);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const plans: Plan[] = [
     {
       id: 'starter',
       name: 'Starter',
-      price: 11000, // ₦11,000 per month
+      price: 11000,
       currency: 'NGN',
       description: 'Basic EMR features for small clinics',
       features: ['Patient Records', 'Appointments', 'Basic Billing', '1 User'],
@@ -21,7 +31,7 @@ export default function BuyPage() {
     {
       id: 'pro',
       name: 'Pro',
-      price: 22000, // ₦22,000 per month
+      price: 22000,
       currency: 'NGN',
       description: 'Advanced features for medium hospitals',
       features: ['All Starter + Lab Integration', 'Pharmacy Module', 'CCTV Monitoring', 'Up to 25 Users'],
@@ -30,7 +40,7 @@ export default function BuyPage() {
     {
       id: 'enterprise',
       name: 'Enterprise',
-      price: 578550, // ₦578,550 one-time
+      price: 578550,
       currency: 'NGN',
       description: 'Unlimited access + annual support',
       features: ['All Pro + Unlimited Users', 'Custom Integration', 'Priority Support', '20% Annual Support'],
@@ -41,7 +51,11 @@ export default function BuyPage() {
   const selectedPlan = plans.find((p) => p.id === plan);
 
   const handleProceed = async () => {
-    if (!selectedPlan) return;
+    if (!selectedPlan) {
+      alert('Please select a plan');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -51,18 +65,23 @@ export default function BuyPage() {
         body: JSON.stringify({
           plan: selectedPlan.id,
           quantity,
-          amount: selectedPlan.price * quantity, // in NGN
-          currency: 'NGN', // ← Fixed to NGN
-          productName: selectedPlan.paystackProduct,
+          amount: selectedPlan.price * quantity,
+          currency: selectedPlan.currency,
+          productName: selectedPlan.paystackProduct || selectedPlan.name,
         }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Payment initiation failed');
+      }
 
       const data = await response.json();
 
       if (data.authorization_url) {
         window.location.href = data.authorization_url;
       } else {
-        alert('Failed to start payment: ' + (data.error || 'Unknown error'));
+        alert('Failed to start payment: No authorization URL received');
       }
     } catch (error) {
       const message =
@@ -123,6 +142,7 @@ export default function BuyPage() {
             <button
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
               className="bg-teal-700 text-white w-12 h-12 rounded-full text-2xl font-bold hover:bg-teal-800 transition"
+              aria-label="Decrease quantity"
             >
               -
             </button>
@@ -130,6 +150,7 @@ export default function BuyPage() {
             <button
               onClick={() => setQuantity(quantity + 1)}
               className="bg-teal-700 text-white w-12 h-12 rounded-full text-2xl font-bold hover:bg-teal-800 transition"
+              aria-label="Increase quantity"
             >
               +
             </button>
