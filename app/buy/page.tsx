@@ -21,7 +21,7 @@ export default function BuyPage() {
     {
       id: 'pro',
       name: 'Pro',
-      price: 30, // USD per month
+      price: 30,
       currency: 'USD',
       description: 'Advanced features for medium hospitals',
       features: ['All Starter + Lab Integration', 'Pharmacy Module', 'CCTV Monitoring', 'Up to 10 Users'],
@@ -30,7 +30,7 @@ export default function BuyPage() {
     {
       id: 'enterprise',
       name: 'Enterprise',
-      price: 750, // USD one-time
+      price: 750,
       currency: 'USD',
       description: 'Unlimited access + annual support',
       features: ['All Pro + Unlimited Users', 'Custom Integration', 'Priority Support', '20% Annual Support'],
@@ -51,7 +51,7 @@ export default function BuyPage() {
         body: JSON.stringify({
           plan: selectedPlan.id,
           quantity,
-          amount: selectedPlan.price * quantity, // in USD dollars (Paystack will convert)
+          amount: selectedPlan.price * quantity,
           currency: 'USD',
           productName: selectedPlan.paystackProduct,
         }),
@@ -65,7 +65,14 @@ export default function BuyPage() {
         alert('Failed to start payment: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
-      alert('Error connecting to payment: ' + error.message);
+      // Fixed: Safely narrow the unknown error type
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : 'Unknown error occurred';
+      alert(`Error connecting to payment: ${message}`);
     } finally {
       setLoading(false);
     }
