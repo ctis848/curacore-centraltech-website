@@ -12,17 +12,17 @@ export default function BuyPage() {
     {
       id: 'starter',
       name: 'Starter',
-      price: 15, // USD per month
-      currency: 'USD',
+      price: 11000, // ₦11,000 per month
+      currency: 'NGN',
       description: 'Basic EMR features for small clinics',
-      features: ['Patient Records', 'Appointments', 'Basic Billing', '5 User'],
+      features: ['Patient Records', 'Appointments', 'Basic Billing', '1 User'],
       paystackProduct: 'CentralTechCore-Starter',
     },
     {
       id: 'pro',
       name: 'Pro',
-      price: 30, // USD per month
-      currency: 'USD',
+      price: 22000, // ₦22,000 per month
+      currency: 'NGN',
       description: 'Advanced features for medium hospitals',
       features: ['All Starter + Lab Integration', 'Pharmacy Module', 'CCTV Monitoring', 'Up to 25 Users'],
       paystackProduct: 'CentralTechCore-Pro',
@@ -30,8 +30,8 @@ export default function BuyPage() {
     {
       id: 'enterprise',
       name: 'Enterprise',
-      price: 750, // USD one-time
-      currency: 'USD',
+      price: 578550, // ₦578,550 one-time
+      currency: 'NGN',
       description: 'Unlimited access + annual support',
       features: ['All Pro + Unlimited Users', 'Custom Integration', 'Priority Support', '20% Annual Support'],
       paystackProduct: 'CentralTechCore-Enterprise',
@@ -51,8 +51,8 @@ export default function BuyPage() {
         body: JSON.stringify({
           plan: selectedPlan.id,
           quantity,
-          amount: selectedPlan.price * quantity, // in USD (Paystack converts)
-          currency: 'USD',
+          amount: selectedPlan.price * quantity, // in NGN
+          currency: 'NGN', // ← Fixed to NGN
           productName: selectedPlan.paystackProduct,
         }),
       });
@@ -98,7 +98,7 @@ export default function BuyPage() {
             >
               <h3 className="text-3xl font-bold text-teal-900 mb-4">{p.name}</h3>
               <p className="text-4xl font-black text-yellow-600 mb-6">
-                ${p.price.toLocaleString()} {p.currency}
+                ₦{p.price.toLocaleString()} {p.currency}
                 {p.id !== 'enterprise' && <span className="text-xl font-normal">/month</span>}
                 {p.id === 'enterprise' && <span className="text-xl font-normal"> one-time</span>}
               </p>
@@ -140,7 +140,7 @@ export default function BuyPage() {
         <div className="text-center">
           {selectedPlan && (
             <p className="text-3xl font-bold text-teal-900 mb-6">
-              Total: ${ (selectedPlan.price * quantity).toLocaleString() } {selectedPlan.currency}
+              Total: ₦{(selectedPlan.price * quantity).toLocaleString()} {selectedPlan.currency}
             </p>
           )}
           <button
