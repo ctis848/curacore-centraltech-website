@@ -11,7 +11,7 @@ interface Plan {
   description: string;
   features: string[];
   paystackProduct?: string;
-  userLimit: number | string; // Fixed: added missing property
+  userLimit: number | string;
 }
 
 export default function BuyPage() {
@@ -119,6 +119,7 @@ export default function BuyPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white py-16 px-6">
       <div className="max-w-6xl mx-auto">
+        <h2 className="text-5xl text-red-600 font-black text-center mb-8">TEST BUILD - CHANGES ARE LIVE NOW</h2>
         <h1 className="text-5xl md:text-6xl font-black text-teal-900 mb-6 text-center">
           Buy CentralCore EMR License
         </h1>
