@@ -22,6 +22,7 @@ export async function POST(request: Request) {
   }
 
   if (event.type === 'checkout.session.completed') {
+    // Existing logic for new purchase
     const session = event.data.object as Stripe.Checkout.Session;
     const email = session.customer_email || session.customer_details?.email;
     const plan = session.metadata?.plan || 'starter';
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
         quantity,
         stripe_customer_id: customerId,
         role: existingUser?.user_metadata?.role || 'user',
+        license_status: 'active', // Set initial status
       };
 
       if (existingUser) {
@@ -52,6 +54,23 @@ export async function POST(request: Request) {
           user_metadata: updatedMetadata,
         });
       }
+    }
+  } else if (event.type === 'invoice.payment_failed' || event.type === 'subscription.deleted') {
+    // Subscription expired or payment failed — set to read-only
+    const subscription = event.data.object as Stripe.Subscription;
+    const customerId = subscription.customer as string;
+
+    const { data: user } = await supabase
+      .from('users') // Assume users table
+      .select('*')
+      .eq('stripe_customer_id', customerId)
+      .single();
+
+    if (user) {
+      await supabase
+        .from('users')
+        .update({ license_status: 'read-only' })
+        .eq('id', user.id);
     }
   }
 

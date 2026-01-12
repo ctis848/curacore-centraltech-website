@@ -5,9 +5,9 @@ export default function Footer() {
   return (
     <footer className="bg-teal-950 text-white py-16 mt-20">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mb-12">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mb-12 divide-x divide-teal-800 md:divide-x-0">
           {/* Column 1: Company */}
-          <div>
+          <div className="md:pr-6">
             <h4 className="text-lg font-bold mb-6 text-yellow-400">Company</h4>
             <ul className="space-y-3 text-teal-200">
               <li><Link href="/about" className="hover:text-yellow-400 transition">About Us</Link></li>
@@ -17,17 +17,17 @@ export default function Footer() {
           </div>
 
           {/* Column 2: Product */}
-          <div>
+          <div className="md:pr-6 md:border-l md:border-teal-800">
             <h4 className="text-lg font-bold mb-6 text-yellow-400">CentralCore EMR</h4>
             <ul className="space-y-3 text-teal-200">
               <li><Link href="/products" className="hover:text-yellow-400 transition">Features</Link></li>
               <li><Link href="/buy" className="hover:text-yellow-400 transition">Pricing & License</Link></li>
-              <li><Link href="/portal" className="hover:text-yellow-400 transition">Customer Portal</Link></li>
+              <li><Link href="/portal/login" className="hover:text-yellow-400 transition">Customer Portal</Link></li>
             </ul>
           </div>
 
           {/* Column 3: Resources */}
-          <div>
+          <div className="md:pr-6 md:border-l md:border-teal-800">
             <h4 className="text-lg font-bold mb-6 text-yellow-400">Resources</h4>
             <ul className="space-y-3 text-teal-200">
               <li><Link href="/support" className="hover:text-yellow-400 transition">Support</Link></li>
@@ -37,7 +37,7 @@ export default function Footer() {
           </div>
 
           {/* Column 4: Contact */}
-          <div>
+          <div className="md:pr-6 md:border-l md:border-teal-800">
             <h4 className="text-lg font-bold mb-6 text-yellow-400">Contact</h4>
             <p className="text-teal-200 leading-relaxed">
               Central Tech Information Systems Ltd.<br />
@@ -48,7 +48,7 @@ export default function Footer() {
           </div>
 
           {/* Column 5: Trusted By */}
-          <div>
+          <div className="md:border-l md:border-teal-800 md:pl-6">
             <h4 className="text-lg font-bold mb-6 text-yellow-400">Trusted By</h4>
             <ul className="space-y-3 text-teal-200 text-sm">
               <li>• Prime Medical Consultants</li>

@@ -6,7 +6,8 @@ import { useState } from 'react';
 interface Plan {
   id: string;
   name: string;
-  price: number;
+  priceMonthly: number;
+  priceYearly?: number; // optional - if not set, falls back to 12×monthly
   currency: string;
   description: string;
   features: string[];
@@ -17,13 +18,14 @@ interface Plan {
 export default function BuyPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<string>('starter');
   const [quantity, setQuantity] = useState<number>(1);
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const plans: Plan[] = [
     {
       id: 'starter',
       name: 'Starter',
-      price: 11000,
+      priceMonthly: 11000,
       currency: 'NGN',
       description: 'Full access to all CentralCore EMR features — perfect for small clinics',
       features: [
@@ -37,7 +39,7 @@ export default function BuyPage() {
     {
       id: 'pro',
       name: 'Pro',
-      price: 22000,
+      priceMonthly: 22000,
       currency: 'NGN',
       description: 'Full access to all CentralCore EMR features — ideal for growing hospitals',
       features: [
@@ -51,7 +53,7 @@ export default function BuyPage() {
     {
       id: 'enterprise',
       name: 'Enterprise',
-      price: 578550,
+      priceMonthly: 578550, // one-time, so yearly = monthly
       currency: 'NGN',
       description: 'Full access to all CentralCore EMR features — for large institutions & networks',
       features: [
@@ -67,6 +69,15 @@ export default function BuyPage() {
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
 
+  // Calculate current price depending on billing period
+  const getCurrentPrice = (p: Plan) => {
+    if (billingPeriod === 'yearly') {
+      // 20% discount for yearly (if priceYearly not set, calculate 12×monthly×0.8)
+      return p.priceYearly ?? Math.round(p.priceMonthly * 12 * 0.8);
+    }
+    return p.priceMonthly;
+  };
+
   const handleProceed = async () => {
     if (!selectedPlan) {
       alert('Please select a plan first');
@@ -78,15 +89,14 @@ export default function BuyPage() {
     try {
       const response = await fetch('/api/create-paystack-checkout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           plan: selectedPlan.id,
           quantity,
-          amount: selectedPlan.price * quantity,
+          amount: getCurrentPrice(selectedPlan) * quantity,
           currency: selectedPlan.currency,
           productName: selectedPlan.paystackProduct || selectedPlan.name,
+          billingPeriod,
         }),
       });
 
@@ -119,7 +129,6 @@ export default function BuyPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white py-16 px-6">
       <div className="max-w-6xl mx-auto">
-        <h2 className="text-5xl text-red-600 font-black text-center mb-8">TEST BUILD - CHANGES ARE LIVE NOW</h2>
         <h1 className="text-5xl md:text-6xl font-black text-teal-900 mb-6 text-center">
           Buy CentralCore EMR License
         </h1>
@@ -129,6 +138,34 @@ export default function BuyPage() {
           The only difference is the maximum number of users (seats/licenses).  
           Upgrade anytime for more users — no feature restrictions!
         </p>
+
+        {/* Billing Period Switch */}
+        <div className="max-w-md mx-auto mb-12 text-center">
+          <div className="inline-flex rounded-full bg-teal-100 p-1">
+            <button
+              type="button"
+              onClick={() => setBillingPeriod('monthly')}
+              className={`px-6 py-3 rounded-full text-lg font-medium transition-all ${
+                billingPeriod === 'monthly'
+                  ? 'bg-teal-700 text-white shadow-lg'
+                  : 'text-teal-700 hover:bg-teal-200'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingPeriod('yearly')}
+              className={`px-6 py-3 rounded-full text-lg font-medium transition-all ${
+                billingPeriod === 'yearly'
+                  ? 'bg-yellow-400 text-teal-900 shadow-lg'
+                  : 'text-teal-700 hover:bg-teal-200'
+              }`}
+            >
+              Annually (20% off)
+            </button>
+          </div>
+        </div>
 
         {/* Plans Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
@@ -144,8 +181,12 @@ export default function BuyPage() {
             >
               <h3 className="text-3xl font-bold text-teal-900 mb-4">{p.name}</h3>
               <p className="text-4xl font-black text-yellow-600 mb-2">
-                ₦{p.price.toLocaleString()} {p.currency}
-                {p.id !== 'enterprise' && <span className="text-xl font-normal">/month</span>}
+                ₦{getCurrentPrice(p).toLocaleString()} {p.currency}
+                {p.id !== 'enterprise' && (
+                  <span className="text-xl font-normal">
+                    /{billingPeriod === 'yearly' ? 'year' : 'month'}
+                  </span>
+                )}
               </p>
               <p className="text-lg font-medium text-teal-700 mb-6">
                 {p.userLimit === 'Unlimited' ? 'Unlimited Users' : `Max ${p.userLimit} Users`}
@@ -193,7 +234,7 @@ export default function BuyPage() {
         <div className="text-center">
           {selectedPlan && (
             <p className="text-3xl font-bold text-teal-900 mb-6">
-              Total: ₦{(selectedPlan.price * quantity).toLocaleString()} {selectedPlan.currency}
+              Total: ₦{(getCurrentPrice(selectedPlan) * quantity).toLocaleString()} {selectedPlan.currency}
             </p>
           )}
 

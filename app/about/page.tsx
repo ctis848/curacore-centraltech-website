@@ -26,7 +26,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Company Story */}
+      {/* Company Story - More Powerful & Inspiring */}
       <section className="py-24 px-6 bg-teal-50">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
@@ -35,13 +35,13 @@ export default function AboutPage() {
                 Our Story
               </h2>
               <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                Founded in Port Harcourt, Nigeria, Central Tech Information Systems Ltd. recognized a critical need: modern hospitals and clinics were struggling with outdated paper records, inefficient workflows, and fragmented systems.
+                Founded in the vibrant city of <strong>Lagos, Nigeria</strong> in 2025, Central Tech Information Systems Ltd. was born from a deep frustration: talented doctors and nurses across Africa were spending more time fighting paper chaos than saving lives.
               </p>
               <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                We built CentralCore EMR from the ground up — a powerful, secure, and intuitive Electronic Medical Record system designed specifically for the realities of African healthcare.
+                We refused to accept that reality. With a burning passion to transform healthcare, we created <strong>CentralCore EMR</strong> — not just another software, but a powerful, reliable, and proudly African-built solution that puts doctors back in control and patients first.
               </p>
-              <p className="text-xl text-gray-700 leading-relaxed">
-                Today, thousands of healthcare providers trust CentralCore to deliver better patient care, streamline operations, and drive digital transformation.
+              <p className="text-xl text-gray-700 leading-relaxed font-semibold">
+                Today, thousands of healthcare heroes trust CentralCore to deliver faster, safer, and smarter care — proving that world-class technology can be born right here in Lagos and change the continent.
               </p>
             </div>
             <div className="rounded-3xl overflow-hidden shadow-2xl border border-teal-100">
@@ -62,7 +62,7 @@ export default function AboutPage() {
                 Our Mission
               </h3>
               <p className="text-xl text-gray-700 leading-relaxed">
-                To empower healthcare providers with innovative, reliable, and affordable technology that improves patient outcomes and transforms medical practice across Africa.
+                To equip every healthcare provider in Africa with secure, affordable, and powerful digital tools that save time, reduce errors, and dramatically improve patient outcomes — no matter the size of the facility.
               </p>
             </div>
 
@@ -71,7 +71,7 @@ export default function AboutPage() {
                 Our Vision
               </h3>
               <p className="text-xl text-gray-700 leading-relaxed">
-                A future where every hospital and clinic in Africa uses digital tools to deliver world-class care — efficiently, securely, and compassionately.
+                A continent where no patient suffers because of outdated records, where every doctor has instant access to life-saving information, and where African healthcare stands shoulder-to-shoulder with the best in the world — powered by technology built right here at home.
               </p>
             </div>
           </div>
@@ -88,30 +88,30 @@ export default function AboutPage() {
             <div className="bg-white rounded-3xl shadow-xl p-10 border border-teal-100">
               <div className="text-6xl mb-6">🇳🇬</div>
               <h3 className="text-3xl font-bold text-teal-900 mb-4">
-                Built for Africa
+                Proudly Built in Nigeria
               </h3>
               <p className="text-lg text-gray-700">
-                Designed with local needs in mind — offline capability, power reliability, and Nigerian regulatory compliance.
+                Designed by Nigerians, for Nigerians — understanding local challenges like power, connectivity, and regulation from day one.
               </p>
             </div>
 
             <div className="bg-white rounded-3xl shadow-xl p-10 border border-teal-100">
               <div className="text-6xl mb-6">🔒</div>
               <h3 className="text-3xl font-bold text-teal-900 mb-4">
-                Secure & Compliant
+                Maximum Security & Privacy
               </h3>
               <p className="text-lg text-gray-700">
-                Bank-level encryption, HIPAA-inspired standards, and full data sovereignty in Nigeria.
+                Bank-grade encryption, data stays in Nigeria, compliant with NDPR & global best practices — your patients' data is sacred.
               </p>
             </div>
 
             <div className="bg-white rounded-3xl shadow-xl p-10 border border-teal-100">
-              <div className="text-6xl mb-6">👩‍⚕️</div>
+              <div className="text-6xl mb-6">⚡</div>
               <h3 className="text-3xl font-bold text-teal-900 mb-4">
-                Doctor-Approved
+                Fast, Intuitive & Life-Saving
               </h3>
               <p className="text-lg text-gray-700">
-                Created with input from Nigerian physicians and nurses for intuitive, time-saving workflows.
+                Built with real doctors and nurses — workflows that save hours every day and help you focus on what matters: healing people.
               </p>
             </div>
           </div>

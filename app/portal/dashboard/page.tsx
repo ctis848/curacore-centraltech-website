@@ -2,168 +2,163 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client (use env vars)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-interface UserData {
-  email: string | undefined;
-  plan?: string;
-  quantity?: number;
-  license_status?: string;
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function DashboardPage() {
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const [activeLicenses, setActiveLicenses] = useState<any[]>([]);
+  const [nonActiveLicenses, setNonActiveLicenses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
+    const fetchData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-        if (!user) {
-          setError('No authenticated user found');
-          setLoading(false);
-          return;
-        }
+      setUser(user);
 
-        // Fetch additional user metadata from Supabase (if you have a users table)
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles') // or 'users' — adjust table name
-          .select('plan, quantity, license_status')
-          .eq('id', user.id)
-          .single();
+      const { data: licenses } = await supabase
+        .from('licenses')
+        .select('*')
+        .eq('user_id', user.id);
 
-        if (profileError) throw profileError;
-
-        setUserData({
-          email: user.email || undefined,
-          plan: profile?.plan || 'Starter',
-          quantity: profile?.quantity || 1,
-          license_status: profile?.license_status || 'active',
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load user data');
-      } finally {
-        setLoading(false);
-      }
+      setActiveLicenses(licenses?.filter(l => l.active) || []);
+      setNonActiveLicenses(licenses?.filter(l => !l.active) || []);
+      setLoading(false);
     };
 
-    fetchUser();
-
-    // Cleanup (optional)
-    return () => {
-      // Any cleanup if needed
-    };
+    fetchData();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-2xl text-teal-900">Loading dashboard...</p>
-      </div>
-    );
-  }
+  const handleRevoke = async (licenseId: string) => {
+    if (!confirm('Revoke this license?')) return;
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-2xl text-red-600">Error: {error}</p>
-      </div>
-    );
-  }
+    const { error } = await supabase
+      .from('licenses')
+      .update({ active: false, machine_id: null })
+      .eq('id', licenseId);
+
+    if (error) {
+      alert('Revoke failed: ' + error.message);
+    } else {
+      alert('License revoked successfully');
+      // Refresh list
+      setActiveLicenses(prev => prev.filter(l => l.id !== licenseId));
+    }
+  };
+
+  const handleActivate = async (licenseId: string, newMachineId: string) => {
+    // In real app, get machineId from client device fingerprint
+    const { error } = await supabase
+      .from('licenses')
+      .update({
+        active: true,
+        machine_id: newMachineId,
+        activated_at: new Date().toISOString(),
+      })
+      .eq('id', licenseId);
+
+    if (error) {
+      alert('Activation failed: ' + error.message);
+    } else {
+      alert('License activated on new computer');
+      // Refresh list
+      setNonActiveLicenses(prev => prev.filter(l => l.id !== licenseId));
+      setActiveLicenses(prev => [...prev, { id: licenseId, machine_id: newMachineId }]);
+    }
+  };
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   return (
-    <div className="min-h-screen p-8 bg-gradient-to-b from-teal-50 to-white">
-      <h1 className="text-5xl font-black text-teal-900 mb-12 text-center">
-        CentralCore Client Dashboard
-      </h1>
+    <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white py-12 px-6">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-5xl font-black text-teal-900 mb-12 text-center">
+          CentralCore Client Dashboard
+        </h1>
 
-      {/* Welcome / User Info */}
-      <div className="max-w-5xl mx-auto mb-12 text-center">
-        <p className="text-2xl text-teal-800">
-          Welcome back, {userData?.email || 'User'}
-        </p>
-        <p className="text-xl text-teal-700 mt-2">
-          Current Plan: <strong>{userData?.plan}</strong> • 
-          Licenses: <strong>{userData?.quantity}</strong> • 
-          Status: <strong className={userData?.license_status === 'active' ? 'text-green-600' : 'text-red-600'}>
-            {userData?.license_status?.toUpperCase()}
-          </strong>
-        </p>
+        {/* License Tabs */}
+        <div className="bg-white rounded-3xl shadow-2xl p-8">
+          <h2 className="text-3xl font-bold text-teal-900 mb-8">License Management</h2>
+
+          {/* Active Licenses */}
+          <div className="mb-12">
+            <h3 className="text-2xl font-bold text-teal-900 mb-4">Active Licenses</h3>
+            {activeLicenses.length === 0 ? (
+              <p className="text-gray-600">No active licenses yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-teal-100">
+                      <th className="p-4">License ID</th>
+                      <th className="p-4">Machine ID</th>
+                      <th className="p-4">Activated</th>
+                      <th className="p-4">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeLicenses.map(l => (
+                      <tr key={l.id} className="border-b">
+                        <td className="p-4">{l.id}</td>
+                        <td className="p-4">{l.machine_id || '—'}</td>
+                        <td className="p-4">{l.activated_at ? new Date(l.activated_at).toLocaleDateString() : '—'}</td>
+                        <td className="p-4">
+                          <button
+                            onClick={() => handleRevoke(l.id)}
+                            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                          >
+                            Revoke
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Non-Active / Available Licenses */}
+          <div>
+            <h3 className="text-2xl font-bold text-teal-900 mb-4">Purchased Non-Active Licenses</h3>
+            {nonActiveLicenses.length === 0 ? (
+              <p className="text-gray-600">No available licenses.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-teal-100">
+                      <th className="p-4">License ID</th>
+                      <th className="p-4">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {nonActiveLicenses.map(l => (
+                      <tr key={l.id} className="border-b">
+                        <td className="p-4">{l.id}</td>
+                        <td className="p-4">
+                          <button
+                            onClick={() => handleActivate(l.id, 'new-machine-id-placeholder')}
+                            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                          >
+                            Activate on New Computer
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-
-      {/* Billing & Invoices Section */}
-      <section className="bg-white rounded-3xl p-8 shadow-2xl border border-teal-100 max-w-5xl mx-auto">
-        <h2 className="text-4xl font-bold text-teal-900 mb-8 text-center">
-          Billing & Invoices
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-teal-50 p-6 rounded-2xl text-center">
-            <h3 className="text-xl font-bold text-teal-900 mb-2">Current Plan</h3>
-            <p className="text-3xl font-black text-yellow-600">{userData?.plan || 'Starter'}</p>
-          </div>
-          <div className="bg-teal-50 p-6 rounded-2xl text-center">
-            <h3 className="text-xl font-bold text-teal-900 mb-2">Next Billing</h3>
-            <p className="text-3xl font-black text-yellow-600">Jan 1, 2026</p>
-          </div>
-          <div className="bg-teal-50 p-6 rounded-2xl text-center">
-            <h3 className="text-xl font-bold text-teal-900 mb-2">Payment Method</h3>
-            <p className="text-3xl font-black text-yellow-600">Paystack • ****4242</p>
-          </div>
-        </div>
-
-        {/* Invoice History Table */}
-        <h3 className="text-2xl font-bold text-teal-900 mb-6">Invoice History</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-teal-100">
-                <th className="p-4">Invoice ID</th>
-                <th className="p-4">Date</th>
-                <th className="p-4">Amount</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Receipt</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b hover:bg-teal-50">
-                <td className="p-4">inv001</td>
-                <td className="p-4">2025-01-01</td>
-                <td className="p-4">₦15,000</td>
-                <td className="p-4 text-green-600 font-medium">Paid</td>
-                <td className="p-4">
-                  <Link href="#" className="text-teal-600 hover:underline hover:text-teal-800">
-                    Download PDF →
-                  </Link>
-                </td>
-              </tr>
-              {/* Add more rows dynamically from Supabase later */}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mt-12 text-center">
-          <button className="bg-yellow-400 text-teal-900 px-12 py-6 rounded-full text-2xl font-bold hover:bg-yellow-300 transition shadow-2xl">
-            Manage Billing in Paystack Portal
-          </button>
-        </div>
-      </section>
-
-      {/* Add more dashboard sections here (licenses, users, etc.) */}
     </div>
   );
 }
