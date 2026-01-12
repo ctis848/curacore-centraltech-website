@@ -7,7 +7,6 @@ interface Plan {
   id: string;
   name: string;
   priceMonthly: number;
-  priceYearly?: number; // optional - if not set, falls back to 12×monthly
   currency: string;
   description: string;
   features: string[];
@@ -19,6 +18,7 @@ export default function BuyPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<string>('starter');
   const [quantity, setQuantity] = useState<number>(1);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [email, setEmail] = useState<string>(''); // New: email input
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const plans: Plan[] = [
@@ -53,7 +53,7 @@ export default function BuyPage() {
     {
       id: 'enterprise',
       name: 'Enterprise',
-      priceMonthly: 578550, // one-time, so yearly = monthly
+      priceMonthly: 578550, // one-time
       currency: 'NGN',
       description: 'Full access to all CentralCore EMR features — for large institutions & networks',
       features: [
@@ -69,11 +69,9 @@ export default function BuyPage() {
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
 
-  // Calculate current price depending on billing period
   const getCurrentPrice = (p: Plan) => {
-    if (billingPeriod === 'yearly') {
-      // 20% discount for yearly (if priceYearly not set, calculate 12×monthly×0.8)
-      return p.priceYearly ?? Math.round(p.priceMonthly * 12 * 0.8);
+    if (billingPeriod === 'yearly' && p.id !== 'enterprise') {
+      return Math.round(p.priceMonthly * 12 * 0.9); // 10% discount for yearly
     }
     return p.priceMonthly;
   };
@@ -81,6 +79,11 @@ export default function BuyPage() {
   const handleProceed = async () => {
     if (!selectedPlan) {
       alert('Please select a plan first');
+      return;
+    }
+
+    if (!email.trim()) {
+      alert('Please enter your email address');
       return;
     }
 
@@ -96,31 +99,26 @@ export default function BuyPage() {
           amount: getCurrentPrice(selectedPlan) * quantity,
           currency: selectedPlan.currency,
           productName: selectedPlan.paystackProduct || selectedPlan.name,
-          billingPeriod,
+          email: email.trim(),           // ← Sending real email
+          billingPeriod,                 // ← Sending monthly/yearly
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Payment server error (${response.status})`);
-      }
-
       const data = await response.json();
 
-      if (data.authorization_url && typeof data.authorization_url === 'string') {
+      if (data.authorization_url) {
         window.location.href = data.authorization_url;
       } else {
-        throw new Error('No valid authorization URL received from server');
+        alert('Failed to start payment: ' + (data.error || 'Unknown error'));
       }
-    } catch (error: unknown) {
+    } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : typeof error === 'string'
             ? error
-            : 'An unknown error occurred during payment initiation';
+            : 'Unknown error occurred';
       alert(`Error connecting to payment: ${message}`);
-      console.error('Payment initiation error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -129,42 +127,43 @@ export default function BuyPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white py-16 px-6">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-5xl md:text-6xl font-black text-teal-900 mb-6 text-center">
+        <h1 className="text-5xl md:text-6xl font-black text-teal-900 mb-12 text-center">
           Buy CentralCore EMR License
         </h1>
 
-        <p className="text-xl text-gray-700 mb-12 text-center max-w-4xl mx-auto">
-          All plans include <strong>full access</strong> to every CentralCore EMR feature.  
-          The only difference is the maximum number of users (seats/licenses).  
-          Upgrade anytime for more users — no feature restrictions!
-        </p>
-
         {/* Billing Period Switch */}
-        <div className="max-w-md mx-auto mb-12 text-center">
-          <div className="inline-flex rounded-full bg-teal-100 p-1">
-            <button
-              type="button"
-              onClick={() => setBillingPeriod('monthly')}
-              className={`px-6 py-3 rounded-full text-lg font-medium transition-all ${
-                billingPeriod === 'monthly'
-                  ? 'bg-teal-700 text-white shadow-lg'
-                  : 'text-teal-700 hover:bg-teal-200'
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              type="button"
-              onClick={() => setBillingPeriod('yearly')}
-              className={`px-6 py-3 rounded-full text-lg font-medium transition-all ${
-                billingPeriod === 'yearly'
-                  ? 'bg-yellow-400 text-teal-900 shadow-lg'
-                  : 'text-teal-700 hover:bg-teal-200'
-              }`}
-            >
-              Annually (20% off)
-            </button>
-          </div>
+        <div className="text-center mb-8">
+          <button
+            onClick={() => setBillingPeriod('monthly')}
+            className={`px-6 py-3 rounded-l-full text-lg font-medium transition ${
+              billingPeriod === 'monthly' ? 'bg-teal-700 text-white' : 'bg-teal-100 text-teal-900 hover:bg-teal-200'
+            }`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setBillingPeriod('yearly')}
+            className={`px-6 py-3 rounded-r-full text-lg font-medium transition ${
+              billingPeriod === 'yearly' ? 'bg-yellow-400 text-teal-900' : 'bg-teal-100 text-teal-900 hover:bg-teal-200'
+            }`}
+          >
+            Yearly (10% off)
+          </button>
+        </div>
+
+        {/* Email Input (new) */}
+        <div className="max-w-md mx-auto mb-8">
+          <label className="block text-xl font-bold text-teal-900 mb-2">
+            Your Email Address (required for payment)
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="your.email@example.com"
+            className="w-full px-6 py-4 rounded-full border-2 border-teal-300 text-lg focus:border-yellow-400 outline-none"
+            required
+          />
         </div>
 
         {/* Plans Grid */}
@@ -173,30 +172,23 @@ export default function BuyPage() {
             <div
               key={p.id}
               onClick={() => setSelectedPlanId(p.id)}
-              className={`p-8 rounded-3xl shadow-2xl cursor-pointer transition-all duration-300 border-4 flex flex-col ${
+              className={`p-8 rounded-3xl shadow-2xl cursor-pointer transition-all duration-300 border-4 ${
                 selectedPlanId === p.id
                   ? 'border-yellow-400 bg-white scale-105'
                   : 'border-transparent bg-white/80 hover:scale-105'
               }`}
             >
               <h3 className="text-3xl font-bold text-teal-900 mb-4">{p.name}</h3>
-              <p className="text-4xl font-black text-yellow-600 mb-2">
+              <p className="text-4xl font-black text-yellow-600 mb-6">
                 ₦{getCurrentPrice(p).toLocaleString()} {p.currency}
-                {p.id !== 'enterprise' && (
-                  <span className="text-xl font-normal">
-                    /{billingPeriod === 'yearly' ? 'year' : 'month'}
-                  </span>
-                )}
+                {p.id !== 'enterprise' && <span className="text-xl font-normal">/{billingPeriod}</span>}
+                {p.id === 'enterprise' && <span className="text-xl font-normal"> one-time</span>}
               </p>
-              <p className="text-lg font-medium text-teal-700 mb-6">
-                {p.userLimit === 'Unlimited' ? 'Unlimited Users' : `Max ${p.userLimit} Users`}
-              </p>
-              <p className="text-gray-600 mb-6 italic flex-grow">{p.description}</p>
-              <ul className="space-y-3 text-gray-700 mt-auto">
-                {p.features.map((feature, index) => (
-                  <li key={index} className="flex items-center">
-                    <span className="text-green-500 mr-2">✓</span>
-                    {feature}
+              <p className="text-gray-700 mb-6">{p.description}</p>
+              <ul className="space-y-3 text-gray-700">
+                {p.features.map((f, i) => (
+                  <li key={i} className="flex items-center">
+                    <span className="text-green-500 mr-2">✓</span> {f}
                   </li>
                 ))}
               </ul>
@@ -211,19 +203,15 @@ export default function BuyPage() {
           </label>
           <div className="flex items-center justify-center gap-6">
             <button
-              type="button"
-              onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-              className="bg-teal-700 text-white w-12 h-12 rounded-full text-2xl font-bold hover:bg-teal-800 transition"
-              aria-label="Decrease quantity"
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              className="bg-teal-700 text-white w-12 h-12 rounded-full text-2xl font-bold hover:bg-teal-800"
             >
-              −
+              -
             </button>
-            <span className="text-4xl font-black text-teal-900 w-16 text-center">{quantity}</span>
+            <span className="text-4xl font-black text-teal-900">{quantity}</span>
             <button
-              type="button"
-              onClick={() => setQuantity((prev) => prev + 1)}
-              className="bg-teal-700 text-white w-12 h-12 rounded-full text-2xl font-bold hover:bg-teal-800 transition"
-              aria-label="Increase quantity"
+              onClick={() => setQuantity(quantity + 1)}
+              className="bg-teal-700 text-white w-12 h-12 rounded-full text-2xl font-bold hover:bg-teal-800"
             >
               +
             </button>
@@ -237,14 +225,10 @@ export default function BuyPage() {
               Total: ₦{(getCurrentPrice(selectedPlan) * quantity).toLocaleString()} {selectedPlan.currency}
             </p>
           )}
-
           <button
-            type="button"
             onClick={handleProceed}
-            disabled={isLoading || !selectedPlan}
-            className={`bg-yellow-400 text-teal-900 px-16 py-8 rounded-full text-3xl font-bold transition shadow-2xl mx-auto block ${
-              isLoading || !selectedPlan ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-300'
-            }`}
+            disabled={isLoading || !selectedPlan || !email.trim()}
+            className="bg-yellow-400 text-teal-900 px-16 py-8 rounded-full text-3xl font-bold hover:bg-yellow-300 transition shadow-2xl disabled:opacity-50 mx-auto block"
           >
             {isLoading ? 'Processing...' : 'Proceed to Payment'}
           </button>
