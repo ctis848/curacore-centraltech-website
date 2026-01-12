@@ -265,7 +265,7 @@ export default function DashboardPage() {
                 </thead>
                 <tbody>
                   {activeLicenses.map((l) => {
-                    // Guard against undefined id
+                    // Guard against undefined or null id
                     if (!l.id) return null;
 
                     return (
