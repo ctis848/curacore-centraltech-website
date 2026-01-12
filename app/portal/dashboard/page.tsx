@@ -264,23 +264,28 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {activeLicenses.map((l) => (
-                    <tr key={l.id} className="border-b hover:bg-teal-50">
-                      <td className="p-4">{l.machine_details || l.machine_id || '—'}</td>
-                      <td className="p-4">
-                        {l.activation_date ? new Date(l.activation_date).toLocaleDateString() : '—'}
-                      </td>
-                      <td className="p-4 text-green-600 font-medium">Active</td>
-                      <td className="p-4">
-                        <button
-                          onClick={() => handleRevoke(l.id, l.machine_id)}
-                          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition"
-                        >
-                          Revoke
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {activeLicenses.map((l) => {
+                    // Guard against undefined id
+                    if (!l.id) return null;
+
+                    return (
+                      <tr key={l.id} className="border-b hover:bg-teal-50">
+                        <td className="p-4">{l.machine_details || l.machine_id || '—'}</td>
+                        <td className="p-4">
+                          {l.activation_date ? new Date(l.activation_date).toLocaleDateString() : '—'}
+                        </td>
+                        <td className="p-4 text-green-600 font-medium">Active</td>
+                        <td className="p-4">
+                          <button
+                            onClick={() => handleRevoke(l.id, l.machine_id)}
+                            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition"
+                          >
+                            Revoke
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
