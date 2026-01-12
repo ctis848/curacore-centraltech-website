@@ -53,7 +53,7 @@ export default function DashboardPage() {
 
         if (isMounted) {
           setUserProfile({
-            email: user.email,
+            email: user.email ?? null,
           });
         }
 
@@ -61,7 +61,7 @@ export default function DashboardPage() {
         const { data: licenses, error: licenseError } = await supabase
           .from('licenses')
           .select('*')
-          .eq('user_email', user.email);
+          .eq('user_email', user.email ?? '');
 
         if (licenseError) throw licenseError;
 
@@ -84,35 +84,51 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const handleRevoke = async (licenseId: string) => {
+  const handleRevoke = async (licenseId: string, machineId: string | null) => {
     if (!confirm('Are you sure you want to revoke this license?')) return;
 
     try {
       const { error } = await supabase
         .from('licenses')
-        .update({ active: false, machine_id: null, revoked_at: new Date().toISOString() })
+        .update({ 
+          active: false, 
+          machine_id: null, 
+          revoked_at: new Date().toISOString() 
+        })
         .eq('id', licenseId);
 
       if (error) throw error;
 
       alert('License revoked successfully');
+
       setActiveLicenses((prev) => prev.filter((l) => l.id !== licenseId));
-      setNonActiveLicenses((prev) => [...prev, { id: licenseId, active: false }]);
+      
+      setNonActiveLicenses((prev) => [
+        ...prev,
+        { 
+          id: licenseId, 
+          active: false, 
+          user_email: userProfile?.email || '',
+          machine_id: null,
+        } as License,
+      ]);
     } catch (err: unknown) {
       alert('Revoke failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 
   const handleActivate = async (licenseId: string) => {
-    const machineId = prompt('Enter new machine ID (or leave blank for auto):');
-    if (machineId === null) return;
+    const machineIdInput = prompt('Enter new machine ID (or leave blank for auto):');
+    if (machineIdInput === null) return;
+
+    const machineId = machineIdInput.trim() || null;
 
     try {
       const { error } = await supabase
         .from('licenses')
         .update({
           active: true,
-          machine_id: machineId || null,
+          machine_id: machineId,
           activation_date: new Date().toISOString(),
         })
         .eq('id', licenseId);
@@ -120,10 +136,18 @@ export default function DashboardPage() {
       if (error) throw error;
 
       alert('License activated successfully');
+
       setNonActiveLicenses((prev) => prev.filter((l) => l.id !== licenseId));
+
       setActiveLicenses((prev) => [
         ...prev,
-        { id: licenseId, active: true, machine_id: machineId || 'Auto' },
+        { 
+          id: licenseId, 
+          active: true, 
+          machine_id: machineId,
+          user_email: userProfile?.email || '',
+          activation_date: new Date().toISOString(),
+        } as License,
       ]);
     } catch (err: unknown) {
       alert('Activation failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
@@ -243,7 +267,9 @@ export default function DashboardPage() {
                   {activeLicenses.map((l) => (
                     <tr key={l.id} className="border-b hover:bg-teal-50">
                       <td className="p-4">{l.machine_details || l.machine_id || '—'}</td>
-                      <td className="p-4">{l.activation_date ? new Date(l.activation_date).toLocaleDateString() : '—'}</td>
+                      <td className="p-4">
+                        {l.activation_date ? new Date(l.activation_date).toLocaleDateString() : '—'}
+                      </td>
                       <td className="p-4 text-green-600 font-medium">Active</td>
                       <td className="p-4">
                         <button
