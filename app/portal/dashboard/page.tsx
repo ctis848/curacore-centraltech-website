@@ -38,15 +38,22 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Logout handler - redirects to LoginContentPage
+  // Logout handler with debug + force reload
   const handleLogout = async () => {
+    console.log('Logout button clicked - starting signOut...');
+
     const { error } = await supabase.auth.signOut();
+
     if (error) {
-      console.error('Logout error:', error);
+      console.error('Logout failed:', error.message);
       alert('Logout failed: ' + error.message);
     } else {
-      // Redirect to your LoginContentPage (change path if different)
-      window.location.href = '/login'; // ← Change to '/signin', '/auth/login', etc. if needed
+      console.log('SignOut successful - redirecting to /login');
+      alert('Logged out successfully! Redirecting...');
+
+      // Clear any lingering session and force reload
+      localStorage.removeItem('supabase.auth.token');
+      window.location.href = '/login'; // ← your LoginContentPage route
     }
   };
 
@@ -60,11 +67,13 @@ export default function DashboardPage() {
 
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-        // If not logged in, redirect to login page
         if (authError || !user) {
+          console.log('No user found - redirecting to login');
           window.location.href = '/login';
           return;
         }
+
+        console.log('User authenticated:', user.email);
 
         if (isMounted) {
           setUserProfile({ email: user.email ?? null });
@@ -189,7 +198,7 @@ export default function DashboardPage() {
           </h1>
           <button
             onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-full font-bold text-lg transition shadow-xl"
+            className="bg-red-600 hover:bg-red-700 text-white px-10 py-5 rounded-full font-bold text-xl transition shadow-2xl"
           >
             Logout
           </button>
