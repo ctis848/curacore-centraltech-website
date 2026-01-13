@@ -1,4 +1,5 @@
 // app/portal/dashboard/page.tsx
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -38,7 +39,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Logout handler with debug + force reload
+  // FIXED LOGOUT HANDLER
   const handleLogout = async () => {
     console.log('Logout button clicked - starting signOut...');
 
@@ -47,16 +48,20 @@ export default function DashboardPage() {
     if (error) {
       console.error('Logout failed:', error.message);
       alert('Logout failed: ' + error.message);
-    } else {
-      console.log('SignOut successful - redirecting to /login');
-      alert('Logged out successfully! Redirecting...');
-
-      // Clear any lingering session and force reload
-      localStorage.removeItem('supabase.auth.token');
-      window.location.href = '/login'; // ← your LoginContentPage route
+      return;
     }
+
+    console.log('SignOut successful - redirecting to /Portal/Login');
+
+    // Clear any cached auth data
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // Redirect to your ClientPortalPage
+    window.location.href = '/Portal/Login';
   };
 
+  // AUTH CHECK + FETCH DATA
   useEffect(() => {
     let isMounted = true;
 
@@ -65,33 +70,31 @@ export default function DashboardPage() {
         setLoading(true);
         setError(null);
 
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const { data, error: authError } = await supabase.auth.getUser();
 
-        if (authError || !user) {
-          console.log('No user found - redirecting to login');
-          window.location.href = '/login';
+        if (authError || !data?.user) {
+          console.log('No user found - redirecting to /Portal/Login');
+          window.location.href = '/Portal/Login';
           return;
         }
 
-        console.log('User authenticated:', user.email);
-
         if (isMounted) {
-          setUserProfile({ email: user.email ?? null });
+          setUserProfile({ email: data.user.email ?? null });
         }
 
-        const { data, error: licenseError } = await supabase
+        const { data: licenseData, error: licenseError } = await supabase
           .from('licenses')
           .select('*')
-          .eq('user_id', user.id);
+          .eq('user_id', data.user.id);
 
         if (licenseError) throw new Error(`Licenses query failed: ${licenseError.message}`);
 
         if (isMounted) {
-          setLicenses(data || []);
+          setLicenses(licenseData || []);
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to load dashboard data';
-        console.error('Dashboard load error:', message, err);
+        console.error('Dashboard load error:', message);
         if (isMounted) setError(message);
       } finally {
         if (isMounted) setLoading(false);
@@ -105,7 +108,8 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const handleRevoke = async (licenseId: string | null | undefined, machineId: string | null | undefined) => {
+  // REVOKE LICENSE
+  const handleRevoke = async (licenseId: string | null | undefined) => {
     if (!licenseId) {
       alert('Invalid license ID');
       return;
@@ -116,10 +120,10 @@ export default function DashboardPage() {
     try {
       const { error } = await supabase
         .from('licenses')
-        .update({ 
-          active: false, 
-          machine_id: null, 
-          revoked_at: new Date().toISOString() 
+        .update({
+          active: false,
+          machine_id: null,
+          revoked_at: new Date().toISOString(),
         })
         .eq('id', licenseId);
 
@@ -127,12 +131,19 @@ export default function DashboardPage() {
 
       alert('License revoked successfully');
 
-      setLicenses(prev => prev.map(l => l.id === licenseId ? { ...l, active: false, machine_id: null, revoked_at: new Date().toISOString() } : l));
+      setLicenses(prev =>
+        prev.map(l =>
+          l.id === licenseId
+            ? { ...l, active: false, machine_id: null, revoked_at: new Date().toISOString() }
+            : l
+        )
+      );
     } catch (err: unknown) {
       alert('Revoke failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 
+  // REACTIVATE LICENSE
   const handleReactivate = async (licenseId: string | null | undefined) => {
     if (!licenseId) {
       alert('Invalid license ID');
@@ -159,19 +170,32 @@ export default function DashboardPage() {
 
       alert('License reactivated on new computer');
 
-      setLicenses(prev => prev.map(l => l.id === licenseId ? { ...l, active: true, machine_id: machineId, revoked_at: null, activation_date: new Date().toISOString() } : l));
+      setLicenses(prev =>
+        prev.map(l =>
+          l.id === licenseId
+            ? {
+                ...l,
+                active: true,
+                machine_id: machineId,
+                revoked_at: null,
+                activation_date: new Date().toISOString(),
+              }
+            : l
+        )
+      );
     } catch (err: unknown) {
       alert('Reactivation failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 
-  // Calculated stats
+  // Stats
   const totalPurchased = licenses.length;
   const activeCount = licenses.filter(l => l.active).length;
   const notInUseCount = licenses.filter(l => !l.active && !l.revoked_at).length;
   const revokedCount = licenses.filter(l => l.revoked_at).length;
   const activeComputersCount = activeCount;
 
+  // Loading UI
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-teal-50 to-white">
@@ -180,6 +204,7 @@ export default function DashboardPage() {
     );
   }
 
+  // Error UI
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-teal-50 to-white">
@@ -188,14 +213,17 @@ export default function DashboardPage() {
     );
   }
 
+  // MAIN UI
   return (
     <div className="min-h-screen pt-20 p-8 bg-gradient-to-b from-teal-50 to-white">
       <div className="max-w-6xl mx-auto">
-        {/* Title + Logout button on the same line */}
+
+        {/* Title + Logout */}
         <div className="flex justify-between items-center mb-12">
           <h1 className="text-5xl md:text-6xl font-black text-teal-900">
             CentralCore Client Dashboard
           </h1>
+
           <button
             onClick={handleLogout}
             className="bg-red-600 hover:bg-red-700 text-white px-10 py-5 rounded-full font-bold text-xl transition shadow-2xl"
@@ -204,20 +232,23 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Stats Overview */}
+        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
           <div className="bg-white p-6 rounded-2xl shadow-lg text-center border border-teal-100">
             <h3 className="text-xl font-bold text-teal-900">Purchased Licenses</h3>
             <p className="text-4xl font-black text-yellow-600">{totalPurchased}</p>
           </div>
+
           <div className="bg-white p-6 rounded-2xl shadow-lg text-center border border-teal-100">
             <h3 className="text-xl font-bold text-teal-900">Active Licenses</h3>
             <p className="text-4xl font-black text-green-600">{activeCount}</p>
           </div>
+
           <div className="bg-white p-6 rounded-2xl shadow-lg text-center border border-teal-100">
             <h3 className="text-xl font-bold text-teal-900">Not in Use</h3>
             <p className="text-4xl font-black text-orange-600">{notInUseCount}</p>
           </div>
+
           <div className="bg-white p-6 rounded-2xl shadow-lg text-center border border-teal-100">
             <h3 className="text-xl font-bold text-teal-900">Active Computers</h3>
             <p className="text-4xl font-black text-teal-600">{activeComputersCount}</p>
@@ -255,53 +286,53 @@ export default function DashboardPage() {
                     <th className="p-4">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {licenses.map((l) => {
-                    if (!l?.id) return null;
 
-                    return (
-                      <tr key={l.id} className="border-b hover:bg-teal-50">
-                        <td className="p-4 font-mono">{l.id.slice(0, 8)}...</td>
-                        <td className="p-4">{l.computer_name || '—'}</td>
-                        <td className="p-4 font-mono">{l.machine_id || '—'}</td>
-                        <td className="p-4">{l.computer_details || '—'}</td>
-                        <td className="p-4">
-                          {l.revoked_at ? (
-                            <span className="text-red-600 font-medium">Revoked</span>
-                          ) : l.active ? (
-                            <span className="text-green-600 font-medium">Active</span>
-                          ) : (
-                            <span className="text-orange-600 font-medium">Not in Use</span>
-                          )}
-                        </td>
-                        <td className="p-4 flex gap-2">
-                          {l.active && (
-                            <button
-                              onClick={() => handleRevoke(l.id, l.machine_id)}
-                              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition text-sm"
-                            >
-                              Revoke
-                            </button>
-                          )}
-                          {l.revoked_at && (
-                            <button
-                              onClick={() => handleReactivate(l.id)}
-                              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition text-sm"
-                            >
-                              Reactivate
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                <tbody>
+                  {licenses.map(l => (
+                    <tr key={l.id} className="border-b hover:bg-teal-50">
+                      <td className="p-4 font-mono">{l.id.slice(0, 8)}...</td>
+                      <td className="p-4">{l.computer_name || '—'}</td>
+                      <td className="p-4 font-mono">{l.machine_id || '—'}</td>
+                      <td className="p-4">{l.computer_details || '—'}</td>
+
+                      <td className="p-4">
+                        {l.revoked_at ? (
+                          <span className="text-red-600 font-medium">Revoked</span>
+                        ) : l.active ? (
+                          <span className="text-green-600 font-medium">Active</span>
+                        ) : (
+                          <span className="text-orange-600 font-medium">Not in Use</span>
+                        )}
+                      </td>
+
+                      <td className="p-4 flex gap-2">
+                        {l.active && (
+                          <button
+                            onClick={() => handleRevoke(l.id)}
+                            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition text-sm"
+                          >
+                            Revoke
+                          </button>
+                        )}
+
+                        {l.revoked_at && (
+                          <button
+                            onClick={() => handleReactivate(l.id)}
+                            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition text-sm"
+                          >
+                            Reactivate
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
         </section>
 
-        {/* Billing & Invoices */}
+        {/* Billing */}
         <section className="bg-white rounded-3xl p-8 shadow-2xl border border-teal-100">
           <h2 className="text-4xl font-bold text-teal-900 mb-8 text-center">
             Billing & Invoices
@@ -312,10 +343,12 @@ export default function DashboardPage() {
               <h3 className="text-xl font-bold text-teal-900 mb-2">Current Plan</h3>
               <p className="text-3xl font-black text-yellow-600">Starter</p>
             </div>
+
             <div className="bg-teal-50 p-6 rounded-2xl text-center">
               <h3 className="text-xl font-bold text-teal-900 mb-2">Next Billing</h3>
               <p className="text-3xl font-black text-yellow-600">Jan 1, 2026</p>
             </div>
+
             <div className="bg-teal-50 p-6 rounded-2xl text-center">
               <h3 className="text-xl font-bold text-teal-900 mb-2">Payment Method</h3>
               <p className="text-3xl font-black text-yellow-600">****4242</p>
@@ -323,6 +356,7 @@ export default function DashboardPage() {
           </div>
 
           <h3 className="text-2xl font-bold text-teal-900 mb-6">Invoice History</h3>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -334,6 +368,7 @@ export default function DashboardPage() {
                   <th className="p-4">Receipt</th>
                 </tr>
               </thead>
+
               <tbody>
                 <tr className="border-b hover:bg-teal-50">
                   <td className="p-4">inv001</td>
@@ -346,7 +381,6 @@ export default function DashboardPage() {
                     </Link>
                   </td>
                 </tr>
-                {/* Add more rows dynamically */}
               </tbody>
             </table>
           </div>
