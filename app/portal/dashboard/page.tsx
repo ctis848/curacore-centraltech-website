@@ -1,22 +1,13 @@
-// app/portal/dashboard/page.tsx
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Types
 interface UserProfile {
   email: string | null;
 }
@@ -36,47 +27,41 @@ interface License {
 export default function DashboardPage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [licenses, setLicenses] = useState<License[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // FIXED LOGOUT HANDLER
   const handleLogout = async () => {
     await supabase.auth.signOut();
 
-    // Hard clear all storage
     localStorage.clear();
     sessionStorage.clear();
 
-    // Clear cookies
     document.cookie.split(";").forEach(c => {
       document.cookie = c
         .replace(/^ +/, "")
         .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
 
-    // Redirect to your real login page
-    window.location.href = "https://centraltechinformationsystems.com/Portal/Login";
+    window.location.href = "https://centraltechinformationsystems.com/portal/login";
   };
 
-  // FIXED AUTH CHECK USING getSession()
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
 
-    const checkAuthAndFetch = async () => {
+    const load = async () => {
       try {
         setLoading(true);
 
-        // The ONLY reliable Supabase auth check
         const { data: sessionData } = await supabase.auth.getSession();
 
         if (!sessionData?.session) {
-          window.location.href = "https://centraltechinformationsystems.com/Portal/Login";
+          window.location.href = "https://centraltechinformationsystems.com/portal/login";
           return;
         }
 
         const user = sessionData.session.user;
 
-        if (isMounted) {
+        if (mounted) {
           setUserProfile({ email: user.email ?? null });
         }
 
@@ -87,136 +72,89 @@ export default function DashboardPage() {
 
         if (licenseError) throw licenseError;
 
-        if (isMounted) {
+        if (mounted) {
           setLicenses(licenseData || []);
         }
       } catch (err) {
-        console.error(err);
-        if (isMounted) setError("Failed to load dashboard");
+        if (mounted) setError("Failed to load dashboard");
       } finally {
-        if (isMounted) setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
-    checkAuthAndFetch();
-
-    return () => {
-      isMounted = false;
-    };
+    load();
+    return () => { mounted = false };
   }, []);
 
-  // REVOKE LICENSE
-  const handleRevoke = async (licenseId: string | null | undefined) => {
-    if (!licenseId) return alert("Invalid license ID");
+  const handleRevoke = async (id: string) => {
+    if (!confirm("Revoke this license?")) return;
 
-    if (!confirm("Are you sure you want to revoke this license?")) return;
+    const { error } = await supabase
+      .from("licenses")
+      .update({
+        active: false,
+        machine_id: null,
+        revoked_at: new Date().toISOString()
+      })
+      .eq("id", id);
 
-    try {
-      const { error } = await supabase
-        .from("licenses")
-        .update({
-          active: false,
-          machine_id: null,
-          revoked_at: new Date().toISOString(),
-        })
-        .eq("id", licenseId);
+    if (error) return alert("Failed to revoke");
 
-      if (error) throw error;
-
-      alert("License revoked successfully");
-
-      setLicenses(prev =>
-        prev.map(l =>
-          l.id === licenseId
-            ? { ...l, active: false, machine_id: null, revoked_at: new Date().toISOString() }
-            : l
-        )
-      );
-    } catch (err) {
-      alert("Revoke failed");
-    }
+    setLicenses(prev =>
+      prev.map(l => l.id === id ? { ...l, active: false, machine_id: null, revoked_at: new Date().toISOString() } : l)
+    );
   };
 
-  // REACTIVATE LICENSE
-  const handleReactivate = async (licenseId: string | null | undefined) => {
-    if (!licenseId) return alert("Invalid license ID");
+  const handleReactivate = async (id: string) => {
+    const machineId = prompt("Enter new machine ID (optional):")?.trim() || null;
 
-    const machineIdInput = prompt("Enter new machine ID (or leave blank for auto):");
-    if (machineIdInput === null) return;
+    const { error } = await supabase
+      .from("licenses")
+      .update({
+        active: true,
+        machine_id: machineId,
+        revoked_at: null,
+        activation_date: new Date().toISOString()
+      })
+      .eq("id", id);
 
-    const machineId = machineIdInput.trim() || null;
+    if (error) return alert("Failed to reactivate");
 
-    try {
-      const { error } = await supabase
-        .from("licenses")
-        .update({
-          active: true,
-          machine_id: machineId,
-          revoked_at: null,
-          activation_date: new Date().toISOString(),
-        })
-        .eq("id", licenseId);
-
-      if (error) throw error;
-
-      alert("License reactivated");
-
-      setLicenses(prev =>
-        prev.map(l =>
-          l.id === licenseId
-            ? {
-                ...l,
-                active: true,
-                machine_id: machineId,
-                revoked_at: null,
-                activation_date: new Date().toISOString(),
-              }
-            : l
-        )
-      );
-    } catch (err) {
-      alert("Reactivation failed");
-    }
+    setLicenses(prev =>
+      prev.map(l => l.id === id ? { ...l, active: true, machine_id: machineId, revoked_at: null } : l)
+    );
   };
 
-  // Stats
-  const totalPurchased = licenses.length;
-  const activeCount = licenses.filter(l => l.active).length;
-  const notInUseCount = licenses.filter(l => !l.active && !l.revoked_at).length;
-  const activeComputersCount = activeCount;
-
-  // Loading UI
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-teal-50 to-white">
+      <div className="min-h-screen flex items-center justify-center bg-teal-50">
         <p className="text-2xl text-teal-900 animate-pulse">Loading dashboard...</p>
       </div>
     );
   }
 
-  // Error UI
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-teal-50 to-white">
-        <p className="text-2xl text-red-600">Error: {error}</p>
+      <div className="min-h-screen flex items-center justify-center bg-teal-50">
+        <p className="text-2xl text-red-600">{error}</p>
       </div>
     );
   }
 
-  // MAIN UI
+  const totalPurchased = licenses.length;
+  const activeCount = licenses.filter(l => l.active).length;
+  const notInUseCount = licenses.filter(l => !l.active && !l.revoked_at).length;
+  const activeComputersCount = activeCount;
+
   return (
     <div className="min-h-screen pt-20 p-8 bg-gradient-to-b from-teal-50 to-white">
       <div className="max-w-6xl mx-auto">
 
-        {/* Title + Logout */}
         <div className="flex justify-between items-center mb-12">
-          <h1 className="text-5xl md:text-6xl font-black text-teal-900">
-            CentralCore Client Dashboard
-          </h1>
-
+          <h1 className="text-5xl font-black text-teal-900">CentralCore Client Dashboard</h1>
           <button
             onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-10 py-5 rounded-full font-bold text-xl transition shadow-2xl"
+            className="bg-red-600 hover:bg-red-700 text-white px-10 py-5 rounded-full font-bold text-xl shadow-2xl"
           >
             Logout
           </button>
@@ -249,20 +187,18 @@ export default function DashboardPage() {
         <div className="bg-white rounded-3xl p-8 shadow-xl border border-teal-100 mb-12 text-center">
           <h2 className="text-3xl font-bold text-teal-900 mb-6">Welcome Back</h2>
           <p className="text-xl text-teal-800 mb-4">
-            Email: <strong>{userProfile?.email || "Not available"}</strong>
+            Email: <strong>{userProfile?.email}</strong>
           </p>
         </div>
 
-        {/* License Management */}
+        {/* License Table */}
         <section className="bg-white rounded-3xl p-8 shadow-2xl border border-teal-100 mb-12">
           <h2 className="text-4xl font-bold text-teal-900 mb-8 text-center">
             License & Computer Management
           </h2>
 
           {licenses.length === 0 ? (
-            <p className="text-gray-600 text-center text-lg">
-              No licenses found yet. Purchase a plan to get started.
-            </p>
+            <p className="text-gray-600 text-center text-lg">No licenses found.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -270,7 +206,7 @@ export default function DashboardPage() {
                   <tr className="bg-teal-100">
                     <th className="p-4">License ID</th>
                     <th className="p-4">Computer Name</th>
-                    <th className="p-4">Machine ID / Address</th>
+                    <th className="p-4">Machine ID</th>
                     <th className="p-4">Details</th>
                     <th className="p-4">Status</th>
                     <th className="p-4">Actions</th>
@@ -299,7 +235,7 @@ export default function DashboardPage() {
                         {l.active && (
                           <button
                             onClick={() => handleRevoke(l.id)}
-                            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition text-sm"
+                            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm"
                           >
                             Revoke
                           </button>
@@ -308,7 +244,7 @@ export default function DashboardPage() {
                         {l.revoked_at && (
                           <button
                             onClick={() => handleReactivate(l.id)}
-                            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition text-sm"
+                            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
                           >
                             Reactivate
                           </button>
@@ -366,7 +302,7 @@ export default function DashboardPage() {
                   <td className="p-4">₦15,000</td>
                   <td className="p-4 text-green-600 font-medium">Paid</td>
                   <td className="p-4">
-                    <Link href="#" className="text-teal-600 hover:underline hover:text-teal-800">
+                    <Link href="#" className="text-teal-600 hover:underline">
                       Download PDF →
                     </Link>
                   </td>
@@ -376,11 +312,12 @@ export default function DashboardPage() {
           </div>
 
           <div className="mt-12 text-center">
-            <button className="bg-yellow-400 text-teal-900 px-12 py-6 rounded-full text-2xl font-bold hover:bg-yellow-300 transition shadow-2xl">
+            <button className="bg-yellow-400 text-teal-900 px-12 py-6 rounded-full text-2xl font-bold hover:bg-yellow-300 shadow-2xl">
               Manage Billing in Paystack Portal
             </button>
           </div>
         </section>
+
       </div>
     </div>
   );
