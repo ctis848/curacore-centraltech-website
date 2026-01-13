@@ -1,5 +1,4 @@
 // app/portal/dashboard/page.tsx
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -16,25 +15,22 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Types
+// Types (matched to your real activation_codes table)
 interface UserProfile {
   email: string | null;
 }
 
-interface License {
-  id: string; // required
-  active: boolean;
-  machine_id?: string | null;
-  machine_details?: string | null;
-  activation_date?: string | null;
-  user_email: string;
-  revoked_at?: string | null;
+interface ActivationCode {
+  id: string;
+  user_id: string;
+  code: string;
+  expires_at: string;
+  used: boolean;
 }
 
 export default function DashboardPage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [activeLicenses, setActiveLicenses] = useState<License[]>([]);
-  const [nonActiveLicenses, setNonActiveLicenses] = useState<License[]>([]);
+  const [activationCodes, setActivationCodes] = useState<ActivationCode[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,26 +42,35 @@ export default function DashboardPage() {
         setLoading(true);
         setError(null);
 
+        // Get authenticated user
         const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError || !user) throw new Error('No authenticated user found');
 
-        if (isMounted) {
-          setUserProfile({ email: user.email ?? null });
+        if (authError || !user) {
+          throw new Error('No authenticated user found - please log in');
         }
 
-        const { data: licenses, error: licenseError } = await supabase
-          .from('licenses')
-          .select('*')
-          .eq('user_email', user.email ?? '');
+        if (isMounted) {
+          setUserProfile({
+            email: user.email ?? null,
+          });
+        }
 
-        if (licenseError) throw licenseError;
+        // Fetch activation codes using correct table and column (user_id UUID)
+        const { data: codes, error: codesError } = await supabase
+          .from('activation_codes')          // ← your real table name
+          .select('id, user_id, code, expires_at, used')
+          .eq('user_id', user.id);           // ← correct column: user_id (UUID)
+
+        if (codesError) {
+          throw new Error(`Activation codes query failed: ${codesError.message}`);
+        }
 
         if (isMounted) {
-          setActiveLicenses(licenses?.filter((l: License) => l.active) || []);
-          setNonActiveLicenses(licenses?.filter((l: License) => !l.active) || []);
+          setActivationCodes(codes || []);
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to load dashboard data';
+        console.error('Dashboard load error:', message, err);
         if (isMounted) setError(message);
       } finally {
         if (isMounted) setLoading(false);
@@ -73,82 +78,11 @@ export default function DashboardPage() {
     };
 
     fetchData();
-    return () => { isMounted = false; };
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
-
-  // FIXED: Accepts null, guards against invalid ID
-  const handleRevoke = async (licenseId: string | null, machineId: string | null) => {
-    if (!licenseId) {
-      alert("Invalid license ID");
-      return;
-    }
-
-    if (!confirm('Are you sure you want to revoke this license?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('licenses')
-        .update({
-          active: false,
-          machine_id: null,
-          revoked_at: new Date().toISOString()
-        })
-        .eq('id', licenseId);
-
-      if (error) throw error;
-
-      alert('License revoked successfully');
-
-      setActiveLicenses(prev => prev.filter(l => l.id !== licenseId));
-      setNonActiveLicenses(prev => [
-        ...prev,
-        {
-          id: licenseId,
-          active: false,
-          user_email: userProfile?.email || '',
-          machine_id: null
-        }
-      ]);
-    } catch (err: unknown) {
-      alert('Revoke failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
-    }
-  };
-
-  const handleActivate = async (licenseId: string) => {
-    const machineIdInput = prompt('Enter new machine ID (or leave blank for auto):');
-    if (machineIdInput === null) return;
-
-    const machineId = machineIdInput.trim() || null;
-
-    try {
-      const { error } = await supabase
-        .from('licenses')
-        .update({
-          active: true,
-          machine_id: machineId,
-          activation_date: new Date().toISOString(),
-        })
-        .eq('id', licenseId);
-
-      if (error) throw error;
-
-      alert('License activated successfully');
-
-      setNonActiveLicenses(prev => prev.filter(l => l.id !== licenseId));
-      setActiveLicenses(prev => [
-        ...prev,
-        {
-          id: licenseId,
-          active: true,
-          machine_id: machineId,
-          user_email: userProfile?.email || '',
-          activation_date: new Date().toISOString(),
-        }
-      ]);
-    } catch (err: unknown) {
-      alert('Activation failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
-    }
-  };
 
   if (loading) {
     return (
@@ -169,7 +103,6 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen pt-20 p-8 bg-gradient-to-b from-teal-50 to-white">
       <div className="max-w-6xl mx-auto">
-
         <h1 className="text-5xl md:text-6xl font-black text-teal-900 mb-12 text-center">
           CentralCore Client Dashboard
         </h1>
@@ -182,83 +115,39 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Billing Section */}
-        {/* ... unchanged ... */}
-
-        {/* License Management */}
+        {/* Activation Codes Section */}
         <section className="bg-white rounded-3xl p-8 shadow-2xl border border-teal-100">
           <h2 className="text-4xl font-bold text-teal-900 mb-8 text-center">
-            License Management
+            Your Activation Codes
           </h2>
 
-          {/* Active Licenses */}
-          <h3 className="text-2xl font-bold text-teal-900 mb-4">Active Licenses</h3>
-
-          {activeLicenses.length === 0 ? (
-            <p className="text-gray-600 mb-6">No active licenses yet.</p>
-          ) : (
-            <div className="overflow-x-auto mb-12">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-teal-100">
-                    <th className="p-4">Machine Details</th>
-                    <th className="p-4">Activation Date</th>
-                    <th className="p-4">Status</th>
-                    <th className="p-4">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activeLicenses.map(l => (
-                    <tr key={l.id} className="border-b hover:bg-teal-50">
-                      <td className="p-4">{l.machine_details || l.machine_id || '—'}</td>
-                      <td className="p-4">
-                        {l.activation_date
-                          ? new Date(l.activation_date).toLocaleDateString()
-                          : '—'}
-                      </td>
-                      <td className="p-4 text-green-600 font-medium">Active</td>
-                      <td className="p-4">
-                        <button
-                          onClick={() => handleRevoke(l.id ?? null, l.machine_id ?? null)}
-                          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition"
-                        >
-                          Revoke
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Non-Active Licenses */}
-          <h3 className="text-2xl font-bold text-teal-900 mb-4">Non-Active Licenses</h3>
-
-          {nonActiveLicenses.length === 0 ? (
-            <p className="text-gray-600">No available licenses to activate.</p>
+          {activationCodes.length === 0 ? (
+            <p className="text-gray-600 text-center text-lg">
+              No activation codes found yet. Purchase a license to generate one.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-teal-100">
-                    <th className="p-4">License ID</th>
+                    <th className="p-4">Code</th>
+                    <th className="p-4">Expires At</th>
                     <th className="p-4">Status</th>
-                    <th className="p-4">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {nonActiveLicenses.map(l => (
-                    <tr key={l.id} className="border-b hover:bg-teal-50">
-                      <td className="p-4">{l.id}</td>
-                      <td className="p-4 text-gray-600 font-medium">Non-Active</td>
+                  {activationCodes.map((code) => (
+                    <tr key={code.id} className="border-b hover:bg-teal-50">
+                      <td className="p-4 font-mono">{code.code}</td>
                       <td className="p-4">
-                        <button
-                          onClick={() => handleActivate(l.id)}
-                          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
-                        >
-                          Activate on New Computer
-                        </button>
+                        {new Date(code.expires_at).toLocaleString()}
+                      </td>
+                      <td className="p-4">
+                        {code.used ? (
+                          <span className="text-red-600 font-medium">Used</span>
+                        ) : (
+                          <span className="text-green-600 font-medium">Active</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -266,7 +155,6 @@ export default function DashboardPage() {
               </table>
             </div>
           )}
-
         </section>
       </div>
     </div>
