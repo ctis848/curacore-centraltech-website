@@ -1,9 +1,11 @@
+// app/portal/dashboard/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 
+// Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -29,6 +31,12 @@ export default function DashboardPage() {
   const [licenses, setLicenses] = useState<License[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Activation form state
+  const [requestKey, setRequestKey] = useState('');
+  const [generatedKey, setGeneratedKey] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [activationError, setActivationError] = useState<string | null>(null);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -125,6 +133,61 @@ export default function DashboardPage() {
     );
   };
 
+  // Handle activation form submission
+  const handleGenerateLicense = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!requestKey.trim()) {
+      setActivationError("Please enter a valid Request Key");
+      return;
+    }
+
+    setIsGenerating(true);
+    setActivationError(null);
+    setGeneratedKey('');
+
+    try {
+      // Get fresh token from localStorage (your current storage method)
+      const tokenData = localStorage.getItem('sb-' + window.location.host + '-auth-token');
+      const accessToken = tokenData ? JSON.parse(tokenData)?.access_token : null;
+
+      if (!accessToken) {
+        throw new Error("Session expired. Please log in again.");
+      }
+
+      const response = await fetch('https://[YOUR_PROJECT_REF].supabase.co/functions/v1/generate-license', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ requestKey }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate license key");
+      }
+
+      setGeneratedKey(data.licenseKey);
+      alert("Success! Copy the license key and paste it into your desktop app.");
+
+      // Optional: refresh licenses list after activation
+      const { data: updatedLicenses } = await supabase
+        .from("licenses")
+        .select("*")
+        .eq("user_id", (await supabase.auth.getUser()).data.user?.id);
+
+      if (updatedLicenses) setLicenses(updatedLicenses);
+    } catch (err: any) {
+      setActivationError(err.message || "Something went wrong");
+      console.error("Activation error:", err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-teal-50">
@@ -149,7 +212,6 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen pt-20 p-8 bg-gradient-to-b from-teal-50 to-white">
       <div className="max-w-6xl mx-auto">
-
         <div className="flex justify-between items-center mb-12">
           <h1 className="text-5xl font-black text-teal-900">CentralCore Client Dashboard</h1>
           <button
@@ -166,17 +228,14 @@ export default function DashboardPage() {
             <h3 className="text-xl font-bold text-teal-900">Purchased Licenses</h3>
             <p className="text-4xl font-black text-yellow-600">{totalPurchased}</p>
           </div>
-
           <div className="bg-white p-6 rounded-2xl shadow-lg text-center border border-teal-100">
             <h3 className="text-xl font-bold text-teal-900">Active Licenses</h3>
             <p className="text-4xl font-black text-green-600">{activeCount}</p>
           </div>
-
           <div className="bg-white p-6 rounded-2xl shadow-lg text-center border border-teal-100">
             <h3 className="text-xl font-bold text-teal-900">Not in Use</h3>
             <p className="text-4xl font-black text-orange-600">{notInUseCount}</p>
           </div>
-
           <div className="bg-white p-6 rounded-2xl shadow-lg text-center border border-teal-100">
             <h3 className="text-xl font-bold text-teal-900">Active Computers</h3>
             <p className="text-4xl font-black text-teal-600">{activeComputersCount}</p>
@@ -191,14 +250,76 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* License Table */}
+        {/* === NEW: Activate New Computer Form === */}
+        <section className="bg-white rounded-3xl p-8 shadow-2xl border border-teal-100 mb-12">
+          <h2 className="text-4xl font-bold text-teal-900 mb-8 text-center">
+            Activate New Computer
+          </h2>
+
+          <p className="text-center text-gray-700 mb-6 text-lg">
+            Open CentralCore EMR on your computer. Copy the <strong>Request Key</strong> shown on screen and paste it below to generate your license key.
+          </p>
+
+          <form onSubmit={handleGenerateLicense} className="max-w-2xl mx-auto">
+            <input
+              type="text"
+              placeholder="Paste Request Key here..."
+              value={requestKey}
+              onChange={(e) => setRequestKey(e.target.value.trim())}
+              className="w-full p-5 border-2 border-teal-300 rounded-full mb-6 text-lg focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              required
+              disabled={isGenerating}
+            />
+
+            <button
+              type="submit"
+              disabled={isGenerating}
+              className="w-full bg-yellow-400 hover:bg-yellow-300 text-teal-900 py-5 rounded-full text-xl font-bold transition shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isGenerating ? 'Generating License Key...' : 'Generate License Key'}
+            </button>
+          </form>
+
+          {activationError && (
+            <p className="text-red-600 text-center mt-6 font-medium">{activationError}</p>
+          )}
+
+          {generatedKey && (
+            <div className="mt-10 text-center">
+              <p className="text-2xl font-bold text-green-700 mb-4">
+                License Key Generated Successfully!
+              </p>
+              <div className="bg-teal-50 border border-teal-200 p-6 rounded-2xl inline-block max-w-full">
+                <p className="text-3xl font-mono break-all select-all mb-6">
+                  {generatedKey}
+                </p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(generatedKey);
+                    alert('License key copied to clipboard!');
+                  }}
+                  className="bg-teal-700 hover:bg-teal-800 text-white px-10 py-4 rounded-full font-bold transition"
+                >
+                  Copy License Key
+                </button>
+              </div>
+              <p className="mt-6 text-gray-700">
+                Paste this key into the CentralCore EMR desktop app to complete activation.
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* License & Computer Management */}
         <section className="bg-white rounded-3xl p-8 shadow-2xl border border-teal-100 mb-12">
           <h2 className="text-4xl font-bold text-teal-900 mb-8 text-center">
             License & Computer Management
           </h2>
 
           {licenses.length === 0 ? (
-            <p className="text-gray-600 text-center text-lg">No licenses found.</p>
+            <p className="text-gray-600 text-center text-lg">
+              No licenses found yet. Purchase a plan to get started.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -212,7 +333,6 @@ export default function DashboardPage() {
                     <th className="p-4">Actions</th>
                   </tr>
                 </thead>
-
                 <tbody>
                   {licenses.map(l => (
                     <tr key={l.id} className="border-b hover:bg-teal-50">
@@ -220,7 +340,6 @@ export default function DashboardPage() {
                       <td className="p-4">{l.computer_name || "—"}</td>
                       <td className="p-4 font-mono">{l.machine_id || "—"}</td>
                       <td className="p-4">{l.computer_details || "—"}</td>
-
                       <td className="p-4">
                         {l.revoked_at ? (
                           <span className="text-red-600 font-medium">Revoked</span>
@@ -230,7 +349,6 @@ export default function DashboardPage() {
                           <span className="text-orange-600 font-medium">Not in Use</span>
                         )}
                       </td>
-
                       <td className="p-4 flex gap-2">
                         {l.active && (
                           <button
@@ -240,7 +358,6 @@ export default function DashboardPage() {
                             Revoke
                           </button>
                         )}
-
                         {l.revoked_at && (
                           <button
                             onClick={() => handleReactivate(l.id)}
@@ -258,7 +375,7 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* Billing */}
+        {/* Billing & Invoices */}
         <section className="bg-white rounded-3xl p-8 shadow-2xl border border-teal-100">
           <h2 className="text-4xl font-bold text-teal-900 mb-8 text-center">
             Billing & Invoices
@@ -269,12 +386,10 @@ export default function DashboardPage() {
               <h3 className="text-xl font-bold text-teal-900 mb-2">Current Plan</h3>
               <p className="text-3xl font-black text-yellow-600">Starter</p>
             </div>
-
             <div className="bg-teal-50 p-6 rounded-2xl text-center">
               <h3 className="text-xl font-bold text-teal-900 mb-2">Next Billing</h3>
               <p className="text-3xl font-black text-yellow-600">Jan 1, 2026</p>
             </div>
-
             <div className="bg-teal-50 p-6 rounded-2xl text-center">
               <h3 className="text-xl font-bold text-teal-900 mb-2">Payment Method</h3>
               <p className="text-3xl font-black text-yellow-600">****4242</p>
@@ -294,7 +409,6 @@ export default function DashboardPage() {
                   <th className="p-4">Receipt</th>
                 </tr>
               </thead>
-
               <tbody>
                 <tr className="border-b hover:bg-teal-50">
                   <td className="p-4">inv001</td>
@@ -317,7 +431,6 @@ export default function DashboardPage() {
             </button>
           </div>
         </section>
-
       </div>
     </div>
   );
