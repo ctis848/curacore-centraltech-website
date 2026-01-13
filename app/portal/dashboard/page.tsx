@@ -147,14 +147,16 @@ export default function DashboardPage() {
     setGeneratedKey('');
 
     try {
-      // Get fresh token from localStorage (your current storage method)
-      const tokenData = localStorage.getItem('sb-' + window.location.host + '-auth-token');
-      const accessToken = tokenData ? JSON.parse(tokenData)?.access_token : null;
+      // Get fresh session token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (!accessToken) {
-        throw new Error("Session expired. Please log in again.");
+      if (sessionError || !session?.access_token) {
+        throw new Error("Session expired or not found. Please log in again.");
       }
 
+      const accessToken = session.access_token;
+
+      // Call your edge function
       const response = await fetch('https://[YOUR_PROJECT_REF].supabase.co/functions/v1/generate-license', {
         method: 'POST',
         headers: {
@@ -164,22 +166,27 @@ export default function DashboardPage() {
         body: JSON.stringify({ requestKey }),
       });
 
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || `Server error (${response.status})`);
+      }
+
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to generate license key");
+      if (!data.licenseKey) {
+        throw new Error("No license key returned from server");
       }
 
       setGeneratedKey(data.licenseKey);
       alert("Success! Copy the license key and paste it into your desktop app.");
 
-      // Optional: refresh licenses list after activation
-      const { data: updatedLicenses } = await supabase
+      // Refresh license list
+      const { data: updated } = await supabase
         .from("licenses")
         .select("*")
-        .eq("user_id", (await supabase.auth.getUser()).data.user?.id);
+        .eq("user_id", session.user.id);
 
-      if (updatedLicenses) setLicenses(updatedLicenses);
+      if (updated) setLicenses(updated);
     } catch (err: any) {
       setActivationError(err.message || "Something went wrong");
       console.error("Activation error:", err);
@@ -250,7 +257,7 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* === NEW: Activate New Computer Form === */}
+        {/* === Activate New Computer Form === */}
         <section className="bg-white rounded-3xl p-8 shadow-2xl border border-teal-100 mb-12">
           <h2 className="text-4xl font-bold text-teal-900 mb-8 text-center">
             Activate New Computer
@@ -298,7 +305,7 @@ export default function DashboardPage() {
                     navigator.clipboard.writeText(generatedKey);
                     alert('License key copied to clipboard!');
                   }}
-                  className="bg-teal-700 hover:bg-teal-800 text-white px-10 py-4 rounded-full font-bold transition"
+                  className="bg-teal-700 hover:bg-teal-800 text-white px-10 py-4 rounded-full transition font-bold"
                 >
                   Copy License Key
                 </button>
