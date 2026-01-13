@@ -41,61 +41,58 @@ export default function DashboardPage() {
 
   // FIXED LOGOUT HANDLER
   const handleLogout = async () => {
-    console.log('Logout button clicked - starting signOut...');
+    await supabase.auth.signOut();
 
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      console.error('Logout failed:', error.message);
-      alert('Logout failed: ' + error.message);
-      return;
-    }
-
-    console.log('SignOut successful - redirecting to /Portal/Login');
-
-    // Clear any cached auth data
+    // Hard clear all storage
     localStorage.clear();
     sessionStorage.clear();
 
-    // Redirect to your ClientPortalPage
-    window.location.href = '/Portal/Login';
+    // Clear cookies
+    document.cookie.split(";").forEach(c => {
+      document.cookie = c
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+
+    // Redirect to your real login page
+    window.location.href = "https://centraltechinformationsystems.com/Portal/Login";
   };
 
-  // AUTH CHECK + FETCH DATA
+  // FIXED AUTH CHECK USING getSession()
   useEffect(() => {
     let isMounted = true;
 
     const checkAuthAndFetch = async () => {
       try {
         setLoading(true);
-        setError(null);
 
-        const { data, error: authError } = await supabase.auth.getUser();
+        // The ONLY reliable Supabase auth check
+        const { data: sessionData } = await supabase.auth.getSession();
 
-        if (authError || !data?.user) {
-          console.log('No user found - redirecting to /Portal/Login');
-          window.location.href = '/Portal/Login';
+        if (!sessionData?.session) {
+          window.location.href = "https://centraltechinformationsystems.com/Portal/Login";
           return;
         }
 
+        const user = sessionData.session.user;
+
         if (isMounted) {
-          setUserProfile({ email: data.user.email ?? null });
+          setUserProfile({ email: user.email ?? null });
         }
 
         const { data: licenseData, error: licenseError } = await supabase
-          .from('licenses')
-          .select('*')
-          .eq('user_id', data.user.id);
+          .from("licenses")
+          .select("*")
+          .eq("user_id", user.id);
 
-        if (licenseError) throw new Error(`Licenses query failed: ${licenseError.message}`);
+        if (licenseError) throw licenseError;
 
         if (isMounted) {
           setLicenses(licenseData || []);
         }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Failed to load dashboard data';
-        console.error('Dashboard load error:', message);
-        if (isMounted) setError(message);
+      } catch (err) {
+        console.error(err);
+        if (isMounted) setError("Failed to load dashboard");
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -110,26 +107,23 @@ export default function DashboardPage() {
 
   // REVOKE LICENSE
   const handleRevoke = async (licenseId: string | null | undefined) => {
-    if (!licenseId) {
-      alert('Invalid license ID');
-      return;
-    }
+    if (!licenseId) return alert("Invalid license ID");
 
-    if (!confirm('Are you sure you want to revoke this license?')) return;
+    if (!confirm("Are you sure you want to revoke this license?")) return;
 
     try {
       const { error } = await supabase
-        .from('licenses')
+        .from("licenses")
         .update({
           active: false,
           machine_id: null,
           revoked_at: new Date().toISOString(),
         })
-        .eq('id', licenseId);
+        .eq("id", licenseId);
 
       if (error) throw error;
 
-      alert('License revoked successfully');
+      alert("License revoked successfully");
 
       setLicenses(prev =>
         prev.map(l =>
@@ -138,37 +132,34 @@ export default function DashboardPage() {
             : l
         )
       );
-    } catch (err: unknown) {
-      alert('Revoke failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    } catch (err) {
+      alert("Revoke failed");
     }
   };
 
   // REACTIVATE LICENSE
   const handleReactivate = async (licenseId: string | null | undefined) => {
-    if (!licenseId) {
-      alert('Invalid license ID');
-      return;
-    }
+    if (!licenseId) return alert("Invalid license ID");
 
-    const machineIdInput = prompt('Enter new machine ID (or leave blank for auto):');
+    const machineIdInput = prompt("Enter new machine ID (or leave blank for auto):");
     if (machineIdInput === null) return;
 
     const machineId = machineIdInput.trim() || null;
 
     try {
       const { error } = await supabase
-        .from('licenses')
+        .from("licenses")
         .update({
           active: true,
           machine_id: machineId,
           revoked_at: null,
           activation_date: new Date().toISOString(),
         })
-        .eq('id', licenseId);
+        .eq("id", licenseId);
 
       if (error) throw error;
 
-      alert('License reactivated on new computer');
+      alert("License reactivated");
 
       setLicenses(prev =>
         prev.map(l =>
@@ -183,8 +174,8 @@ export default function DashboardPage() {
             : l
         )
       );
-    } catch (err: unknown) {
-      alert('Reactivation failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    } catch (err) {
+      alert("Reactivation failed");
     }
   };
 
@@ -192,7 +183,6 @@ export default function DashboardPage() {
   const totalPurchased = licenses.length;
   const activeCount = licenses.filter(l => l.active).length;
   const notInUseCount = licenses.filter(l => !l.active && !l.revoked_at).length;
-  const revokedCount = licenses.filter(l => l.revoked_at).length;
   const activeComputersCount = activeCount;
 
   // Loading UI
@@ -259,7 +249,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-3xl p-8 shadow-xl border border-teal-100 mb-12 text-center">
           <h2 className="text-3xl font-bold text-teal-900 mb-6">Welcome Back</h2>
           <p className="text-xl text-teal-800 mb-4">
-            Email: <strong>{userProfile?.email || 'Not available'}</strong>
+            Email: <strong>{userProfile?.email || "Not available"}</strong>
           </p>
         </div>
 
@@ -291,9 +281,9 @@ export default function DashboardPage() {
                   {licenses.map(l => (
                     <tr key={l.id} className="border-b hover:bg-teal-50">
                       <td className="p-4 font-mono">{l.id.slice(0, 8)}...</td>
-                      <td className="p-4">{l.computer_name || '—'}</td>
-                      <td className="p-4 font-mono">{l.machine_id || '—'}</td>
-                      <td className="p-4">{l.computer_details || '—'}</td>
+                      <td className="p-4">{l.computer_name || "—"}</td>
+                      <td className="p-4 font-mono">{l.machine_id || "—"}</td>
+                      <td className="p-4">{l.computer_details || "—"}</td>
 
                       <td className="p-4">
                         {l.revoked_at ? (
