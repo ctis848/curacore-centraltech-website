@@ -38,28 +38,29 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Logout handler
+  // Logout handler - redirects to LoginContentPage
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('Logout error:', error);
       alert('Logout failed: ' + error.message);
     } else {
-      window.location.href = '/login'; // Change to your actual login page path
+      // Redirect to your LoginContentPage (change path if different)
+      window.location.href = '/login'; // ← Change to '/signin', '/auth/login', etc. if needed
     }
   };
 
   useEffect(() => {
     let isMounted = true;
 
-    const fetchData = async () => {
+    const checkAuthAndFetch = async () => {
       try {
         setLoading(true);
         setError(null);
 
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-        // Redirect if not logged in
+        // If not logged in, redirect to login page
         if (authError || !user) {
           window.location.href = '/login';
           return;
@@ -88,7 +89,7 @@ export default function DashboardPage() {
       }
     };
 
-    fetchData();
+    checkAuthAndFetch();
 
     return () => {
       isMounted = false;
