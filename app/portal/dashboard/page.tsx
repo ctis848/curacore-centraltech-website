@@ -38,18 +38,31 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Logout handler
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Logout error:', error);
+      alert('Logout failed: ' + error.message);
+    } else {
+      window.location.href = '/login'; // Change to your login page path
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
-    const fetchData = async () => {
+    const checkAuthAndFetch = async () => {
       try {
         setLoading(true);
         setError(null);
 
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
+        // Redirect if not logged in
         if (authError || !user) {
-          throw new Error('No authenticated user found - please log in');
+          window.location.href = '/login'; // or your login path
+          return;
         }
 
         if (isMounted) {
@@ -75,7 +88,7 @@ export default function DashboardPage() {
       }
     };
 
-    fetchData();
+    checkAuthAndFetch();
 
     return () => {
       isMounted = false;
@@ -166,7 +179,17 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen pt-20 p-8 bg-gradient-to-b from-teal-50 to-white">
+    <div className="min-h-screen pt-20 p-8 bg-gradient-to-b from-teal-50 to-white relative">
+      {/* Logout Button - Top Right */}
+      <div className="absolute top-8 right-8 z-10">
+        <button
+          onClick={handleLogout}
+          className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-full font-bold text-lg transition shadow-2xl"
+        >
+          Logout
+        </button>
+      </div>
+
       <div className="max-w-6xl mx-auto">
         <h1 className="text-5xl md:text-6xl font-black text-teal-900 mb-12 text-center">
           CentralCore Client Dashboard
@@ -225,7 +248,6 @@ export default function DashboardPage() {
                 </thead>
                 <tbody>
                   {licenses.map((l) => {
-                    // Strict guard: skip if id is missing or falsy
                     if (!l?.id) return null;
 
                     return (
