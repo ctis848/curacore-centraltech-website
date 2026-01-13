@@ -45,7 +45,8 @@ export default function DashboardPage() {
       console.error('Logout error:', error);
       alert('Logout failed: ' + error.message);
     } else {
-      window.location.href = '/login'; // Change to your login page path
+      // Redirect to login page (change path if your login is different, e.g. '/signin')
+      window.location.href = '/login';
     }
   };
 
@@ -61,7 +62,7 @@ export default function DashboardPage() {
 
         // Redirect if not logged in
         if (authError || !user) {
-          window.location.href = '/login'; // or your login path
+          window.location.href = '/login'; // or '/signin' / '/' / your login path
           return;
         }
 
@@ -180,8 +181,8 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen pt-20 p-8 bg-gradient-to-b from-teal-50 to-white relative">
-      {/* Logout Button - Top Right */}
-      <div className="absolute top-8 right-8 z-10">
+      {/* Logout Button - Fixed top-right, above navbar */}
+      <div className="fixed top-4 right-8 z-50">
         <button
           onClick={handleLogout}
           className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-full font-bold text-lg transition shadow-2xl"
