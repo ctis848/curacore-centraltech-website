@@ -45,15 +45,14 @@ export default function DashboardPage() {
       console.error('Logout error:', error);
       alert('Logout failed: ' + error.message);
     } else {
-      // Redirect to login page (change path if your login is different, e.g. '/signin')
-      window.location.href = '/login';
+      window.location.href = '/login'; // Change to your actual login page path
     }
   };
 
   useEffect(() => {
     let isMounted = true;
 
-    const checkAuthAndFetch = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
@@ -62,7 +61,7 @@ export default function DashboardPage() {
 
         // Redirect if not logged in
         if (authError || !user) {
-          window.location.href = '/login'; // or '/signin' / '/' / your login path
+          window.location.href = '/login';
           return;
         }
 
@@ -89,7 +88,7 @@ export default function DashboardPage() {
       }
     };
 
-    checkAuthAndFetch();
+    fetchData();
 
     return () => {
       isMounted = false;
@@ -180,21 +179,20 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen pt-20 p-8 bg-gradient-to-b from-teal-50 to-white relative">
-      {/* Logout Button - Fixed top-right, above navbar */}
-      <div className="fixed top-4 right-8 z-50">
-        <button
-          onClick={handleLogout}
-          className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-full font-bold text-lg transition shadow-2xl"
-        >
-          Logout
-        </button>
-      </div>
-
+    <div className="min-h-screen pt-20 p-8 bg-gradient-to-b from-teal-50 to-white">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-5xl md:text-6xl font-black text-teal-900 mb-12 text-center">
-          CentralCore Client Dashboard
-        </h1>
+        {/* Title + Logout button on the same line */}
+        <div className="flex justify-between items-center mb-12">
+          <h1 className="text-5xl md:text-6xl font-black text-teal-900">
+            CentralCore Client Dashboard
+          </h1>
+          <button
+            onClick={handleLogout}
+            className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-full font-bold text-lg transition shadow-xl"
+          >
+            Logout
+          </button>
+        </div>
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
