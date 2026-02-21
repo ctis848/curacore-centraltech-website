@@ -151,7 +151,7 @@ export default function ProductsPage() {
                 "CentralCore transformed our hospital operations. Patient care is faster, records are secure, and billing is seamless."
               </p>
               <p className="font-bold text-2xl text-yellow-400">
-                Dr. Adebayo — Lagos University Teaching Hospital
+                Dr. Gbenga Adewale — Rivers State. Ultimate Specialist Hospital
               </p>
             </div>
             <div className="bg-teal-900/50 backdrop-blur-sm rounded-3xl p-10 border border-teal-700">
@@ -159,7 +159,7 @@ export default function ProductsPage() {
                 "The best EMR system we've used. Laboratory integration and reporting saved us hours every day."
               </p>
               <p className="font-bold text-2xl text-yellow-400">
-                Sister Mary — St. Nicholas Hospital
+                Prof. Dennies Alasia — Rivers State. Althahaus Medical Center
               </p>
             </div>
             <div className="bg-teal-900/50 backdrop-blur-sm rounded-3xl p-10 border border-teal-700">
@@ -167,7 +167,7 @@ export default function ProductsPage() {
                 "Ward management and pharmacy module are game-changers. Highly recommend CentralCore."
               </p>
               <p className="font-bold text-2xl text-yellow-400">
-                Dr. Fatima — Reddington Hospital
+                Dr. Franca Ikimalo — Rivers State. Prime Medical Consultants
               </p>
             </div>
           </div>
