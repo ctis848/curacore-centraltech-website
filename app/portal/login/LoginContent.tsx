@@ -1,12 +1,10 @@
-// app/portal/login/LoginContent.tsx
 'use client';
 
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { createClient } from '@supabase/supabase-js';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +23,7 @@ export default function LoginContent() {
         router.push('/portal/dashboard');
       }
     });
+
     return () => {
       listener.subscription.unsubscribe();
     };
@@ -36,13 +35,14 @@ export default function LoginContent() {
         <h2 className="text-5xl font-black text-teal-900 text-center mb-10">
           Client Portal
         </h2>
+
         <p className="text-xl text-gray-700 text-center mb-10">
           Log in to manage your CuraCore EMR license
         </p>
 
         {success === 'true' && (
           <div className="bg-green-100 border-2 border-green-500 text-green-800 px-6 py-5 rounded-2xl mb-10 text-center">
-            <p className="font-bold text-2xl mb-2">Payment Successful! 🎉</p>
+            <p className="font-bold text-2xl mb-2">Payment Successful 🎉</p>
             <p className="text-lg">
               Your <strong>{plan || 'plan'}</strong> license is now active.
             </p>
@@ -56,8 +56,8 @@ export default function LoginContent() {
             variables: {
               default: {
                 colors: {
-                  brand: '#0d9488', // teal-600
-                  brandAccent: '#14b8a6', // teal-500
+                  brand: '#0d9488',
+                  brandAccent: '#14b8a6',
                   brandButtonText: '#ffffff',
                   defaultButtonBackground: '#ffffff',
                   defaultButtonBackgroundHover: '#f0fdfa',
@@ -82,9 +82,9 @@ export default function LoginContent() {
             },
           }}
           theme="light"
-          providers={[]}  // Empty array = No social providers (Google removed)
-          magicLink={true} // Keeps passwordless Magic Link login
-          redirectTo="https://curacore-centraltech-website.netlify.app/portal/dashboard"
+          providers={[]}
+          magicLink={true}
+          redirectTo="https://centraltechinformationsystems.com/portal/dashboard"
         />
       </div>
     </div>

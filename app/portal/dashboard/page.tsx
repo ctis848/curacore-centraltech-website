@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase client
+// Supabase client (use environment variables)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -41,16 +41,17 @@ export default function DashboardPage() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
 
+    // Clear all storage and cookies
     localStorage.clear();
     sessionStorage.clear();
-
-    document.cookie.split(";").forEach(c => {
+    document.cookie.split(";").forEach((c) => {
       document.cookie = c
         .replace(/^ +/, "")
         .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
 
-    window.location.href = "https://centraltechinformationsystems.com/portal/login";
+    // Redirect to login on new domain (relative path is better)
+    window.location.href = '/portal/login';
   };
 
   useEffect(() => {
@@ -60,14 +61,14 @@ export default function DashboardPage() {
       try {
         setLoading(true);
 
-        const { data: sessionData } = await supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
 
-        if (!sessionData?.session) {
-          window.location.href = "https://centraltechinformationsystems.com/portal/login";
+        if (!session) {
+          window.location.href = '/portal/login';
           return;
         }
 
-        const user = sessionData.session.user;
+        const user = session.user;
 
         if (mounted) {
           setUserProfile({ email: user.email ?? null });
@@ -83,15 +84,19 @@ export default function DashboardPage() {
         if (mounted) {
           setLicenses(licenseData || []);
         }
-      } catch (err) {
-        if (mounted) setError("Failed to load dashboard");
+      } catch (err: any) {
+        console.error("Dashboard load error:", err);
+        if (mounted) setError("Failed to load dashboard. Please try again.");
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
     load();
-    return () => { mounted = false };
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const handleRevoke = async (id: string) => {
@@ -102,14 +107,19 @@ export default function DashboardPage() {
       .update({
         active: false,
         machine_id: null,
-        revoked_at: new Date().toISOString()
+        revoked_at: new Date().toISOString(),
       })
       .eq("id", id);
 
-    if (error) return alert("Failed to revoke");
+    if (error) {
+      alert("Failed to revoke license: " + error.message);
+      return;
+    }
 
-    setLicenses(prev =>
-      prev.map(l => l.id === id ? { ...l, active: false, machine_id: null, revoked_at: new Date().toISOString() } : l)
+    setLicenses((prev) =>
+      prev.map((l) =>
+        l.id === id ? { ...l, active: false, machine_id: null, revoked_at: new Date().toISOString() } : l
+      )
     );
   };
 
@@ -122,14 +132,19 @@ export default function DashboardPage() {
         active: true,
         machine_id: machineId,
         revoked_at: null,
-        activation_date: new Date().toISOString()
+        activation_date: new Date().toISOString(),
       })
       .eq("id", id);
 
-    if (error) return alert("Failed to reactivate");
+    if (error) {
+      alert("Failed to reactivate: " + error.message);
+      return;
+    }
 
-    setLicenses(prev =>
-      prev.map(l => l.id === id ? { ...l, active: true, machine_id: machineId, revoked_at: null } : l)
+    setLicenses((prev) =>
+      prev.map((l) =>
+        l.id === id ? { ...l, active: true, machine_id: machineId, revoked_at: null } : l
+      )
     );
   };
 
@@ -147,17 +162,16 @@ export default function DashboardPage() {
     setGeneratedKey('');
 
     try {
-      // Get fresh session token
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError || !session?.access_token) {
-        throw new Error("Session expired or not found. Please log in again.");
+        throw new Error("Session expired. Please log in again.");
       }
 
       const accessToken = session.access_token;
 
-      // Call your edge function
-      const response = await fetch('https://[YOUR_PROJECT_REF].supabase.co/functions/v1/generate-license', {
+      // Call your Supabase Edge Function (replace YOUR_PROJECT_REF with your actual ref)
+      const response = await fetch('https://sbd.publishable.6niXnGArkuhI_FroqMRy0w_zwDDsJjd.supabase.co/functions/v1/generate-license', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -212,8 +226,8 @@ export default function DashboardPage() {
   }
 
   const totalPurchased = licenses.length;
-  const activeCount = licenses.filter(l => l.active).length;
-  const notInUseCount = licenses.filter(l => !l.active && !l.revoked_at).length;
+  const activeCount = licenses.filter((l) => l.active).length;
+  const notInUseCount = licenses.filter((l) => !l.active && !l.revoked_at).length;
   const activeComputersCount = activeCount;
 
   return (
@@ -341,7 +355,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {licenses.map(l => (
+                  {licenses.map((l) => (
                     <tr key={l.id} className="border-b hover:bg-teal-50">
                       <td className="p-4 font-mono">{l.id.slice(0, 8)}...</td>
                       <td className="p-4">{l.computer_name || "—"}</td>
