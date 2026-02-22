@@ -1,6 +1,4 @@
-// app/services/page.tsx
-'use client';
-
+'use client'; 
 import { useState } from 'react';
 import Image from 'next/image';
 
@@ -21,10 +19,57 @@ const services = [
 export default function ServicesPage() {
   const [showForm, setShowForm] = useState(false);
   const [selectedService, setSelectedService] = useState('');
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    message: '',
+  });
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [message, setMessage] = useState('');
 
   const handleRequestQuote = (title: string) => {
     setSelectedService(title);
     setShowForm(true);
+    setStatus('idle');
+    setMessage('');
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('loading');
+
+    try {
+      const res = await fetch('/.netlify/functions/send-quote-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          service: selectedService,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setStatus('success');
+        setMessage('Quote request sent successfully! We will contact you soon.');
+        setTimeout(() => {
+          setShowForm(false);
+          setFormData({ name: '', email: '', phone: '', message: '' });
+        }, 3000);
+      } else {
+        setStatus('error');
+        setMessage(data.error || 'Failed to send request. Please try again.');
+      }
+    } catch (err) {
+      setStatus('error');
+      setMessage('Something went wrong. Please try again later.');
+    }
   };
 
   return (
@@ -42,7 +87,7 @@ export default function ServicesPage() {
         </div>
       </section>
 
-      {/* Image-Rich Service Cards */}
+      {/* Service Cards */}
       <section className="py-24 px-6 bg-teal-50">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-5xl md:text-6xl font-black text-teal-900 text-center mb-16">
@@ -82,8 +127,81 @@ export default function ServicesPage() {
         </div>
       </section>
 
-      {/* Quote Modal & CTA remain the same as previous version */}
-      {/* ... (keep your existing modal and CTA code) ... */}
+      {/* Quote Request Modal */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 relative">
+            <button
+              onClick={() => setShowForm(false)}
+              className="absolute top-4 right-6 text-gray-500 hover:text-gray-800 text-3xl"
+            >
+              ×
+            </button>
+
+            <h2 className="text-3xl font-bold text-teal-900 mb-6 text-center">
+              Request Quote for<br />
+              <span className="text-yellow-600">{selectedService}</span>
+            </h2>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <input
+                type="text"
+                name="name"
+                placeholder="Your Full Name"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              <input
+                type="email"
+                name="email"
+                placeholder="Your Email Address"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              <input
+                type="tel"
+                name="phone"
+                placeholder="Your Phone Number"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+                className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              <textarea
+                name="message"
+                placeholder="Additional details or requirements..."
+                value={formData.message}
+                onChange={handleChange}
+                rows={4}
+                className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+
+              <button
+                type="submit"
+                disabled={status === 'loading'}
+                className={`w-full py-4 rounded-xl text-xl font-bold transition ${
+                  status === 'loading'
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-teal-600 hover:bg-teal-700 text-white'
+                }`}
+              >
+                {status === 'loading' ? 'Sending...' : 'Send Quote Request'}
+              </button>
+
+              {status === 'success' && (
+                <p className="text-green-600 text-center font-medium">{message}</p>
+              )}
+              {status === 'error' && (
+                <p className="text-red-600 text-center font-medium">{message}</p>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }
