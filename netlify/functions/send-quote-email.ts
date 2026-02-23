@@ -13,18 +13,14 @@ interface QuoteRequestBody {
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
   const httpMethod = event.httpMethod;
 
-  // ────────────────────────────────────────────────
-  // Common CORS headers (used in all successful responses)
-  // ────────────────────────────────────────────────
+  // Common CORS headers (used in success responses)
   const corsHeaders = {
     'Access-Control-Allow-Origin': 'https://www.ctistech.com',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   } as const;
 
-  // ────────────────────────────────────────────────
-  // Handle preflight OPTIONS request
-  // ────────────────────────────────────────────────
+  // Handle preflight OPTIONS
   if (httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
@@ -32,9 +28,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
     };
   }
 
-  // ────────────────────────────────────────────────
   // Enforce POST only
-  // ────────────────────────────────────────────────
   if (httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -65,7 +59,6 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
     };
   }
 
-  // Email format validation
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return {
       statusCode: 400,
@@ -74,7 +67,6 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
     };
   }
 
-  // Nodemailer transport
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -85,7 +77,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
 
   const mailOptions = {
     from: `"CuraCore Quote Request" <${process.env.EMAIL_USER}>`,
-    to: 'ctistechnologies@gmail.com',
+    to: 'info@ctistech.com',
     replyTo: email,
     subject: `New Quote Request: ${service}`,
     text: `
