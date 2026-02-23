@@ -1,3 +1,4 @@
+# Force HTTP → HTTPS + non-www → www
 [[redirects]]
   from = "http://ctistech.com/*"
   to = "https://www.ctistech.com/:splat"
@@ -15,3 +16,10 @@
   to = "https://www.ctistech.com/:splat"
   status = 301
   force = true
+
+# Optional: catch any broken www → www loop (rare)
+[[redirects]]
+  from = "https://www.ctistech.com/*"
+  to = "https://www.ctistech.com/:splat"
+  status = 200
+  force = false
