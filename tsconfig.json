@@ -1,35 +1,49 @@
 {
   "compilerOptions": {
-    "target": "ES2020",                    // Updated: Better modern browser support
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "target": "es5",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
+    "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "forceConsistentCasingInFileNames": true,  // Added: Prevents case-sensitive bugs
     "plugins": [
       {
         "name": "next"
       }
     ],
+    // ────────────────────────────────────────────────
+    // Added: Path aliases so @/components works properly
+    // ────────────────────────────────────────────────
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
-    },
-    "typeRoots": ["./node_modules/@types", "./types"]  // Added: For custom types (like Paystack)
+      "@/*": [
+        "src/*"
+      ]
+    }
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "types/**/*.d.ts"  // Added: Include custom type declarations
+    ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    ".next",
+    "netlify/functions", // Excludes serverless functions from TS checking
+    "public" // Optional: exclude public folder if not using TS there
+  ]
 }

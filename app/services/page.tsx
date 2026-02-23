@@ -1,5 +1,6 @@
-'use client'; 
-import { useState } from 'react';
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 
 const services = [
@@ -28,20 +29,21 @@ export default function ServicesPage() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
 
-  const handleRequestQuote = (title: string) => {
+  const handleRequestQuote = useCallback((title: string) => {
     setSelectedService(title);
     setShowForm(true);
     setStatus('idle');
     setMessage('');
-  };
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('loading');
+    setMessage('');
 
     try {
       const res = await fetch('/.netlify/functions/send-quote-email', {
@@ -63,60 +65,71 @@ export default function ServicesPage() {
           setFormData({ name: '', email: '', phone: '', message: '' });
         }, 3000);
       } else {
-        setStatus('error');
-        setMessage(data.error || 'Failed to send request. Please try again.');
+        throw new Error(data.error || 'Failed to send request');
       }
-    } catch (err) {
+    } catch (err: any) {
       setStatus('error');
-      setMessage('Something went wrong. Please try again later.');
+      setMessage(err.message || 'Something went wrong. Please try again later.');
     }
   };
 
+  // Close modal on Esc key
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowForm(false);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
   return (
     <>
-      {/* Hero */}
-      <section className="relative bg-teal-900 py-32 px-6 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-teal-800 to-teal-950 opacity-90"></div>
-        <div className="relative max-w-6xl mx-auto text-center text-white">
-          <h1 className="text-5xl md:text-7xl font-black mb-6 drop-shadow-2xl">
+      {/* Hero Section */}
+      <section className="relative bg-gradient-to-br from-teal-900 to-teal-950 py-32 px-6 overflow-hidden">
+        <div className="absolute inset-0 bg-black/40"></div>
+        <div className="relative max-w-7xl mx-auto text-center text-white z-10">
+          <h1 className="text-5xl md:text-7xl font-extrabold mb-6 tracking-tight drop-shadow-2xl">
             Our Professional Services
           </h1>
-          <p className="text-2xl md:text-3xl mb-12 font-light max-w-4xl mx-auto drop-shadow-lg">
-            End-to-end technology solutions for modern healthcare facilities
+          <p className="text-xl md:text-3xl font-light max-w-4xl mx-auto drop-shadow-lg">
+            Comprehensive technology solutions built for modern healthcare facilities
           </p>
         </div>
       </section>
 
-      {/* Service Cards */}
-      <section className="py-24 px-6 bg-teal-50">
+      {/* Services Grid */}
+      <section className="py-24 px-6 bg-gradient-to-b from-teal-50 to-white">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-5xl md:text-6xl font-black text-teal-900 text-center mb-16">
-            Comprehensive Healthcare IT Services
+          <h2 className="text-4xl md:text-6xl font-extrabold text-teal-900 text-center mb-16">
+            Healthcare IT & Infrastructure Services
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             {services.map((service, index) => (
               <div
                 key={index}
-                className="bg-white rounded-3xl shadow-xl overflow-hidden border border-teal-100 hover:shadow-2xl hover:scale-105 transition-all duration-300"
+                className="group bg-white rounded-3xl shadow-lg overflow-hidden border border-teal-100 hover:shadow-2xl hover:scale-[1.03] transition-all duration-300"
               >
-                <div className="relative h-64">
+                <div className="relative h-64 overflow-hidden">
                   <Image
                     src={service.image}
                     alt={service.title}
                     fill
-                    className="object-cover"
+                    className="object-cover group-hover:scale-110 transition-transform duration-500"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    priority={index < 3} // Load first 3 images faster
                   />
                 </div>
                 <div className="p-8">
-                  <h3 className="text-3xl font-bold text-teal-900 mb-4">
+                  <h3 className="text-2xl md:text-3xl font-bold text-teal-900 mb-4">
                     {service.title}
                   </h3>
-                  <p className="text-lg text-gray-700 mb-8">
+                  <p className="text-lg text-gray-700 mb-8 leading-relaxed">
                     {service.desc}
                   </p>
                   <button
                     onClick={() => handleRequestQuote(service.title)}
-                    className="w-full bg-yellow-400 text-teal-900 py-4 rounded-xl text-xl font-bold hover:bg-yellow-300 transition shadow-lg"
+                    className="w-full bg-yellow-400 hover:bg-yellow-300 text-teal-900 py-4 rounded-xl text-xl font-bold transition shadow-md hover:shadow-lg"
                   >
                     Request Quote
                   </button>
@@ -129,74 +142,108 @@ export default function ServicesPage() {
 
       {/* Quote Request Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 relative">
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowForm(false)} // Close on backdrop click
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 relative"
+            onClick={e => e.stopPropagation()} // Prevent close when clicking inside
+          >
             <button
               onClick={() => setShowForm(false)}
-              className="absolute top-4 right-6 text-gray-500 hover:text-gray-800 text-3xl"
+              className="absolute top-4 right-6 text-gray-600 hover:text-gray-900 text-4xl font-bold"
+              aria-label="Close"
             >
               ×
             </button>
 
-            <h2 className="text-3xl font-bold text-teal-900 mb-6 text-center">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-teal-900 mb-6 text-center">
               Request Quote for<br />
               <span className="text-yellow-600">{selectedService}</span>
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              <input
-                type="text"
-                name="name"
-                placeholder="Your Full Name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-              <input
-                type="email"
-                name="email"
-                placeholder="Your Email Address"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-              <input
-                type="tel"
-                name="phone"
-                placeholder="Your Phone Number"
-                value={formData.phone}
-                onChange={handleChange}
-                required
-                className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-              <textarea
-                name="message"
-                placeholder="Additional details or requirements..."
-                value={formData.message}
-                onChange={handleChange}
-                rows={4}
-                className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  placeholder="Your Full Name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                  className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="Your Email Address"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Number
+                </label>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  placeholder="Your Phone Number"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  required
+                  className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
+                  Additional Details
+                </label>
+                <textarea
+                  id="message"
+                  name="message"
+                  placeholder="Additional details or requirements..."
+                  value={formData.message}
+                  onChange={handleChange}
+                  rows={4}
+                  className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                />
+              </div>
 
               <button
                 type="submit"
                 disabled={status === 'loading'}
-                className={`w-full py-4 rounded-xl text-xl font-bold transition ${
+                className={`w-full py-4 rounded-xl text-xl font-bold transition-all ${
                   status === 'loading'
                     ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-teal-600 hover:bg-teal-700 text-white'
+                    : 'bg-teal-600 hover:bg-teal-700 text-white shadow-lg hover:shadow-xl'
                 }`}
               >
                 {status === 'loading' ? 'Sending...' : 'Send Quote Request'}
               </button>
 
               {status === 'success' && (
-                <p className="text-green-600 text-center font-medium">{message}</p>
+                <p className="text-green-600 text-center font-medium mt-4">{message}</p>
               )}
               {status === 'error' && (
-                <p className="text-red-600 text-center font-medium">{message}</p>
+                <p className="text-red-600 text-center font-medium mt-4">{message}</p>
               )}
             </form>
           </div>

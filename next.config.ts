@@ -1,7 +1,15 @@
-import type { NextConfig } from "next";
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  swcMinify: true,
 
-const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    domains: [
+      'nkybsfygkmmzmwoadopc.supabase.co',
+      'www.ctistech.com',
+      'ctistech.com',
+    ],
+  },
 };
 
 export default nextConfig;
