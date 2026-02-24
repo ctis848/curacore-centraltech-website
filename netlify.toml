@@ -1,4 +1,4 @@
-# Force everything to HTTPS + www.ctistech.com
+# Force all traffic to HTTPS + www.ctistech.com (no reverse rules, no loops)
 [[redirects]]
   from = "http://ctistech.com/*"
   to = "https://www.ctistech.com/:splat"
@@ -16,10 +16,3 @@
   to = "https://www.ctistech.com/:splat"
   status = 301
   force = true
-
-# Prevent any potential www → www loop (very rare)
-[[redirects]]
-  from = "https://www.ctistech.com/*"
-  to = "https://www.ctistech.com/:splat"
-  status = 200
-  force = false
