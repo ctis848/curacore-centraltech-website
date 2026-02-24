@@ -45,6 +45,16 @@ export default function ServicesPage() {
     setStatus('loading');
     setMessage('');
 
+    // DEBUG LOGS BEFORE FETCH
+    console.log('=== Submitting quote request ===');
+    console.log('Form data being sent:', {
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      message: formData.message,
+      service: selectedService,
+    });
+
     try {
       const res = await fetch('/.netlify/functions/send-quote-email', {
         method: 'POST',
@@ -55,7 +65,25 @@ export default function ServicesPage() {
         }),
       });
 
-      const data = await res.json();
+      // DEBUG LOGS AFTER FETCH
+      console.log('Fetch response status:', res.status);
+      console.log('Fetch response ok:', res.ok);
+      // Fixed: Use Object.fromEntries instead of spread to avoid iterator error
+      console.log('Response headers:', Object.fromEntries(res.headers.entries()));
+
+      // Get raw response text first (to see what server really sent)
+      const rawText = await res.text();
+      console.log('Raw response body (first 500 chars):', rawText.substring(0, 500));
+
+      // Try to parse as JSON
+      let data;
+      try {
+        data = JSON.parse(rawText);
+        console.log('Parsed JSON data:', data);
+      } catch (jsonErr) {
+        console.error('JSON parse failed:', jsonErr);
+        throw new Error('Invalid JSON response from server');
+      }
 
       if (res.ok) {
         setStatus('success');
@@ -65,9 +93,10 @@ export default function ServicesPage() {
           setFormData({ name: '', email: '', phone: '', message: '' });
         }, 3000);
       } else {
-        throw new Error(data.error || 'Failed to send request');
+        throw new Error(data?.error || 'Failed to send request');
       }
     } catch (err: any) {
+      console.error('Submit error:', err);
       setStatus('error');
       setMessage(err.message || 'Something went wrong. Please try again later.');
     }
@@ -117,7 +146,7 @@ export default function ServicesPage() {
                     fill
                     className="object-cover group-hover:scale-110 transition-transform duration-500"
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    priority={index < 3} // Load first 3 images faster
+                    priority={index < 3}
                   />
                 </div>
                 <div className="p-8">
@@ -144,11 +173,11 @@ export default function ServicesPage() {
       {showForm && (
         <div
           className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowForm(false)} // Close on backdrop click
+          onClick={() => setShowForm(false)}
         >
           <div
             className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 relative"
-            onClick={e => e.stopPropagation()} // Prevent close when clicking inside
+            onClick={e => e.stopPropagation()}
           >
             <button
               onClick={() => setShowForm(false)}
