@@ -2,8 +2,6 @@ import { Handler } from '@netlify/functions';
 import nodemailer from 'nodemailer';
 
 export const handler: Handler = async (event) => {
-  console.log('Function invoked:', new Date().toISOString());
-
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -14,9 +12,7 @@ export const handler: Handler = async (event) => {
   let data;
   try {
     data = JSON.parse(event.body || '{}');
-    console.log('Parsed data:', data);
   } catch (err) {
-    console.error('JSON parse error:', err);
     return {
       statusCode: 400,
       body: JSON.stringify({ error: 'Invalid JSON format' }),
@@ -24,7 +20,7 @@ export const handler: Handler = async (event) => {
   }
 
   // Normalize fields from your form
-  const name = data.name || data.fullName;
+  const name = data.fullName || data.name;
   const email = data.email;
   const phone = data.phone;
   const message = data.message || data.details || '';
@@ -63,16 +59,13 @@ Message: ${message || 'None'}
   };
 
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Mail sent:', info.messageId);
+    await transporter.sendMail(mailOptions);
 
     return {
       statusCode: 200,
       body: JSON.stringify({ success: true }),
     };
   } catch (err) {
-    console.error('SMTP error:', err);
-
     return {
       statusCode: 500,
       body: JSON.stringify({
