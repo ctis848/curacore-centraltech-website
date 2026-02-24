@@ -23,11 +23,11 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  // Normalize field names from your form
+  // Normalize fields from your form
   const name = data.name || data.fullName;
   const email = data.email;
   const phone = data.phone;
-  const message = data.message || '';
+  const message = data.message || data.details || '';
   const service = data.service || 'CCTV Security Surveillance';
 
   if (!name || !email || !phone) {
