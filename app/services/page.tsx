@@ -45,15 +45,7 @@ export default function ServicesPage() {
     setStatus('loading');
     setMessage('');
 
-    // DEBUG LOGS BEFORE FETCH
-    console.log('=== Submitting quote request ===');
-    console.log('Form data being sent:', {
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      message: formData.message,
-      service: selectedService,
-    });
+    console.log('Submitting quote request with data:', { ...formData, service: selectedService });
 
     try {
       const res = await fetch('/.netlify/functions/send-quote-email', {
@@ -65,24 +57,16 @@ export default function ServicesPage() {
         }),
       });
 
-      // DEBUG LOGS AFTER FETCH
-      console.log('Fetch response status:', res.status);
-      console.log('Fetch response ok:', res.ok);
-      // Fixed: Use Object.fromEntries instead of spread to avoid iterator error
-      console.log('Response headers:', Object.fromEntries(res.headers.entries()));
+      console.log('Response status:', res.status);
 
-      // Get raw response text first (to see what server really sent)
-      const rawText = await res.text();
-      console.log('Raw response body (first 500 chars):', rawText.substring(0, 500));
+      const text = await res.text();
+      console.log('Raw response:', text);
 
-      // Try to parse as JSON
       let data;
       try {
-        data = JSON.parse(rawText);
-        console.log('Parsed JSON data:', data);
-      } catch (jsonErr) {
-        console.error('JSON parse failed:', jsonErr);
-        throw new Error('Invalid JSON response from server');
+        data = JSON.parse(text);
+      } catch {
+        throw new Error('Invalid JSON from server');
       }
 
       if (res.ok) {
@@ -95,10 +79,11 @@ export default function ServicesPage() {
       } else {
         throw new Error(data?.error || 'Failed to send request');
       }
-    } catch (err: any) {
-      console.error('Submit error:', err);
+    } catch (err: unknown) {
+      console.error('Form submit error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Something went wrong. Please try again later.';
       setStatus('error');
-      setMessage(err.message || 'Something went wrong. Please try again later.');
+      setMessage(errorMessage);
     }
   };
 
