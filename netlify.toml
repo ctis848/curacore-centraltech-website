@@ -16,5 +16,3 @@
   to = "https://www.ctistech.com/:splat"
   status = 301
   force = true
-
-# No other rules - no www → non-www, no self-redirects
