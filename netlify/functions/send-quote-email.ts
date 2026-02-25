@@ -1,10 +1,5 @@
+// netlify/functions/send-quote-email.ts
 import { Handler } from '@netlify/functions';
-import nodemailer from 'nodemailer';
-
-interface SendMailInfo {
-  messageId: string;
-  // add other fields you might need later
-}
 
 export const handler: Handler = async (event) => {
   console.log('=== send-quote-email invoked at:', new Date().toISOString());
@@ -40,51 +35,42 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  console.log('SMTP config loaded:', {
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
-    secure: process.env.EMAIL_SECURE,
-    user: process.env.EMAIL_USER,
-  });
-
-  const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number(process.env.EMAIL_PORT),
-    secure: process.env.EMAIL_SECURE === 'true',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-    connectionTimeout: 8000,
-    greetingTimeout: 5000,
-    socketTimeout: 8000,
-    tls: { rejectUnauthorized: false },
-  });
-
-  const mailOptions = {
-    from: `"Quote Request" <${process.env.EMAIL_USER}>`,
-    to: 'info@ctistech.com',
-    replyTo: email,
-    subject: `New Quote Request: ${service}`,
-    text: `
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: 'info@ctistech.com',           // Change to your verified sender if needed
+        to: 'info@ctistech.com',
+        reply_to: email,
+        subject: `New Quote Request: ${service}`,
+        text: `
 Name: ${name}
 Email: ${email}
 Phone: ${phone}
 Service: ${service}
 Message:
 ${message || 'None'}
-    `,
-  };
+        `,
+      }),
+    });
 
-  try {
-    const info = (await transporter.sendMail(mailOptions)) as SendMailInfo;
-    console.log('Email sent successfully → Message ID:', info.messageId);
+    if (!response.ok) {
+      const errData = await response.json();
+      console.error('Resend API error:', errData);
+      throw new Error(errData.message || `Resend returned ${response.status}`);
+    }
+
+    console.log('Email sent via Resend');
     return {
       statusCode: 200,
       body: JSON.stringify({ success: true }),
     };
   } catch (err: unknown) {
-    console.error('SMTP send error:', err);
+    console.error('Send error:', err);
     const details = err instanceof Error ? err.message : String(err);
     return {
       statusCode: 500,
