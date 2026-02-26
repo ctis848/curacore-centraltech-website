@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { PaystackButton } from 'react-paystack';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,7 +17,6 @@ export default function Dashboard() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [expiryDays, setExpiryDays] = useState<number | null>(null);
-  const [annualFee, setAnnualFee] = useState<number>(0);
 
   useEffect(() => {
     const loadData = async () => {
@@ -35,8 +33,6 @@ export default function Dashboard() {
       setSubscription(sub);
 
       if (sub) {
-        setAnnualFee(sub.annual_service_fee || 100000); // fallback
-
         const expiry = new Date(sub.expiry);
         const now = new Date();
         const days = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -44,6 +40,7 @@ export default function Dashboard() {
 
         if (days <= 0) {
           setMessage('Your subscription has expired. Licenses are deactivated. Renew to reactivate.');
+          // Deactivate licenses
           await supabase
             .from('licenses')
             .update({ active: false })
@@ -94,39 +91,6 @@ export default function Dashboard() {
     }
   };
 
-  const paystackConfig = {
-    reference: new Date().getTime().toString(),
-    email: user?.email || '',
-    amount: annualFee * 100,
-    publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
-    metadata: {
-      user_id: user?.id,
-      purpose: 'annual_service_fee',
-      license_id: license?.id,
-    },
-  };
-
-  const handleRenewalSuccess = async (response: any) => {
-    try {
-      const res = await fetch('/api/payments/renew-service', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reference: response.reference,
-          userId: user?.id,
-        }),
-      });
-
-      if (!res.ok) throw new Error('Renewal failed');
-
-      setMessage('Service fee renewed! License extended.');
-      window.location.reload();
-    } catch (err) {
-      setMessage('Renewal failed. Contact support.');
-    }
-  };
-
-  const isEnterprise = subscription?.plan === 'Enterprise';
   const isExpired = expiryDays !== null && expiryDays <= 0;
 
   if (!user) {
@@ -144,7 +108,7 @@ export default function Dashboard() {
           Your CentralCore Dashboard
         </h1>
 
-        {/* Subscription Status */}
+        {/* Subscription & Expiry Status */}
         <section className="mb-12 bg-white rounded-2xl shadow-lg p-8 border border-teal-100">
           <h2 className="text-3xl font-bold text-teal-900 mb-6">Subscription Status</h2>
           {subscription ? (
@@ -171,7 +135,7 @@ export default function Dashboard() {
                       Subscription expired. Licenses deactivated.
                     </p>
                     <p className="mt-2 text-red-600">
-                      Renew annual service fee to reactivate.
+                      Renew your annual service fee to reactivate.
                     </p>
                   </div>
                 )}
@@ -179,14 +143,15 @@ export default function Dashboard() {
             </div>
           ) : (
             <p className="text-xl text-gray-600">
-              No active subscription. Subscribe to continue.
+              No active subscription found. Subscribe to access full features.
             </p>
           )}
         </section>
 
-        {/* License Section */}
+        {/* License Management */}
         <section className="mb-12 bg-white rounded-2xl shadow-lg p-8 border border-teal-100">
           <h2 className="text-3xl font-bold text-teal-900 mb-6">License Management</h2>
+
           {license ? (
             <div className="bg-teal-50 p-6 rounded-xl">
               <p className="text-xl font-semibold mb-3">Active License Key</p>
@@ -194,65 +159,44 @@ export default function Dashboard() {
                 {license.license_key}
               </div>
               <p className="text-lg">
-                Valid until: <strong>{new Date(license.service_expiry).toLocaleDateString()}</strong>
+                Service valid until:{' '}
+                <strong>{new Date(license.service_expiry).toLocaleDateString()}</strong>
               </p>
             </div>
           ) : (
             <div>
               <p className="text-lg mb-6 text-gray-700">
-                No active license. Paste request code to activate.
+                No active license found. Paste your license request code below to activate.
               </p>
+
               <form onSubmit={handleActivateLicense} className="space-y-6">
                 <textarea
                   value={licenseRequest}
                   onChange={(e) => setLicenseRequest(e.target.value)}
-                  placeholder="Paste License Request code from CentralCore software..."
-                  className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 min-h-[160px]"
+                  placeholder="Paste the License Request code from your CentralCore software here..."
+                  className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent min-h-[160px] text-base"
                   required
                   disabled={isExpired}
                 />
+
                 <button
                   type="submit"
                   disabled={status === 'loading' || isExpired}
                   className={`w-full py-4 rounded-xl text-xl font-bold transition-all ${
                     status === 'loading' || isExpired
-                      ? 'bg-gray-400 cursor-not-allowed'
+                      ? 'bg-gray-400 cursor-not-allowed text-white'
                       : 'bg-teal-600 hover:bg-teal-700 text-white shadow-lg hover:shadow-xl'
                   }`}
                 >
                   {status === 'loading' ? 'Activating...' : 'Activate License'}
                 </button>
               </form>
+
               {status === 'error' && <p className="text-red-600 mt-6 text-lg">{message}</p>}
               {status === 'success' && <p className="text-green-600 mt-6 text-lg">{message}</p>}
             </div>
           )}
         </section>
-
-        {/* Renewal Section */}
-        {isEnterprise && (
-          <section className="bg-white rounded-2xl shadow-lg p-8 border border-teal-100">
-            <h2 className="text-3xl font-bold text-teal-900 mb-6">Renew Annual Service Fee</h2>
-            <p className="text-lg mb-6">
-              Next due: {new Date(subscription?.expiry || '').toLocaleDateString()}
-            </p>
-            <p className="text-gray-600 mb-8">
-              Amount: <strong>₦{annualFee.toLocaleString()}</strong> (20% of license fee)
-            </p>
-            <PaystackButton
-              {...paystackConfig}
-              text={`Renew - ₦${annualFee.toLocaleString()}`}
-              onSuccess={handleRenewalSuccess}
-              onClose={() => setMessage('Payment cancelled.')}
-              className="w-full py-4 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-xl text-xl shadow-lg hover:shadow-xl transition-all"
-            />
-            {message && (
-              <p className={`mt-6 text-lg ${message.includes('success') ? 'text-green-600' : 'text-red-600'}`}>
-                {message}
-              </p>
-            )}
-          </section>
-        )}
       </div>
     </div>
   );
