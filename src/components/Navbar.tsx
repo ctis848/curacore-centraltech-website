@@ -1,13 +1,43 @@
+// src/components/Navbar.tsx
 'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+
+    checkUser();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+    setOpen(false);
+  };
 
   const navLinks = [
     { name: 'Home', href: '/' },
@@ -16,7 +46,6 @@ export default function Navbar() {
     { name: 'Resources', href: '/resources' },
     { name: 'Download', href: '/download' },
     { name: 'Buy Now', href: '/buy', highlight: true },
-    { name: 'Dashboard', href: '/dashboard' }, // FIXED: no more /portal
   ];
 
   return (
@@ -42,7 +71,7 @@ export default function Navbar() {
             <span className="sm:hidden text-2xl font-black">CentralCore</span>
           </Link>
 
-          {/* Desktop */}
+          {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-2 lg:space-x-6">
             {navLinks.map((link) => (
               <Link
@@ -61,9 +90,34 @@ export default function Navbar() {
                 {link.name}
               </Link>
             ))}
+
+            {/* Login / Logout / Sign Up */}
+            {user ? (
+              <button
+                onClick={handleLogout}
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 rounded-full font-bold text-white transition"
+              >
+                Logout
+              </button>
+            ) : (
+              <div className="flex items-center space-x-4">
+                <Link
+                  href="/login"
+                  className="px-6 py-3 bg-yellow-400 hover:bg-yellow-300 rounded-full font-bold text-teal-900 transition"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/signup"  // ← Add this page later if needed
+                  className="px-6 py-3 bg-teal-500 hover:bg-teal-600 rounded-full font-bold text-white transition"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            )}
           </div>
 
-          {/* Mobile Button */}
+          {/* Mobile Toggle */}
           <button
             onClick={() => setOpen(!open)}
             className="md:hidden text-3xl focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-md"
@@ -76,7 +130,7 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {open && (
-        <div className="md:hidden bg-teal-800 px-4 py-6 space-y-3">
+        <div className="md:hidden bg-teal-800 px-4 py-6 space-y-4">
           {navLinks.map((link) => (
             <Link
               key={link.name}
@@ -95,6 +149,33 @@ export default function Navbar() {
               {link.name}
             </Link>
           ))}
+
+          {/* Mobile Login / Logout / Sign Up */}
+          {user ? (
+            <button
+              onClick={handleLogout}
+              className="block w-full py-4 px-6 text-lg font-bold bg-red-600 hover:bg-red-700 rounded-xl text-white transition"
+            >
+              Logout
+            </button>
+          ) : (
+            <div className="space-y-4">
+              <Link
+                href="/login"
+                onClick={() => setOpen(false)}
+                className="block w-full py-4 px-6 text-lg font-bold bg-yellow-400 hover:bg-yellow-300 rounded-xl text-teal-900 transition text-center"
+              >
+                Login
+              </Link>
+              <Link
+                href="/signup"
+                onClick={() => setOpen(false)}
+                className="block w-full py-4 px-6 text-lg font-bold bg-teal-500 hover:bg-teal-600 rounded-xl text-white transition text-center"
+              >
+                Sign Up
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </nav>
