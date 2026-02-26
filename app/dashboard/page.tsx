@@ -1,4 +1,3 @@
-// app/dashboard/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -40,7 +39,6 @@ export default function Dashboard() {
 
         if (days <= 0) {
           setMessage('Your subscription has expired. Licenses are deactivated. Renew to reactivate.');
-          // Deactivate licenses
           await supabase
             .from('licenses')
             .update({ active: false })
@@ -103,7 +101,18 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto relative">
+        {/* Logout Button */}
+        <button
+          onClick={async () => {
+            await supabase.auth.signOut();
+            window.location.href = '/login';
+          }}
+          className="absolute top-4 right-6 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-medium transition"
+        >
+          Logout
+        </button>
+
         <h1 className="text-4xl md:text-5xl font-extrabold text-teal-900 mb-10 text-center">
           Your CentralCore Dashboard
         </h1>

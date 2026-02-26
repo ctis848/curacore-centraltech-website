@@ -22,7 +22,7 @@ export default function HomePage() {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % showcaseImages.length);
-    }, 5000); // Change image every 5 seconds
+    }, 5000); // Change every 5 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -31,11 +31,15 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="relative h-screen w-full flex items-center justify-center overflow-hidden">
         <Image
-          src="/images/hero/image-2.jpg"  // ← fixed path
+          src="/images/hero/image-2.jpg" // Confirm this file exists in public/images/hero/
           alt="Doctor using CentralCore EMR on tablet"
           fill
           className="object-cover brightness-75"
           priority
+          quality={85}
+          onError={(e) => {
+            e.currentTarget.src = '/images/fallback-hero.jpg'; // fallback if missing
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-teal-900/60 to-transparent" />
 
@@ -75,19 +79,23 @@ export default function HomePage() {
           </h2>
 
           <div className="relative max-w-6xl mx-auto">
-            <div className="overflow-hidden rounded-3xl shadow-2xl border-8 border-white">
+            <div className="overflow-hidden rounded-3xl shadow-2xl border-8 border-white bg-gray-100">
               <Image
-                src={showcaseImages[currentIndex].src}
-                alt={showcaseImages[currentIndex].alt}
+                src={showcaseImages[currentIndex]?.src || '/images/fallback-placeholder.jpg'}
+                alt={showcaseImages[currentIndex]?.alt || 'Showcase image'}
                 width={1200}
                 height={800}
                 className="w-full h-auto object-cover transition-opacity duration-1000"
-                priority={currentIndex === 0}
+                priority={currentIndex <= 1} // priority for first two images
+                quality={85}
+                onError={(e) => {
+                  e.currentTarget.src = '/images/fallback-placeholder.jpg';
+                }}
               />
             </div>
 
             <p className="text-xl md:text-2xl text-gray-700 mt-8 italic">
-              {showcaseImages[currentIndex].alt}
+              {showcaseImages[currentIndex]?.alt || 'Showcase loading...'}
             </p>
 
             <div className="flex justify-center gap-4 mt-8">
@@ -108,7 +116,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Trusted / CTA Section */}
+      {/* CTA Section */}
       <section className="py-24 px-6 bg-white">
         <div className="max-w-5xl mx-auto text-center">
           <h2 className="text-5xl md:text-6xl font-black text-teal-900 mb-10">
