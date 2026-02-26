@@ -1,5 +1,5 @@
 {
-  "name": "centralcore-centraltech-website",
+  "name": "CentralCore-centraltech-website",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -20,8 +20,8 @@
     "@supabase/supabase-js": "^2.45.4",
     "next": "16.0.7",
     "nodemailer": "^6.9.15",
-    "react": "19.0.0-rc-69d4b800-20241021",
-    "react-dom": "19.0.0-rc-69d4b800-20241021",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "stripe": "^17.5.0"
   },
   "devDependencies": {
