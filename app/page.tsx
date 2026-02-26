@@ -22,80 +22,83 @@ export default function HomePage() {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % showcaseImages.length);
-    }, 5000);
+    }, 5000); // Change image every 5 seconds
     return () => clearInterval(interval);
   }, []);
 
   return (
     <>
-      {/* Hero */}
-      <div className="relative h-screen w-full">
+      {/* Hero Section */}
+      <section className="relative h-screen w-full flex items-center justify-center overflow-hidden">
         <Image
-          src="/image-2.jpg"
-          alt="Doctor using futuristic tablet interface for CentralCore EMR and telemedicine"
+          src="/images/hero/image-2.jpg"  // ← fixed path
+          alt="Doctor using CentralCore EMR on tablet"
           fill
-          className="object-cover object-center"
+          className="object-cover brightness-75"
           priority
         />
-        <div className="absolute inset-0 bg-teal-900/70" />
+        <div className="absolute inset-0 bg-gradient-to-b from-teal-900/60 to-transparent" />
 
-        <div className="relative z-10 h-full flex flex-col justify-center items-center text-center text-white px-6">
-          <h1 className="text-5xl md:text-7xl font-black mb-6 drop-shadow-2xl">
+        <div className="relative z-10 text-center text-white px-6 max-w-5xl">
+          <h1 className="text-5xl md:text-7xl font-black mb-6 drop-shadow-2xl animate-fade-in">
             CentralCore EMR
           </h1>
-          <p className="text-2xl md:text-4xl mb-8 font-light max-w-4xl drop-shadow-lg">
+          <p className="text-2xl md:text-4xl mb-12 font-light drop-shadow-lg animate-fade-in delay-200">
             A Complete Electronic Medical Record System for Modern Healthcare
           </p>
-          <div className="flex flex-col sm:flex-row gap-6 md:gap-8">
-            <Link
-              href="/buy"
-              className="bg-yellow-400 text-teal-900 px-10 py-5 md:px-12 md:py-6 rounded-full text-xl md:text-2xl font-bold hover:bg-yellow-300 transition shadow-2xl"
-            >
-              Buy License Now
+
+          <div className="flex flex-col sm:flex-row gap-6 justify-center animate-fade-in delay-400">
+            <Link href="/buy">
+              <button className="bg-yellow-400 hover:bg-yellow-300 text-teal-900 font-bold py-5 px-12 rounded-full text-xl shadow-2xl transition transform hover:scale-105">
+                Buy License Now
+              </button>
             </Link>
-            <Link
-              href="/products"
-              className="bg-white/20 backdrop-blur-md text-white border-2 border-white px-10 py-5 md:px-12 md:py-6 rounded-full text-xl md:text-2xl font-bold hover:bg-white/30 transition shadow-2xl"
-            >
-              Explore Features
+            <Link href="/services">
+              <button className="bg-white/20 backdrop-blur-md text-white border-2 border-white px-12 py-5 rounded-full text-xl font-bold hover:bg-white/30 transition transform hover:scale-105">
+                Explore Features
+              </button>
             </Link>
-            <Link
-              href="/download"
-              className="bg-teal-500 text-white px-10 py-5 md:px-12 md:py-6 rounded-full text-xl md:text-2xl font-bold hover:bg-teal-600 transition shadow-2xl"
-            >
-              Download App
+            <Link href="/download">
+              <button className="bg-teal-500 hover:bg-teal-600 text-white px-12 py-5 rounded-full text-xl font-bold shadow-2xl transition transform hover:scale-105">
+                Download App
+              </button>
             </Link>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Big Rotating Flash Cards Carousel */}
+      {/* Showcase Carousel */}
       <section className="py-24 px-6 bg-teal-50">
         <div className="max-w-7xl mx-auto text-center">
           <h2 className="text-5xl md:text-6xl font-black text-teal-900 mb-16">
             See CentralCore EMR in Action
           </h2>
-          <div className="relative max-w-5xl mx-auto">
+
+          <div className="relative max-w-6xl mx-auto">
             <div className="overflow-hidden rounded-3xl shadow-2xl border-8 border-white">
               <Image
                 src={showcaseImages[currentIndex].src}
                 alt={showcaseImages[currentIndex].alt}
                 width={1200}
                 height={800}
-                className="w-full h-auto object-contain transition-opacity duration-1000"
-                priority
+                className="w-full h-auto object-cover transition-opacity duration-1000"
+                priority={currentIndex === 0}
               />
             </div>
-            <p className="text-xl text-gray-700 mt-8 italic">
+
+            <p className="text-xl md:text-2xl text-gray-700 mt-8 italic">
               {showcaseImages[currentIndex].alt}
             </p>
-            <div className="flex justify-center gap-3 mt-8">
+
+            <div className="flex justify-center gap-4 mt-8">
               {showcaseImages.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setCurrentIndex(i)}
-                  className={`w-4 h-4 rounded-full transition ${
-                    i === currentIndex ? 'bg-teal-900' : 'bg-teal-300'
+                  className={`w-5 h-5 rounded-full transition-all duration-300 ${
+                    i === currentIndex
+                      ? 'bg-teal-900 scale-125 shadow-lg'
+                      : 'bg-teal-300 hover:bg-teal-500'
                   }`}
                   aria-label={`Go to slide ${i + 1}`}
                 />
@@ -105,36 +108,22 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Trusted Section */}
+      {/* Trusted / CTA Section */}
       <section className="py-24 px-6 bg-white">
         <div className="max-w-5xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-8">
-            Trusted by Healthcare Providers Worldwide
-          </h2>
-          <p className="text-xl md:text-2xl text-gray-700 max-w-4xl mx-auto leading-relaxed">
-            Join thousands of hospitals and clinics transforming patient care with CentralCore EMR — secure, intuitive, and powerful.
-          </p>
-        </div>
-      </section>
-
-      {/* Bottom CTA */}
-      <section className="py-24 px-6 bg-teal-800 text-white">
-        <div className="max-w-5xl mx-auto text-center">
-          <h2 className="text-5xl md:text-6xl font-black mb-10">
-            Ready to Modernize Your Practice?
+          <h2 className="text-5xl md:text-6xl font-black text-teal-900 mb-10">
+            Ready to Transform Your Practice?
           </h2>
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <Link
-              href="/buy"
-              className="bg-yellow-400 text-teal-900 px-12 py-6 rounded-full text-2xl md:text-3xl font-bold hover:bg-yellow-300 transition shadow-2xl"
-            >
-              Buy License Now
+            <Link href="/buy">
+              <button className="bg-yellow-400 hover:bg-yellow-300 text-teal-900 font-bold py-6 px-14 rounded-full text-2xl shadow-2xl transition transform hover:scale-105">
+                Buy License Now
+              </button>
             </Link>
-            <Link
-              href="/download"
-              className="bg-white text-teal-900 px-12 py-6 rounded-full text-2xl md:text-3xl font-bold hover:bg-gray-100 transition shadow-2xl"
-            >
-              Download App
+            <Link href="/download">
+              <button className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-6 px-14 rounded-full text-2xl shadow-2xl transition transform hover:scale-105">
+                Download App
+              </button>
             </Link>
           </div>
         </div>
