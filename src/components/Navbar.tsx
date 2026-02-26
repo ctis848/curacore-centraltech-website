@@ -16,7 +16,7 @@ export default function Navbar() {
     { name: 'Resources', href: '/resources' },
     { name: 'Download', href: '/download' },
     { name: 'Buy Now', href: '/buy', highlight: true },
-    { name: 'Dashboard', href: '/dashboard' }, // FIXED: removed /portal
+    { name: 'Dashboard', href: '/dashboard' }, // FIXED: no more /portal
   ];
 
   return (
@@ -42,7 +42,7 @@ export default function Navbar() {
             <span className="sm:hidden text-2xl font-black">CentralCore</span>
           </Link>
 
-          {/* Desktop Menu */}
+          {/* Desktop */}
           <div className="hidden md:flex items-center space-x-2 lg:space-x-6">
             {navLinks.map((link) => (
               <Link
@@ -63,7 +63,7 @@ export default function Navbar() {
             ))}
           </div>
 
-          {/* Mobile Toggle */}
+          {/* Mobile Button */}
           <button
             onClick={() => setOpen(!open)}
             className="md:hidden text-3xl focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-md"
