@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@netlify/functions": "^2.0.0",
+    "@tailwindcss/postcss": "^4.2.1",
     "@types/node": "^22.7.5",
     "@types/nodemailer": "^6.4.16",
     "@types/react": "^19.0.0-rc.1",
