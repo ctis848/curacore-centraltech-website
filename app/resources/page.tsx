@@ -1,132 +1,123 @@
-// app/resources/page.tsx
+'use client';
+
+import Image from 'next/image';
 import Link from 'next/link';
 
 export default function ResourcesPage() {
   return (
-    <>
-      {/* Hero Section */}
-      <section className="relative bg-teal-900 py-28 md:py-40 px-6 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-teal-800 via-teal-900 to-teal-950 opacity-90" />
-        <div className="relative max-w-6xl mx-auto text-center text-white z-10">
-          <h1 className="text-5xl md:text-7xl font-black mb-6 tracking-tight drop-shadow-2xl">
-            Resources
+    <div className="min-h-screen flex flex-col bg-gray-50">
+
+      {/* HERO */}
+      <section className="relative h-[60vh] w-full overflow-hidden">
+        <Image
+          src="/hospital-bg.jpg"
+          alt="CentralCore EMR Resources"
+          fill
+          priority
+          className="object-cover object-center scale-105"
+        />
+
+        <div className="absolute inset-0 bg-gradient-to-b from-teal-900/80 via-teal-900/60 to-teal-900/40 backdrop-blur-[2px]" />
+
+        <div className="relative z-10 h-full flex flex-col justify-center items-center text-center text-white px-6">
+          <h1 className="text-5xl md:text-6xl font-black mb-4 drop-shadow-xl tracking-tight">
+            Resources & Documentation
           </h1>
-          <p className="text-xl md:text-3xl font-light max-w-4xl mx-auto drop-shadow-lg">
-            Everything you need to succeed with CentralCore EMR — support, guides, stories, and updates
+
+          <p className="text-xl md:text-2xl font-light max-w-3xl drop-shadow-lg">
+            Everything you need to learn, deploy, and master CentralCore EMR.
           </p>
         </div>
       </section>
 
-      {/* Resources Grid */}
-      <section className="py-20 md:py-24 px-6 bg-teal-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12">
-            {/* Support */}
-            <Link href="/support" className="block group">
-              <div className="bg-white rounded-3xl shadow-xl p-10 hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 h-full flex flex-col border border-teal-100">
-                <div className="text-7xl mb-6 text-center">🎧</div>
-                <h3 className="text-3xl font-bold text-teal-900 mb-4 text-center">
-                  Support
-                </h3>
-                <p className="text-lg text-gray-700 text-center flex-1 leading-relaxed">
-                  Get help from our expert team — email, phone, live chat, and documentation
-                </p>
-                <span className="text-teal-600 font-bold mt-6 text-center group-hover:text-yellow-400 transition-colors duration-200">
-                  Go to Support →
-                </span>
-              </div>
+      {/* RESOURCES GRID */}
+      <section className="py-24 px-6 md:px-10 max-w-7xl mx-auto space-y-16">
+        <h2 className="text-4xl md:text-5xl font-black text-teal-800 text-center">
+          Explore Our Resource Library
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+
+          {[
+            {
+              title: "User Documentation",
+              desc: "Step‑by‑step guides for doctors, nurses, pharmacists, and administrators.",
+              icon: "📘",
+              link: "/docs"
+            },
+            {
+              title: "Installation Guide",
+              desc: "Everything you need to install and configure CentralCore EMR.",
+              icon: "⚙️",
+              link: "/docs/installation"
+            },
+            {
+              title: "API Reference",
+              desc: "Integrate CentralCore EMR with third‑party systems and hospital devices.",
+              icon: "🧩",
+              link: "/docs/api"
+            },
+            {
+              title: "Video Tutorials",
+              desc: "Learn how to use CentralCore EMR with easy‑to‑follow video lessons.",
+              icon: "🎥",
+              link: "/resources/videos"
+            },
+            {
+              title: "Support Center",
+              desc: "Get help, open tickets, and chat with our support team.",
+              icon: "🛠️",
+              link: "/support"
+            },
+            {
+              title: "Release Notes",
+              desc: "See what's new in the latest CentralCore EMR updates.",
+              icon: "📝",
+              link: "/resources/releases"
+            }
+          ].map((r, i) => (
+            <Link
+              key={i}
+              href={r.link}
+              className="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-teal-200 hover:shadow-xl hover:scale-[1.02] transition-all"
+            >
+              <div className="text-5xl mb-4">{r.icon}</div>
+              <h3 className="text-2xl font-bold text-teal-800 mb-3">{r.title}</h3>
+              <p className="text-gray-700 leading-relaxed">{r.desc}</p>
+            </Link>
+          ))}
+
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="py-24 px-6 md:px-10 bg-gradient-to-br from-teal-900 to-teal-800 text-white">
+        <div className="max-w-5xl mx-auto text-center space-y-10">
+          <h2 className="text-5xl md:text-6xl font-black tracking-tight">
+            Need Help Getting Started?
+          </h2>
+
+          <p className="text-xl md:text-2xl font-light max-w-3xl mx-auto">
+            Our support team is ready to assist you with installation, training, and troubleshooting.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <Link
+              href="/support"
+              className="bg-yellow-400 text-teal-900 px-12 py-6 rounded-full text-2xl md:text-3xl font-bold shadow-2xl hover:bg-yellow-300 hover:scale-105 transition-all duration-300"
+            >
+              Visit Support Center
             </Link>
 
-            {/* Resource Library */}
-            <div className="bg-white rounded-3xl shadow-xl p-10 hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 h-full flex flex-col border border-teal-100 opacity-80">
-              <div className="text-7xl mb-6 text-center">📚</div>
-              <h3 className="text-3xl font-bold text-teal-900 mb-4 text-center">
-                Resource Library
-              </h3>
-              <p className="text-lg text-gray-700 text-center flex-1 leading-relaxed">
-                Download brochures, whitepapers, implementation guides, templates, and more
-              </p>
-              <span className="text-teal-500 font-bold mt-6 text-center">
-                Coming Soon →
-              </span>
-            </div>
-
-            {/* Comparisons & Success Stories */}
-            <div className="bg-white rounded-3xl shadow-xl p-10 hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 h-full flex flex-col border border-teal-100 opacity-80">
-              <div className="text-7xl mb-6 text-center">🏆</div>
-              <h3 className="text-3xl font-bold text-teal-900 mb-4 text-center">
-                Comparisons & Success Stories
-              </h3>
-              <p className="text-lg text-gray-700 text-center flex-1 leading-relaxed">
-                See how CentralCore compares to competitors and read real client success stories
-              </p>
-              <span className="text-teal-500 font-bold mt-6 text-center">
-                Coming Soon →
-              </span>
-            </div>
-
-            {/* Blog */}
-            <div className="bg-white rounded-3xl shadow-xl p-10 hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 h-full flex flex-col border border-teal-100 opacity-80">
-              <div className="text-7xl mb-6 text-center">📰</div>
-              <h3 className="text-3xl font-bold text-teal-900 mb-4 text-center">
-                Blog
-              </h3>
-              <p className="text-lg text-gray-700 text-center flex-1 leading-relaxed">
-                Healthcare technology trends, EMR tips, regulatory updates, and industry insights
-              </p>
-              <span className="text-teal-500 font-bold mt-6 text-center">
-                Coming Soon →
-              </span>
-            </div>
-
-            {/* Learning Center */}
-            <div className="bg-white rounded-3xl shadow-xl p-10 hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 h-full flex flex-col border border-teal-100 opacity-80">
-              <div className="text-7xl mb-6 text-center">🎓</div>
-              <h3 className="text-3xl font-bold text-teal-900 mb-4 text-center">
-                Learning Center
-              </h3>
-              <p className="text-lg text-gray-700 text-center flex-1 leading-relaxed">
-                Video tutorials, webinars, on-demand training courses, and certification programs
-              </p>
-              <span className="text-teal-500 font-bold mt-6 text-center">
-                Coming Soon →
-              </span>
-            </div>
-
-            {/* What's New */}
-            <div className="bg-white rounded-3xl shadow-xl p-10 hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 h-full flex flex-col border border-teal-100 opacity-80">
-              <div className="text-7xl mb-6 text-center">✨</div>
-              <h3 className="text-3xl font-bold text-teal-900 mb-4 text-center">
-                What's New
-              </h3>
-              <p className="text-lg text-gray-700 text-center flex-1 leading-relaxed">
-                Latest features, product updates, changelog, and release notes
-              </p>
-              <span className="text-teal-500 font-bold mt-6 text-center">
-                Coming Soon →
-              </span>
-            </div>
+            <Link
+              href="/contact"
+              className="bg-white text-teal-900 px-12 py-6 rounded-full text-2xl md:text-3xl font-bold shadow-2xl hover:bg-gray-100 hover:scale-105 transition-all duration-300"
+            >
+              Contact Us
+            </Link>
           </div>
         </div>
       </section>
-
-      {/* CTA Section */}
-      <section className="py-20 md:py-24 px-6 bg-teal-800 text-white">
-        <div className="max-w-5xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-black mb-8 tracking-tight">
-            Need Help Right Now?
-          </h2>
-          <p className="text-xl md:text-2xl mb-10 max-w-3xl mx-auto">
-            Our expert support team is ready to assist you 24/7 — reach out today
-          </p>
-          <Link
-            href="/support"
-            className="inline-block bg-yellow-400 text-teal-900 px-12 md:px-16 py-5 md:py-6 rounded-full text-xl md:text-2xl font-bold hover:bg-yellow-300 transition shadow-2xl hover:scale-105 duration-300"
-          >
-            Contact Support Team
-          </Link>
-        </div>
-      </section>
-    </>
+    </div>
   );
 }

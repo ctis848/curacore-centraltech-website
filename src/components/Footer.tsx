@@ -1,151 +1,62 @@
-// components/Footer.tsx
+'use client';
+
 import Link from 'next/link';
 
 export default function Footer() {
   return (
-    <footer className="bg-teal-950 text-white py-16 mt-auto border-t border-teal-800">
-      <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-10 md:gap-12 mb-12">
-          {/* Column 1: Company */}
-          <div>
-            <h4 className="text-lg font-bold mb-6 text-yellow-400">Company</h4>
-            <nav>
-              <ul className="space-y-3 text-teal-200">
-                <li>
-                  <Link href="/about" className="hover:text-yellow-400 transition-colors duration-200">
-                    About Us
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/careers" className="hover:text-yellow-400 transition-colors duration-200">
-                    Careers
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/contact" className="hover:text-yellow-400 transition-colors duration-200">
-                    Contact
-                  </Link>
-                </li>
-              </ul>
-            </nav>
-          </div>
+    <footer className="mt-20 bg-white/80 backdrop-blur-md border-t border-teal-100">
+      <div className="max-w-7xl mx-auto px-6 py-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12">
 
-          {/* Column 2: CentralCore EMR */}
-          <div>
-            <h4 className="text-lg font-bold mb-6 text-yellow-400">CentralCore EMR</h4>
-            <nav>
-              <ul className="space-y-3 text-teal-200">
-                <li>
-                  <Link href="/products" className="hover:text-yellow-400 transition-colors duration-200">
-                    Features
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/buy" className="hover:text-yellow-400 transition-colors duration-200">
-                    Pricing & License
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/portal/login" className="hover:text-yellow-400 transition-colors duration-200">
-                    Customer Portal
-                  </Link>
-                </li>
-              </ul>
-            </nav>
-          </div>
-
-          {/* Column 3: Resources */}
-          <div>
-            <h4 className="text-lg font-bold mb-6 text-yellow-400">Resources</h4>
-            <nav>
-              <ul className="space-y-3 text-teal-200">
-                <li>
-                  <Link href="/support" className="hover:text-yellow-400 transition-colors duration-200">
-                    Support
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/documentation" className="hover:text-yellow-400 transition-colors duration-200">
-                    Documentation
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/blog" className="hover:text-yellow-400 transition-colors duration-200">
-                    Blog
-                  </Link>
-                </li>
-              </ul>
-            </nav>
-          </div>
-
-          {/* Column 4: Contact */}
-          <div>
-            <h4 className="text-lg font-bold mb-6 text-yellow-400">Contact</h4>
-            <address className="text-teal-200 leading-relaxed not-italic">
-              Central Tech Information Systems Ltd.<br />
-              Lagos, Nigeria<br />
-              <a 
-                href="tel:+2348059318564" 
-                className="hover:text-yellow-400 transition-colors duration-200"
-              >
-                +234 805 931 8564
-              </a><br />
-              <a 
-                href="mailto:info@ctistech.com" 
-                className="hover:text-yellow-400 transition-colors duration-200 block mt-2"
-              >
-                info@ctistech.com
-              </a>
-              <a 
-                href="mailto:support@ctistech.com" 
-                className="hover:text-yellow-400 transition-colors duration-200 block mt-1"
-              >
-                support@ctistech.com
-              </a>
-            </address>
-          </div>
-
-          {/* Column 5: Trusted By */}
-          <div>
-            <h4 className="text-lg font-bold mb-6 text-yellow-400">Trusted By</h4>
-            <ul className="space-y-3 text-teal-200 text-sm">
-              <li>• Prime Medical Consultants</li>
-              <li>• Ultimate Specialist Hospital</li>
-              <li>• Althahus Medical Center</li>
-              <li>• + Thousands Worldwide</li>
-            </ul>
-          </div>
+        {/* Company */}
+        <div>
+          <h3 className="text-xl font-bold text-teal-800 mb-4">Company</h3>
+          <ul className="space-y-2 text-gray-700">
+            <li><Link href="/about" className="hover:text-teal-700 transition">About Us</Link></li>
+            <li><Link href="/careers" className="hover:text-teal-700 transition">Careers</Link></li>
+            <li><Link href="/contact" className="hover:text-teal-700 transition">Contact</Link></li>
+          </ul>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="border-t border-teal-800 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-teal-300">
-          <div className="mb-4 md:mb-0 text-center md:text-left">
-            <p>© 2026 Central Tech Information Systems Ltd. All rights reserved.</p>
-          </div>
+        {/* CentralCore EMR */}
+        <div>
+          <h3 className="text-xl font-bold text-teal-800 mb-4">CentralCore EMR</h3>
+          <ul className="space-y-2 text-gray-700">
+            <li><Link href="/features" className="hover:text-teal-700 transition">Features</Link></li>
+            <li><Link href="/pricing" className="hover:text-teal-700 transition">Pricing & License</Link></li>
+            <li><Link href="/download" className="hover:text-teal-700 transition">Download App</Link></li>
+          </ul>
+        </div>
 
-          <nav className="flex flex-wrap justify-center md:justify-end gap-6">
-            <Link href="#" className="hover:text-yellow-400 transition-colors duration-200">
-              Facebook
-            </Link>
-            <Link href="#" className="hover:text-yellow-400 transition-colors duration-200">
-              Twitter
-            </Link>
-            <Link href="#" className="hover:text-yellow-400 transition-colors duration-200">
-              LinkedIn
-            </Link>
-            <Link href="#" className="hover:text-yellow-400 transition-colors duration-200">
-              Instagram
-            </Link>
-            <Link href="/privacy" className="hover:text-yellow-400 transition-colors duration-200">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="hover:text-yellow-400 transition-colors duration-200">
-              Terms of Service
-            </Link>
-            <Link href="/security" className="hover:text-yellow-400 transition-colors duration-200">
-              Security
-            </Link>
-          </nav>
+        {/* Resources */}
+        <div>
+          <h3 className="text-xl font-bold text-teal-800 mb-4">Resources</h3>
+          <ul className="space-y-2 text-gray-700">
+            <li><Link href="/support" className="hover:text-teal-700 transition">Support</Link></li>
+            <li><Link href="/docs" className="hover:text-teal-700 transition">Documentation</Link></li>
+            <li><Link href="/faq" className="hover:text-teal-700 transition">FAQ</Link></li>
+          </ul>
+        </div>
+
+        {/* Contact */}
+        <div>
+          <h3 className="text-xl font-bold text-teal-800 mb-4">Contact</h3>
+          <p className="text-gray-700 leading-relaxed">
+            Central Tech Information Systems Ltd.<br />
+            Lagos, Nigeria<br />
+            <span className="block mt-2">Email: info@ctistech.com</span>
+          </p>
+        </div>
+      </div>
+
+      {/* Bottom Bar */}
+      <div className="border-t border-teal-100 py-6">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center text-gray-600 text-sm">
+          <p>© {new Date().getFullYear()} CentralCore EMR. All rights reserved.</p>
+
+          <div className="flex gap-6 mt-4 md:mt-0">
+            <Link href="/privacy" className="hover:text-teal-700 transition">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-teal-700 transition">Terms of Service</Link>
+          </div>
         </div>
       </div>
     </footer>

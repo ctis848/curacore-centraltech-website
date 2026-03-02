@@ -1,141 +1,137 @@
-// app/page.tsx
 'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
-
-const showcaseImages = [
-  { src: "/showcase/emr-dashboard.jpg", alt: "CentralCore EMR Dashboard - Personalized home page" },
-  { src: "/showcase/patient-chart.jpg", alt: "Digital Patient Chart - Real-time clinical notes and vitals" },
-  { src: "/showcase/pharmacy.jpg", alt: "Pharmacy Module - Prescription and inventory management" },
-  { src: "/showcase/lab-results.jpg", alt: "Laboratory Integration - Fast results and reporting" },
-  { src: "/showcase/cctv.jpg", alt: "CCTV Security Surveillance - Hospital-wide monitoring" },
-  { src: "/showcase/nurse-call.jpg", alt: "Nurse Call Bell System - Instant patient assistance" },
-  { src: "/showcase/digital-signage.jpg", alt: "Digital Signage - Patient information displays" },
-  { src: "/showcase/fiber-optic.jpg", alt: "Fiber Optic Network - High-speed connectivity" },
-];
 
 export default function HomePage() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % showcaseImages.length);
-    }, 5000); // Change every 5 seconds
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <>
-      {/* Hero Section */}
-      <section className="relative h-screen w-full flex items-center justify-center overflow-hidden">
-        <Image
-          src="/images/hero/image-2.jpg" // Confirm this file exists in public/images/hero/
-          alt="Doctor using CentralCore EMR on tablet"
-          fill
-          className="object-cover brightness-75"
-          priority
-          quality={85}
-          onError={(e) => {
-            e.currentTarget.src = '/images/fallback-hero.jpg'; // fallback if missing
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-teal-900/60 to-transparent" />
+    <div className="min-h-screen flex flex-col bg-gray-50">
 
-        <div className="relative z-10 text-center text-white px-6 max-w-5xl">
-          <h1 className="text-5xl md:text-7xl font-black mb-6 drop-shadow-2xl animate-fade-in">
+      {/* HERO */}
+      <section className="relative h-[90vh] w-full overflow-hidden">
+        <Image
+          src="/hospital-bg.jpg"
+          alt="Modern hospital background for CentralCore EMR"
+          fill
+          priority
+          className="object-cover object-center scale-105 animate-[heroZoom_12s_ease-in-out_infinite]"
+        />
+
+        <div className="absolute inset-0 bg-gradient-to-b from-teal-900/80 via-teal-900/60 to-teal-900/40 backdrop-blur-[2px]" />
+
+        <div className="relative z-10 h-full flex flex-col justify-center items-center text-center text-white px-6">
+          <h1 className="text-5xl md:text-7xl font-black mb-6 drop-shadow-xl tracking-tight">
             CentralCore EMR
           </h1>
-          <p className="text-2xl md:text-4xl mb-12 font-light drop-shadow-lg animate-fade-in delay-200">
+
+          <p className="text-2xl md:text-4xl mb-10 font-light max-w-4xl drop-shadow-lg leading-snug">
             A Complete Electronic Medical Record System for Modern Healthcare
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-6 justify-center animate-fade-in delay-400">
-            <Link href="/buy">
-              <button className="bg-yellow-400 hover:bg-yellow-300 text-teal-900 font-bold py-5 px-12 rounded-full text-xl shadow-2xl transition transform hover:scale-105">
-                Buy License Now
-              </button>
+          <div className="flex flex-col sm:flex-row gap-6 md:gap-8">
+            <Link
+              href="/buy"
+              className="bg-yellow-400 text-teal-900 px-10 py-5 md:px-12 md:py-6 rounded-full text-xl md:text-2xl font-bold shadow-2xl hover:bg-yellow-300 hover:scale-105 transition-all duration-300"
+            >
+              Buy License Now
             </Link>
-            <Link href="/services">
-              <button className="bg-white/20 backdrop-blur-md text-white border-2 border-white px-12 py-5 rounded-full text-xl font-bold hover:bg-white/30 transition transform hover:scale-105">
-                Explore Features
-              </button>
+
+            <Link
+              href="/products"
+              className="bg-white/20 backdrop-blur-md text-white border-2 border-white/40 px-10 py-5 md:px-12 md:py-6 rounded-full text-xl md:text-2xl font-bold shadow-xl hover:bg-white/30 hover:scale-105 transition-all duration-300"
+            >
+              Explore Features
             </Link>
-            <Link href="/download">
-              <button className="bg-teal-500 hover:bg-teal-600 text-white px-12 py-5 rounded-full text-xl font-bold shadow-2xl transition transform hover:scale-105">
-                Download App
-              </button>
+
+            <Link
+              href="/download"
+              className="bg-teal-500 text-white px-10 py-5 md:px-12 md:py-6 rounded-full text-xl md:text-2xl font-bold shadow-xl hover:bg-teal-600 hover:scale-105 transition-all duration-300"
+            >
+              Download App
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Showcase Carousel */}
-      <section className="py-24 px-6 bg-teal-50">
-        <div className="max-w-7xl mx-auto text-center">
-          <h2 className="text-5xl md:text-6xl font-black text-teal-900 mb-16">
-            See CentralCore EMR in Action
-          </h2>
+      {/* FEATURES PREVIEW */}
+      <section className="py-24 px-6 md:px-10 max-w-7xl mx-auto space-y-12">
+        <h2 className="text-4xl md:text-5xl font-black text-teal-800 text-center">
+          Why Hospitals Choose CentralCore EMR
+        </h2>
 
-          <div className="relative max-w-6xl mx-auto">
-            <div className="overflow-hidden rounded-3xl shadow-2xl border-8 border-white bg-gray-100">
-              <Image
-                src={showcaseImages[currentIndex]?.src || '/images/fallback-placeholder.jpg'}
-                alt={showcaseImages[currentIndex]?.alt || 'Showcase image'}
-                width={1200}
-                height={800}
-                className="w-full h-auto object-cover transition-opacity duration-1000"
-                priority={currentIndex <= 1} // priority for first two images
-                quality={85}
-                onError={(e) => {
-                  e.currentTarget.src = '/images/fallback-placeholder.jpg';
-                }}
-              />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          {[
+            {
+              title: "Smart Patient Records",
+              desc: "Access complete patient histories, vitals, and clinical notes instantly.",
+              icon: "🩺"
+            },
+            {
+              title: "Integrated Pharmacy",
+              desc: "Manage prescriptions, stock levels, and dispensing with ease.",
+              icon: "💊"
+            },
+            {
+              title: "Laboratory Automation",
+              desc: "Fast, accurate lab result processing with seamless EMR integration.",
+              icon: "🧪"
+            },
+            {
+              title: "Hospital Surveillance",
+              desc: "CCTV monitoring integrated directly into your hospital dashboard.",
+              icon: "📹"
+            },
+            {
+              title: "Nurse Call System",
+              desc: "Instant patient-to-nurse communication for faster response times.",
+              icon: "🔔"
+            },
+            {
+              title: "Digital Signage",
+              desc: "Display patient queues, announcements, and hospital updates.",
+              icon: "🖥️"
+            }
+          ].map((f, i) => (
+            <div
+              key={i}
+              className="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-teal-200"
+            >
+              <div className="text-5xl mb-4">{f.icon}</div>
+              <h3 className="text-2xl font-bold text-teal-800 mb-3">{f.title}</h3>
+              <p className="text-gray-700 leading-relaxed">{f.desc}</p>
             </div>
-
-            <p className="text-xl md:text-2xl text-gray-700 mt-8 italic">
-              {showcaseImages[currentIndex]?.alt || 'Showcase loading...'}
-            </p>
-
-            <div className="flex justify-center gap-4 mt-8">
-              {showcaseImages.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentIndex(i)}
-                  className={`w-5 h-5 rounded-full transition-all duration-300 ${
-                    i === currentIndex
-                      ? 'bg-teal-900 scale-125 shadow-lg'
-                      : 'bg-teal-300 hover:bg-teal-500'
-                  }`}
-                  aria-label={`Go to slide ${i + 1}`}
-                />
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-24 px-6 bg-white">
-        <div className="max-w-5xl mx-auto text-center">
-          <h2 className="text-5xl md:text-6xl font-black text-teal-900 mb-10">
-            Ready to Transform Your Practice?
+      {/* CTA SECTION */}
+      <section className="py-24 px-6 md:px-10 bg-gradient-to-br from-teal-900 to-teal-800 text-white">
+        <div className="max-w-5xl mx-auto text-center space-y-10">
+          <h2 className="text-5xl md:text-6xl font-black tracking-tight">
+            Ready to Modernize Your Hospital?
           </h2>
+
+          <p className="text-xl md:text-2xl font-light max-w-3xl mx-auto">
+            CentralCore EMR gives you the tools to deliver faster, safer, and smarter patient care.
+          </p>
+
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <Link href="/buy">
-              <button className="bg-yellow-400 hover:bg-yellow-300 text-teal-900 font-bold py-6 px-14 rounded-full text-2xl shadow-2xl transition transform hover:scale-105">
-                Buy License Now
-              </button>
+            <Link
+              href="/buy"
+              className="bg-yellow-400 text-teal-900 px-12 py-6 rounded-full text-2xl md:text-3xl font-bold shadow-2xl hover:bg-yellow-300 hover:scale-105 transition-all duration-300"
+            >
+              Buy License Now
             </Link>
-            <Link href="/download">
-              <button className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-6 px-14 rounded-full text-2xl shadow-2xl transition transform hover:scale-105">
-                Download App
-              </button>
+
+            <Link
+              href="/download"
+              className="bg-white text-teal-900 px-12 py-6 rounded-full text-2xl md:text-3xl font-bold shadow-2xl hover:bg-gray-100 hover:scale-105 transition-all duration-300"
+            >
+              Download App
             </Link>
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }

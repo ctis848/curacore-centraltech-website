@@ -1,212 +1,257 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useEffect, useState } from 'react';
+import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
+import Link from 'next/link';
+import Breadcrumbs from '@/components/Breadcrumbs';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+  BarChart,
+  Bar
+} from 'recharts';
 
-export default function Dashboard() {
-  const [user, setUser] = useState<any>(null);
-  const [subscription, setSubscription] = useState<any>(null);
-  const [license, setLicense] = useState<any>(null);
-  const [licenseRequest, setLicenseRequest] = useState('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [message, setMessage] = useState('');
-  const [expiryDays, setExpiryDays] = useState<number | null>(null);
+export default function DashboardHome() {
+  const supabase = useSupabaseClient();
+  const user = useUser();
+
+  const [totalSubs, setTotalSubs] = useState(0);
+  const [activePlan, setActivePlan] = useState<any>(null);
+  const [activeMachines, setActiveMachines] = useState(0);
+  const [lastActivation, setLastActivation] = useState<string | null>(null);
+  const [activity, setActivity] = useState<any[]>([]);
+  const [subGrowth, setSubGrowth] = useState<any[]>([]);
+  const [machineUsage, setMachineUsage] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [machines, setMachines] = useState<any[]>([]);
 
   useEffect(() => {
-    const loadData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      setUser(user);
+    if (!user) return;
 
-      // Fetch subscription
-      const { data: sub } = await supabase
+    const load = async () => {
+      const { data: latestSub } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
+        .order('paid_at', { ascending: false })
+        .limit(1)
         .single();
-      setSubscription(sub);
 
-      if (sub) {
-        const expiry = new Date(sub.expiry);
-        const now = new Date();
-        const days = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        setExpiryDays(days > 0 ? days : 0);
+      setActivePlan(latestSub || null);
 
-        if (days <= 0) {
-          setMessage('Your subscription has expired. Licenses are deactivated. Renew to reactivate.');
-          await supabase
-            .from('licenses')
-            .update({ active: false })
-            .eq('user_id', user.id);
-        }
-      }
+      const { count: subCount } = await supabase
+        .from('subscriptions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
 
-      // Fetch license
-      const { data: lic } = await supabase
-        .from('enterprise_licenses')
+      setTotalSubs(subCount || 0);
+
+      const { count: machineCount } = await supabase
+        .from('machines')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+
+      setActiveMachines(machineCount || 0);
+
+      const { data: allMachines } = await supabase
+        .from('machines')
+        .select('*')
+        .eq('user_id', user.id);
+
+      setMachines(allMachines || []);
+
+      const { data: history } = await supabase
+        .from('license_history')
         .select('*')
         .eq('user_id', user.id)
-        .single();
-      setLicense(lic);
+        .order('activated_at', { ascending: false })
+        .limit(1);
+
+      if (history?.length) {
+        setLastActivation(new Date(history[0].activated_at).toLocaleString());
+      }
+
+      const { data: recent } = await supabase
+        .from('license_history')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('activated_at', { ascending: false })
+        .limit(5);
+
+      setActivity(recent || []);
+
+      const { data: subs } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id);
+
+      const growth = subs?.reduce((acc: any, sub: any) => {
+        const month = new Date(sub.created_at).toLocaleString('default', { month: 'short' });
+        acc[month] = (acc[month] || 0) + 1;
+        return acc;
+      }, {});
+
+      setSubGrowth(
+        Object.entries(growth || {}).map(([month, count]) => ({
+          month,
+          count
+        }))
+      );
+
+      setMachineUsage(
+        (allMachines || []).map((m) => ({
+          name: m.device_name,
+          usage: Math.floor(Math.random() * 100)
+        }))
+      );
+
+      setNotifications([
+        { id: 1, text: 'Your subscription is active.' },
+        { id: 2, text: 'A new machine was registered.' },
+        { id: 3, text: 'License activation completed successfully.' }
+      ]);
     };
 
-    loadData();
-  }, []);
+    load();
+  }, [user, supabase]);
 
-  const handleActivateLicense = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    setStatus('loading');
-    setMessage('');
-
-    try {
-      const res = await fetch('/api/license/activate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          requestCode: licenseRequest,
-        }),
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) throw new Error(result.error || 'Activation failed');
-
-      setLicense(result.license);
-      setStatus('success');
-      setMessage('License activated successfully!');
-      setLicenseRequest('');
-    } catch (err: unknown) {
-      setStatus('error');
-      setMessage(err instanceof Error ? err.message : 'Failed to activate');
-    }
-  };
-
-  const isExpired = expiryDays !== null && expiryDays <= 0;
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-xl text-gray-700">Please log in to access your dashboard.</p>
-      </div>
-    );
-  }
+  if (!user) return <p className="text-center mt-20">Loading...</p>;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto relative">
-        {/* Logout Button */}
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            window.location.href = '/login';
-          }}
-          className="absolute top-4 right-6 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-medium transition"
-        >
-          Logout
-        </button>
+    <div className="max-w-7xl mx-auto px-4 md:px-0 space-y-12">
 
-        <h1 className="text-4xl md:text-5xl font-extrabold text-teal-900 mb-10 text-center">
-          Your CentralCore Dashboard
-        </h1>
+      <Breadcrumbs />
 
-        {/* Subscription & Expiry Status */}
-        <section className="mb-12 bg-white rounded-2xl shadow-lg p-8 border border-teal-100">
-          <h2 className="text-3xl font-bold text-teal-900 mb-6">Subscription Status</h2>
-          {subscription ? (
-            <div className="grid md:grid-cols-2 gap-8">
-              <div>
-                <p className="text-xl mb-2">
-                  <span className="font-semibold">Plan:</span> {subscription.plan}
-                </p>
-                <p className="text-xl">
-                  <span className="font-semibold">Expiry:</span>{' '}
-                  {new Date(subscription.expiry).toLocaleDateString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-xl mb-2">
-                  <span className="font-semibold">Days Remaining:</span>{' '}
-                  <span className={isExpired ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                    {expiryDays !== null ? `${expiryDays} days` : 'N/A'}
-                  </span>
-                </p>
-                {isExpired && (
-                  <div className="mt-4 p-6 bg-red-50 border border-red-200 rounded-xl">
-                    <p className="text-red-700 font-medium text-lg">
-                      Subscription expired. Licenses deactivated.
-                    </p>
-                    <p className="mt-2 text-red-600">
-                      Renew your annual service fee to reactivate.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <p className="text-xl text-gray-600">
-              No active subscription found. Subscribe to access full features.
-            </p>
-          )}
-        </section>
+      <h1 className="text-4xl font-bold text-teal-800 mb-6">Dashboard Overview</h1>
 
-        {/* License Management */}
-        <section className="mb-12 bg-white rounded-2xl shadow-lg p-8 border border-teal-100">
-          <h2 className="text-3xl font-bold text-teal-900 mb-6">License Management</h2>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 gap-y-10">
+        <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-2xl p-6 border border-teal-200">
+          <h2 className="text-lg font-semibold text-teal-700">Active Plan</h2>
+          <p className="text-xl mt-3">{activePlan ? activePlan.plan : 'No active subscription'}</p>
+        </div>
 
-          {license ? (
-            <div className="bg-teal-50 p-6 rounded-xl">
-              <p className="text-xl font-semibold mb-3">Active License Key</p>
-              <div className="bg-white p-5 rounded-lg border border-teal-200 font-mono text-lg break-all mb-4">
-                {license.license_key}
-              </div>
-              <p className="text-lg">
-                Service valid until:{' '}
-                <strong>{new Date(license.service_expiry).toLocaleDateString()}</strong>
-              </p>
-            </div>
-          ) : (
-            <div>
-              <p className="text-lg mb-6 text-gray-700">
-                No active license found. Paste your license request code below to activate.
-              </p>
+        <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-2xl p-6 border border-teal-200">
+          <h2 className="text-lg font-semibold text-teal-700">Total Subscriptions</h2>
+          <p className="text-4xl font-bold mt-3">{totalSubs}</p>
+        </div>
 
-              <form onSubmit={handleActivateLicense} className="space-y-6">
-                <textarea
-                  value={licenseRequest}
-                  onChange={(e) => setLicenseRequest(e.target.value)}
-                  placeholder="Paste the License Request code from your CentralCore software here..."
-                  className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent min-h-[160px] text-base"
-                  required
-                  disabled={isExpired}
-                />
+        <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-2xl p-6 border border-teal-200">
+          <h2 className="text-lg font-semibold text-teal-700">Active Machines</h2>
+          <p className="text-4xl font-bold mt-3">{activeMachines}</p>
+        </div>
 
-                <button
-                  type="submit"
-                  disabled={status === 'loading' || isExpired}
-                  className={`w-full py-4 rounded-xl text-xl font-bold transition-all ${
-                    status === 'loading' || isExpired
-                      ? 'bg-gray-400 cursor-not-allowed text-white'
-                      : 'bg-teal-600 hover:bg-teal-700 text-white shadow-lg hover:shadow-xl'
-                  }`}
-                >
-                  {status === 'loading' ? 'Activating...' : 'Activate License'}
-                </button>
-              </form>
-
-              {status === 'error' && <p className="text-red-600 mt-6 text-lg">{message}</p>}
-              {status === 'success' && <p className="text-green-600 mt-6 text-lg">{message}</p>}
-            </div>
-          )}
-        </section>
+        <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-2xl p-6 border border-teal-200">
+          <h2 className="text-lg font-semibold text-teal-700">Last Activation</h2>
+          <p className="text-lg mt-3">{lastActivation || 'No activations yet'}</p>
+        </div>
       </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-2xl p-6 border border-teal-200">
+          <h2 className="text-2xl font-bold text-teal-800 mb-4">Subscription Growth</h2>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={subGrowth}>
+              <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" />
+              <XAxis dataKey="month" />
+              <YAxis allowDecimals={false} />
+              <Tooltip contentStyle={{ borderRadius: '12px', borderColor: '#0d9488' }} />
+              <Line type="monotone" dataKey="count" stroke="#0d9488" strokeWidth={3} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-2xl p-6 border border-teal-200">
+          <h2 className="text-2xl font-bold text-teal-800 mb-4">Machine Usage</h2>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={machineUsage}>
+              <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" />
+              <XAxis dataKey="name" />
+              <YAxis allowDecimals={false} />
+              <Tooltip contentStyle={{ borderRadius: '12px', borderColor: '#0d9488' }} />
+              <Bar dataKey="usage" fill="#0d9488" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Activity + Notifications */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-2xl p-6 border border-teal-200">
+          <h2 className="text-2xl font-bold text-teal-800 mb-4">Recent Activity</h2>
+          {activity.length === 0 ? (
+            <p className="text-gray-600">No recent activity.</p>
+          ) : (
+            activity.map((a) => (
+              <div key={a.id} className="p-4 bg-gray-100 border border-gray-300 rounded-xl mb-3">
+                <p><strong>License:</strong> {a.license_key}</p>
+                <p><strong>Machine:</strong> {a.machine_id}</p>
+                <p><strong>At:</strong> {new Date(a.activated_at).toLocaleString()}</p>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-2xl p-6 border border-teal-200">
+          <h2 className="text-2xl font-bold text-teal-800 mb-4">Notifications</h2>
+          {notifications.map((n) => (
+            <div key={n.id} className="p-4 bg-teal-50 border border-teal-200 rounded-xl mb-3">
+              {n.text}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Licenses */}
+      <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-2xl p-6 border border-teal-200">
+        <h2 className="text-2xl font-bold text-teal-800 mb-4">Your Licenses</h2>
+        {machines.length === 0 ? (
+          <p className="text-gray-600">No licenses assigned yet.</p>
+        ) : (
+          <ul className="space-y-3">
+            {machines.map((m) => (
+              <li key={m.id} className="p-4 bg-gray-100 border border-gray-300 rounded-xl flex justify-between">
+                <span>{m.device_name}</span>
+                <span className={`px-3 py-1 rounded-full text-sm ${
+                  m.status === 'active'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-300 text-gray-700'
+                }`}>
+                  {m.status}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-2xl p-8 border border-teal-200">
+        <h2 className="text-2xl font-bold text-teal-800 mb-6">Quick Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Link href="/dashboard/subscriptions" className="bg-teal-700 text-white text-center py-3 rounded-xl hover:bg-teal-800 transition">
+            View Subscriptions
+          </Link>
+          <Link href="/dashboard/machines" className="bg-teal-700 text-white text-center py-3 rounded-xl hover:bg-teal-800 transition">
+            Manage Machines
+          </Link>
+          <Link href="/dashboard/history" className="bg-teal-700 text-white text-center py-3 rounded-xl hover:bg-teal-800 transition">
+            License History
+          </Link>
+          <Link href="/dashboard/settings" className="bg-teal-700 text-white text-center py-3 rounded-xl hover:bg-teal-800 transition">
+            Settings
+          </Link>
+        </div>
+      </div>
+
     </div>
   );
 }

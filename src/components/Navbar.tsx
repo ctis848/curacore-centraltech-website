@@ -1,4 +1,3 @@
-// src/components/Navbar.tsx
 'use client';
 
 import Link from 'next/link';
@@ -49,37 +48,40 @@ export default function Navbar() {
   ];
 
   return (
-    <nav className="bg-teal-700 text-white fixed top-0 left-0 right-0 z-50 shadow-xl">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-teal-700 text-white shadow-xl backdrop-blur-md bg-opacity-95">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* NAVBAR INNER */}
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
+
+          {/* LOGO */}
           <Link href="/" className="flex items-center space-x-3 sm:space-x-4">
             <Image
               src="/logo.png"
               alt="CentralCore EMR by CTIS Technologies"
-              width={50}
-              height={50}
+              width={45}
+              height={45}
               className="rounded-lg"
               priority
             />
-            <div className="hidden sm:flex flex-col">
-              <span className="text-2xl font-black leading-none">CentralCore</span>
-              <span className="text-xs text-teal-200 tracking-wider">
+            <div className="hidden sm:flex flex-col leading-tight">
+              <span className="text-xl font-black">CentralCore</span>
+              <span className="text-[10px] text-teal-200 tracking-widest">
                 by CTIS Technologies
               </span>
             </div>
-            <span className="sm:hidden text-2xl font-black">CentralCore</span>
+            <span className="sm:hidden text-xl font-black">CentralCore</span>
           </Link>
 
-          {/* Desktop Menu */}
+          {/* DESKTOP MENU */}
           <div className="hidden md:flex items-center space-x-2 lg:space-x-6">
             {navLinks.map((link) => (
               <Link
                 key={link.name}
                 href={link.href}
-                className={`px-3 py-2 rounded-md text-sm lg:text-base font-medium transition-colors ${
+                className={`px-3 py-2 rounded-md text-sm lg:text-base font-medium transition-all duration-200 ${
                   pathname === link.href
-                    ? 'bg-teal-800 text-white'
+                    ? 'bg-teal-800 text-white shadow-sm'
                     : 'hover:text-yellow-200 hover:bg-teal-600/50'
                 } ${
                   link.highlight
@@ -91,11 +93,11 @@ export default function Navbar() {
               </Link>
             ))}
 
-            {/* Login / Logout / Sign Up */}
+            {/* AUTH BUTTONS */}
             {user ? (
               <button
                 onClick={handleLogout}
-                className="px-6 py-3 bg-red-600 hover:bg-red-700 rounded-full font-bold text-white transition"
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 rounded-full font-bold text-white transition-all duration-200 shadow-md"
               >
                 Logout
               </button>
@@ -103,13 +105,13 @@ export default function Navbar() {
               <div className="flex items-center space-x-4">
                 <Link
                   href="/login"
-                  className="px-6 py-3 bg-yellow-400 hover:bg-yellow-300 rounded-full font-bold text-teal-900 transition"
+                  className="px-6 py-3 bg-yellow-400 hover:bg-yellow-300 rounded-full font-bold text-teal-900 transition-all duration-200 shadow-md"
                 >
                   Login
                 </Link>
                 <Link
-                  href="/signup"  // ← Add this page later if needed
-                  className="px-6 py-3 bg-teal-500 hover:bg-teal-600 rounded-full font-bold text-white transition"
+                  href="/signup"
+                  className="px-6 py-3 bg-teal-500 hover:bg-teal-600 rounded-full font-bold text-white transition-all duration-200 shadow-md"
                 >
                   Sign Up
                 </Link>
@@ -117,10 +119,10 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile Toggle */}
+          {/* MOBILE MENU BUTTON */}
           <button
             onClick={() => setOpen(!open)}
-            className="md:hidden text-3xl focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-md"
+            className="md:hidden text-3xl focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded-md transition"
             aria-label={open ? 'Close menu' : 'Open menu'}
           >
             {open ? '✕' : '☰'}
@@ -128,21 +130,26 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
-      {open && (
-        <div className="md:hidden bg-teal-800 px-4 py-6 space-y-4">
+      {/* MOBILE MENU */}
+      <div
+        className={`md:hidden overflow-hidden transition-all duration-300 ${
+          open ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <div className="bg-teal-800 px-4 py-6 space-y-4">
+
           {navLinks.map((link) => (
             <Link
               key={link.name}
               href={link.href}
               onClick={() => setOpen(false)}
-              className={`block py-4 px-6 text-lg font-medium rounded-xl text-center transition ${
+              className={`block py-4 px-6 text-lg font-medium rounded-xl text-center transition-all duration-200 ${
                 pathname === link.href
-                  ? 'bg-teal-600 text-white'
+                  ? 'bg-teal-600 text-white shadow-md'
                   : 'hover:bg-teal-600/70 text-white'
               } ${
                 link.highlight
-                  ? 'bg-yellow-400 text-teal-900 font-bold hover:bg-yellow-300'
+                  ? 'bg-yellow-400 text-teal-900 font-bold hover:bg-yellow-300 shadow-md'
                   : ''
               }`}
             >
@@ -150,11 +157,11 @@ export default function Navbar() {
             </Link>
           ))}
 
-          {/* Mobile Login / Logout / Sign Up */}
+          {/* MOBILE AUTH */}
           {user ? (
             <button
               onClick={handleLogout}
-              className="block w-full py-4 px-6 text-lg font-bold bg-red-600 hover:bg-red-700 rounded-xl text-white transition"
+              className="block w-full py-4 px-6 text-lg font-bold bg-red-600 hover:bg-red-700 rounded-xl text-white transition-all duration-200 shadow-md"
             >
               Logout
             </button>
@@ -163,21 +170,21 @@ export default function Navbar() {
               <Link
                 href="/login"
                 onClick={() => setOpen(false)}
-                className="block w-full py-4 px-6 text-lg font-bold bg-yellow-400 hover:bg-yellow-300 rounded-xl text-teal-900 transition text-center"
+                className="block w-full py-4 px-6 text-lg font-bold bg-yellow-400 hover:bg-yellow-300 rounded-xl text-teal-900 transition-all duration-200 shadow-md text-center"
               >
                 Login
               </Link>
               <Link
                 href="/signup"
                 onClick={() => setOpen(false)}
-                className="block w-full py-4 px-6 text-lg font-bold bg-teal-500 hover:bg-teal-600 rounded-xl text-white transition text-center"
+                className="block w-full py-4 px-6 text-lg font-bold bg-teal-500 hover:bg-teal-600 rounded-xl text-white transition-all duration-200 shadow-md text-center"
               >
                 Sign Up
               </Link>
             </div>
           )}
         </div>
-      )}
+      </div>
     </nav>
   );
 }

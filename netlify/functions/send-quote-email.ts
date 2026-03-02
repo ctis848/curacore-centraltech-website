@@ -1,7 +1,11 @@
-// netlify/functions/send-quote-email.ts
-import { Handler } from '@netlify/functions';
+import type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
+import nodemailer from 'nodemailer';
 
-export const handler: Handler = async (event) => {
+export const handler: Handler = async (
+  event: HandlerEvent,
+  context: HandlerContext
+) => {
+  // Only allow POST
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -9,88 +13,89 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  let data;
+  // Parse body
+  let payload;
   try {
-    data = JSON.parse(event.body || '{}');
-  } catch (err) {
+    payload = JSON.parse(event.body || '{}');
+  } catch {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'Invalid JSON' }),
+      body: JSON.stringify({ error: 'Invalid JSON body' }),
     };
   }
 
-  const { name, email, phone, message, service } = data;
+  const { name, email, phone, service, message } = payload;
 
-  // Basic validation
+  // Required fields
   if (!name || !email || !phone || !service) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'Missing required fields: name, email, phone, service' }),
+      body: JSON.stringify({
+        error: 'Missing required fields: name, email, phone, service',
+      }),
+    };
+  }
+
+  // Basic email format check
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Invalid email format' }),
     };
   }
 
   try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+    // Office365 SMTP Transporter
+    const transporter = nodemailer.createTransport({
+      host: "smtp.office365.com",
+      port: 587,
+      secure: false, // TLS
+      auth: {
+        user: process.env.MAIL_USER, // info@ctistech.com
+        pass: process.env.MAIL_PASS, // your email password
       },
-      body: JSON.stringify({
-        from: 'CentralCore Quotes <info@ctistech.com>',  // Verified domain + friendly name
-        to: 'info@ctistech.com',                         // Your real inbox
-        reply_to: email,                                 // Customer's email for replies
-        subject: `New Quote Request: ${service}`,
-        text: `
-New Quote Request Received
-
-Name:     ${name}
-Email:    ${email}
-Phone:    ${phone}
-Service:  ${service}
-
-Message:
-${message || '(No additional message provided)'}
-
-Sent from: ctistech.com
-        `.trim(),
-        // Optional: HTML version (uncomment if you want richer email)
-        // html: `
-        //   <h2 style="color: #0d9488;">New Quote Request: ${service}</h2>
-        //   <p><strong>Name:</strong> ${name}</p>
-        //   <p><strong>Email:</strong> ${email}</p>
-        //   <p><strong>Phone:</strong> ${phone}</p>
-        //   <p><strong>Service:</strong> ${service}</p>
-        //   <h3>Message:</h3>
-        //   <p>${message || '(No message)'}</p>
-        //   <hr style="border-color: #e5e7eb;" />
-        //   <p style="color: #6b7280; font-size: 0.875rem;">
-        //     Sent from ctistech.com
-        //   </p>
-        // `,
-      }),
+      tls: {
+        rejectUnauthorized: false,
+      },
     });
 
-    if (!response.ok) {
-      const errData = await response.json();
-      console.error('Resend error:', errData);
-      throw new Error(errData.message || `Resend returned ${response.status}`);
-    }
+    // Email content
+    const mailOptions = {
+      from: `"CentralCore Quotes" <info@ctistech.com>`,
+      to: "info@ctistech.com", // your receiving inbox
+      replyTo: email, // customer reply goes to their email
+      subject: `New Quote Request: ${service}`,
+      text: `
+New Quote Request
 
-    console.log(`Quote email sent successfully to info@ctistech.com`);
+Name:     ${name.trim()}
+Email:    ${email.trim()}
+Phone:    ${phone.trim()}
+Service:  ${service.trim()}
+
+Message:
+${(message || '(no message)').trim()}
+
+Sent from ctistech.com
+      `.trim(),
+    };
+
+    // Send email
+    await transporter.sendMail(mailOptions);
 
     return {
       statusCode: 200,
       body: JSON.stringify({ success: true }),
     };
   } catch (err: unknown) {
-    console.error('Send email failed:', err);
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    console.error("SMTP Error:", err);
+    const msg = err instanceof Error ? err.message : "Unknown error";
+
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: 'Failed to send quote request',
-        details: errorMessage,
+        error: "Failed to send quote request",
+        details: msg,
       }),
     };
   }
