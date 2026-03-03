@@ -8,9 +8,9 @@ const supabase = createClient(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }  // ← correct type: plain object (NOT Promise)
+  { params }: { params: { id: string } }  // ← Correct: plain object, NOT Promise
 ) {
-  const { id } = params;  // ← safe access, id is string
+  const { id } = params;  // ← safe access, id is guaranteed string
 
   try {
     if (!id) {
@@ -20,7 +20,7 @@ export async function POST(
       );
     }
 
-    // Your actual revoke logic (adapt as needed)
+    // Your revoke logic (example – adapt to your actual needs)
     const { error } = await supabase
       .from('licenses')
       .update({
@@ -30,16 +30,17 @@ export async function POST(
       .eq('id', id);
 
     if (error) {
-      console.error('Supabase revoke error:', error);
+      console.error('Supabase error during revoke:', error);
       return NextResponse.json(
-        { error: 'Failed to revoke license in database' },
+        { error: 'Database update failed' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error('Bulk revoke handler error:', err);
+  } catch (err: unknown) {
+    console.error('Revoke handler error:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json(
       { error: 'Internal server error during revoke' },
       { status: 500 }
