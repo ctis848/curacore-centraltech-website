@@ -1,12 +1,16 @@
-import { getUserAndRole } from "@/lib/auth/getUserAndRole";
-import DashboardClient from "./DashboardClient";
+// app/dashboard/page.tsx
+import { redirect } from 'next/navigation';
+import { getUserAndRole } from '@/lib/auth/getUserAndRole';
+import DashboardClient from './DashboardClient';
 
 export default async function DashboardPage() {
-  const { user } = await getUserAndRole();
+  const result = await getUserAndRole();
 
-  if (!user) {
-    return <meta httpEquiv="refresh" content="0; url=/auth/login" />;
+  // Early return with redirect if no user
+  if (!result.user) {
+    redirect('/auth/login');
   }
 
-  return <DashboardClient user={user} />;
+  // Pass the full user + role to client component
+  return <DashboardClient user={result.user} role={result.role} />;
 }
