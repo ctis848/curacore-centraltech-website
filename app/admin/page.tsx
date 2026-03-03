@@ -1,78 +1,54 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createSupabaseClient } from "@/lib/supabase/client";
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const supabase = useSupabaseClient();
+  const supabase = createSupabaseClient();
 
   const [authUser, setAuthUser] = useState<any>(null);
-  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const load = async () => {
-      const { data, error } = await supabase.auth.getUser();
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser();
 
-      if (error || !data.user) {
-        router.push('/login');
+      // Not logged in → redirect
+      if (!user) {
+        router.push("/auth/login");
         return;
       }
 
-      if (!['admin', 'super-admin'].includes(data.user.user_metadata?.role)) {
-        router.push('/dashboard');
+      // Only CTIS admin allowed
+      if (user.email !== "info@ctistech.com") {
+        router.push("/dashboard");
         return;
       }
 
-      setAuthUser(data.user);
-
-      const res = await fetch('/api/admin/users');
-      const json = await res.json();
-
-      if (json.error) {
-        setError(json.error);
-      } else {
-        setUsers(json);
-      }
-
+      setAuthUser(user);
       setLoading(false);
-    };
+    }
 
     load();
-  }, [router, supabase]);
+  }, []);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-teal-50">
-        <p className="text-3xl font-bold text-teal-900 animate-pulse">Loading Admin Dashboard...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-teal-50">
-        <div className="text-center bg-white p-10 rounded-2xl shadow-xl max-w-md">
-          <p className="text-2xl font-bold text-red-600 mb-6">{error}</p>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="bg-teal-600 hover:bg-teal-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition"
-          >
-            Go to Dashboard
-          </button>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-2xl font-bold text-gray-700 animate-pulse">
+          Loading Admin Dashboard...
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white">
-      <header className="bg-teal-900 text-white py-6 px-8 shadow-lg">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <header className="bg-gray-900 text-white py-6 px-8 shadow-lg">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="text-4xl md:text-5xl font-black">Admin Dashboard</h1>
+          <h1 className="text-4xl font-black">CTIS Admin Portal</h1>
           <button
             onClick={() => supabase.auth.signOut()}
             className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-xl font-bold transition"
@@ -83,40 +59,36 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto py-12 px-6">
-        <div className="bg-white rounded-3xl shadow-2xl p-10 border border-teal-100">
-          <h2 className="text-4xl font-black text-teal-900 mb-10 text-center">
-            Manage Customer Accounts
+        <div className="bg-white rounded-3xl shadow-2xl p-10 border border-gray-200">
+          <h2 className="text-3xl font-black text-gray-900 mb-10 text-center">
+            Welcome, CTIS Administrator
           </h2>
 
-          <div className="overflow-x-auto rounded-xl border border-teal-200">
-            <table className="w-full text-left">
-              <thead className="bg-teal-900 text-white">
-                <tr>
-                  <th className="py-5 px-6 font-bold text-lg">Email</th>
-                  <th className="py-5 px-6 font-bold text-lg">Plan</th>
-                  <th className="py-5 px-6 font-bold text-lg">License Seats</th>
-                  <th className="py-5 px-6 font-bold text-lg">Joined</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} className="border-b border-teal-100 hover:bg-teal-50 transition">
-                    <td className="py-5 px-6 font-medium text-gray-800">{u.email}</td>
-                    <td className="py-5 px-6 font-semibold text-teal-700">
-                      {u.user_metadata?.plan || 'Starter'}
-                    </td>
-                    <td className="py-5 px-6 text-gray-800">
-                      {u.user_metadata?.quantity || 1}
-                    </td>
-                    <td className="py-5 px-6 text-gray-600">
-                      {new Date(u.created_at).toLocaleDateString('en-GB')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <a
+              href="/admin/requests"
+              className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
+            >
+              <h3 className="text-xl font-bold mb-3">Activation Requests</h3>
+              <p className="text-gray-600">View and approve pending license requests.</p>
+            </a>
 
+            <a
+              href="/admin/licenses"
+              className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
+            >
+              <h3 className="text-xl font-bold mb-3">Create License</h3>
+              <p className="text-gray-600">Generate and assign licenses to clients.</p>
+            </a>
+
+            <a
+              href="/dashboard"
+              className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
+            >
+              <h3 className="text-xl font-bold mb-3">Client Portal</h3>
+              <p className="text-gray-600">Return to the client dashboard.</p>
+            </a>
+          </div>
         </div>
       </main>
     </div>

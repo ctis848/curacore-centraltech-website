@@ -1,31 +1,138 @@
-'use client';
+"use client";
 
-import { useUser } from '@supabase/auth-helpers-react';
+import { useEffect, useState } from "react";
+import { createSupabaseClient } from "@/lib/supabase/client";
+
+interface Profile {
+  full_name: string | null;
+}
 
 export default function SettingsPage() {
-  const user = useUser();
+  const supabase = createSupabaseClient();
 
-  if (!user) return <p className="mt-20 text-center">Loading...</p>;
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    async function loadProfile() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      setEmail(user.email || "");
+
+      const { data: profileData } = await supabase
+        .from("clients")
+        .select("full_name")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profileData) {
+        setFullName(profileData.full_name || "");
+      }
+
+      setLoading(false);
+    }
+
+    loadProfile();
+  }, []);
+
+  async function updateProfile() {
+    setMessage("");
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase
+      .from("clients")
+      .update({ full_name: fullName })
+      .eq("user_id", user.id);
+
+    setMessage("Profile updated successfully.");
+  }
+
+  async function updateEmail() {
+    setMessage("");
+
+    const { error } = await supabase.auth.updateUser({ email });
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setMessage("Email update request sent. Check your inbox.");
+  }
+
+  async function resetPassword() {
+    setMessage("");
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setMessage("Password reset email sent.");
+  }
+
+  if (loading) {
+    return <p className="p-6">Loading settings...</p>;
+  }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-4xl font-bold text-teal-900 mb-10">Settings</h1>
+    <div className="max-w-xl">
+      <h1 className="text-3xl font-bold mb-6">Settings</h1>
 
-      <div className="bg-white shadow-lg rounded-2xl p-8 border border-teal-100 space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold mb-2">Account Information</h2>
-          <p><strong>Email:</strong> {user.email}</p>
-        </div>
+      {message && (
+        <p className="mb-4 text-green-600 font-medium">{message}</p>
+      )}
 
-        <div>
-          <h2 className="text-2xl font-bold mb-2">Security</h2>
-          <p>Password reset and 2FA options coming soon.</p>
-        </div>
+      <div className="bg-white p-6 shadow rounded border border-gray-200">
+        <h2 className="text-xl font-semibold mb-4">Profile</h2>
 
-        <div>
-          <h2 className="text-2xl font-bold mb-2">Notifications</h2>
-          <p>Manage email alerts and subscription reminders.</p>
-        </div>
+        <label className="block text-sm font-medium mb-1">Full Name</label>
+        <input
+          type="text"
+          className="w-full p-3 border rounded mb-4"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+        />
+
+        <button
+          onClick={updateProfile}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+        >
+          Save Profile
+        </button>
+      </div>
+
+      <div className="bg-white p-6 shadow rounded border border-gray-200 mt-6">
+        <h2 className="text-xl font-semibold mb-4">Account</h2>
+
+        <label className="block text-sm font-medium mb-1">Email</label>
+        <input
+          type="email"
+          className="w-full p-3 border rounded mb-4"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <button
+          onClick={updateEmail}
+          className="bg-blue-600 text-white px-4 py-2 rounded mr-3"
+        >
+          Update Email
+        </button>
+
+        <button
+          onClick={resetPassword}
+          className="bg-gray-700 text-white px-4 py-2 rounded"
+        >
+          Reset Password
+        </button>
       </div>
     </div>
   );
