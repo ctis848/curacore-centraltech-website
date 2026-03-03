@@ -1,27 +1,30 @@
-'use client';
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-import { useUser } from '@supabase/auth-helpers-react';
+export default async function ProfilePage() {
+  const supabase = await createSupabaseServerClient();
 
-export default function ProfilePage() {
-  const user = useUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    return (
-      <div className="p-10 text-center">
-        <p>You are not logged in.</p>
-      </div>
-    );
+    redirect("/auth/login");
   }
 
-  return (
-    <div className="max-w-3xl mx-auto p-10">
-      <h1 className="text-3xl font-bold text-teal-700 mb-6">Your Profile</h1>
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, avatar_url, role")
+    .eq("id", user.id)
+    .single();
 
-      <div className="bg-white shadow-lg rounded-xl p-6 border border-teal-100">
-        <p><strong>Email:</strong> {user.email}</p>
-        <p><strong>User ID:</strong> {user.id}</p>
-        <p><strong>Created:</strong> {new Date(user.created_at).toLocaleString()}</p>
-      </div>
+  return (
+    <div className="max-w-2xl mx-auto mt-10 bg-white shadow rounded-xl p-6 space-y-4">
+      <h1 className="text-2xl font-bold">My Profile</h1>
+
+      <p><span className="font-semibold">Email:</span> {user.email}</p>
+      <p><span className="font-semibold">Name:</span> {profile?.full_name ?? "—"}</p>
+      <p><span className="font-semibold">Role:</span> {profile?.role ?? "user"}</p>
     </div>
   );
 }

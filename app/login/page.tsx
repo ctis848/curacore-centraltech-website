@@ -1,41 +1,54 @@
 'use client';
 
-import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
+import { useRouter } from 'next/navigation';
+import LoginForm from '@/components/auth/LoginForm';
 
 export default function LoginPage() {
+  const supabase = useSupabaseClient();
+  const user = useUser();
+  const router = useRouter();
+
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    // If user is already logged in, redirect immediately
+    if (user) {
+      router.replace('/dashboard');
+      return;
+    }
+
+    // If no user, stop loading and show login form
+    setChecking(false);
+  }, [user, router]);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-teal-700 text-xl">
+        Checking session...
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+      <div className="w-full max-w-md bg-white shadow-md rounded-lg p-8">
+        <h1 className="text-2xl font-bold text-center mb-6">Login</h1>
 
-      <div className="bg-white/90 backdrop-blur-sm p-10 rounded-2xl shadow-lg border border-teal-200 max-w-md w-full">
-        <h1 className="text-4xl font-black text-teal-800 mb-8 text-center">Login</h1>
+        <LoginForm />
 
-        <form className="space-y-6">
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full p-4 rounded-xl border border-teal-200 focus:ring-2 focus:ring-teal-600"
-          />
+        <div className="text-center mt-4 text-sm">
+          <a href="/forgot-password" className="text-teal-600 hover:underline">
+            Forgot password?
+          </a>
+        </div>
 
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full p-4 rounded-xl border border-teal-200 focus:ring-2 focus:ring-teal-600"
-          />
-
-          <button
-            type="submit"
-            className="w-full bg-teal-700 text-white py-4 rounded-xl font-semibold hover:bg-teal-800 transition"
-          >
-            Login
-          </button>
-        </form>
-
-        <p className="text-center text-gray-700 mt-6">
-          Don’t have an account?{" "}
-          <Link href="/signup" className="text-teal-700 font-semibold hover:underline">
-            Sign Up
-          </Link>
-        </p>
+        <div className="text-center mt-2 text-sm">
+          <a href="/register" className="text-gray-600 hover:underline">
+            Create an account
+          </a>
+        </div>
       </div>
     </div>
   );

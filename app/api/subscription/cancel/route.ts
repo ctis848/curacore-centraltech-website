@@ -1,66 +1,37 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 
 export async function POST(req: Request) {
-  const { id } = await req.json();
+  const { subscriptionId, userId } = await req.json();
 
-  if (!id) {
+  if (!subscriptionId || !userId) {
     return NextResponse.json(
-      { error: 'Missing subscription id' },
+      { error: "Missing subscriptionId or userId" },
       { status: 400 }
     );
   }
 
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get('sb-access-token')?.value || null;
+  const { data: subscription, error } = await supabaseAdmin
+    .from("subscriptions")
+    .select("*")
+    .eq("id", subscriptionId)
+    .eq("user_id", userId)
+    .single();
 
-  if (!accessToken) {
+  if (error || !subscription) {
     return NextResponse.json(
-      { error: 'Not authenticated' },
-      { status: 401 }
+      { error: "Subscription not found" },
+      { status: 404 }
     );
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
-    }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json(
-      { error: 'Not authenticated' },
-      { status: 401 }
-    );
-  }
-
-  const { error } = await supabase
-    .from('subscriptions')
+  await supabaseAdmin
+    .from("subscriptions")
     .update({
-      status: 'canceled',
-      auto_renew: false,
+      status: "cancelled",
+      cancelled_at: new Date().toISOString(),
     })
-    .eq('id', id)
-    .eq('user_id', user.id);
+    .eq("id", subscriptionId);
 
-  if (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: 'Failed to cancel subscription' },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ success: true });
 }

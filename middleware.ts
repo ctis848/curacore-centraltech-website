@@ -1,44 +1,29 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
-  const token = req.cookies.get('sb-access-token')?.value;
+  const protectedRoutes = ["/dashboard", "/profile", "/subscriptions"];
 
-  const publicPaths = [
-    '/login',
-    '/signup',
-    '/reset-password',
-    '/verify-email',
-    '/',
-    '/pricing',
-    '/contact',
-    '/features',
-    '/services',
-    '/resources',
-    '/download',
-    '/buy'
-  ];
+  const isProtected = protectedRoutes.some((route) =>
+    req.nextUrl.pathname.startsWith(route)
+  );
 
-  const { pathname } = req.nextUrl;
+  if (!isProtected) return NextResponse.next();
 
-  // Allow public pages
-  if (publicPaths.includes(pathname)) {
-    return NextResponse.next();
-  }
+  const access = req.cookies.get("sb-access-token")?.value;
+  const refresh = req.cookies.get("sb-refresh-token")?.value;
 
-  // If user is NOT logged in and tries to access protected pages
-  if (!token && pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/login', req.url));
-  }
-
-  // If user IS logged in and tries to access login/signup
-  if (token && (pathname === '/login' || pathname === '/signup')) {
-    return NextResponse.redirect(new URL('/dashboard', req.url));
+  if (!access && !refresh) {
+    return NextResponse.redirect(new URL("/auth/login", req.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/signup', '/reset-password', '/verify-email'],
+  matcher: [
+    "/dashboard/:path*",
+    "/profile/:path*",
+    "/subscriptions/:path*",
+  ],
 };

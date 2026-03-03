@@ -1,64 +1,48 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const page = parseInt(searchParams.get('page') || '1', 10);
-  const limit = parseInt(searchParams.get('limit') || '10', 10);
-  const statusFilter = searchParams.get('status') || ''; // active, canceled, etc.
+  try {
+    const { searchParams } = new URL(req.url);
 
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get('sb-access-token')?.value || null;
+    const page = Number(searchParams.get("page") || 1);
+    const limit = Number(searchParams.get("limit") || 10);
+    const search = searchParams.get("search") || "";
+    const sort = searchParams.get("sort") || "created_at.desc";
 
-  if (!accessToken) {
-    return NextResponse.json({ items: [], total: 0 }, { status: 200 });
-  }
+    const [sortField, sortOrder] = sort.split(".");
+    const offset = (page - 1) * limit;
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
+    let query = supabaseAdmin
+      .from("subscriptions")
+      .select("*", { count: "exact" })
+      .order(sortField, { ascending: sortOrder === "asc" })
+      .range(offset, offset + limit - 1);
+
+    if (search) {
+      query = query.or(
+        `plan.ilike.%${search}%,reference.ilike.%${search}%,status.ilike.%${search}%`
+      );
     }
-  );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const { data, error, count } = await query;
 
-  if (!user) {
-    return NextResponse.json({ items: [], total: 0 }, { status: 200 });
+    if (error) {
+      return NextResponse.json(
+        { items: [], total: 0, page, error: error.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      items: data ?? [],
+      total: count ?? 0,
+      page,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { items: [], total: 0, page: 1, error: err.message },
+      { status: 500 }
+    );
   }
-
-  let query = supabase
-    .from('subscriptions')
-    .select('*', { count: 'exact' })
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-
-  if (statusFilter) {
-    query = query.eq('status', statusFilter);
-  }
-
-  const from = (page - 1) * limit;
-  const to = from + limit - 1;
-
-  const { data, error, count } = await query.range(from, to);
-
-  if (error) {
-    console.error(error);
-    return NextResponse.json({ items: [], total: 0 }, { status: 200 });
-  }
-
-  return NextResponse.json({
-    items: data,
-    total: count || 0,
-    page,
-    limit,
-  });
 }

@@ -2,48 +2,43 @@
 
 import { useState } from 'react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 export default function ResetPasswordPage() {
   const supabase = useSupabaseClient();
+  const [loading, setLoading] = useState(false);
 
-  const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
-
-  const handleReset = async (e: any) => {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setLoading(true);
 
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/update-password`,
-    });
+    const form = new FormData(e.currentTarget);
+    const password = form.get('password') as string;
 
-    setSent(true);
-  };
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+      alert(error.message);
+      setLoading(false);
+      return;
+    }
+
+    alert('Password updated successfully.');
+    window.location.href = '/login';
+  }
 
   return (
-    <div className="min-h-screen bg-teal-900 flex items-center justify-center px-6">
-      <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-10 max-w-md w-full text-white">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+      <div className="w-full max-w-md bg-white shadow-md rounded-lg p-8">
+        <h1 className="text-2xl font-bold text-center mb-6">Reset Password</h1>
 
-        <h1 className="text-3xl font-black mb-6 text-center">Reset Password</h1>
-
-        {sent ? (
-          <p className="text-green-300 text-center">
-            Reset link sent! Check your email.
-          </p>
-        ) : (
-          <form onSubmit={handleReset} className="space-y-6">
-            <input
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-5 py-4 rounded-xl bg-white/20 border border-white/30 text-white"
-            />
-
-            <button className="w-full py-4 bg-yellow-400 text-teal-900 font-bold rounded-xl text-xl">
-              Send Reset Link
-            </button>
-          </form>
-        )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input name="password" type="password" placeholder="New password" required />
+          <Button type="submit" disabled={loading}>
+            {loading ? 'Updating...' : 'Update Password'}
+          </Button>
+        </form>
       </div>
     </div>
   );

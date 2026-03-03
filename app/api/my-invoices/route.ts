@@ -1,15 +1,51 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const user_id = searchParams.get("user_id");
+  try {
+    const { searchParams } = new URL(req.url);
 
-  const { data } = await supabase
-    .from("invoices")
-    .select("*")
-    .eq("user_id", user_id)
-    .order("created_at", { ascending: false });
+    const page = Number(searchParams.get("page") || 1);
+    const limit = Number(searchParams.get("limit") || 10);
+    const status = searchParams.get("status") || "";
+    const search = searchParams.get("search") || "";
+    const sort = searchParams.get("sort") || "created_at.desc";
 
-  return NextResponse.json(data);
+    const [sortField, sortOrder] = sort.split(".");
+    const offset = (page - 1) * limit;
+
+    let query = supabaseAdmin
+      .from("invoices")
+      .select("*", { count: "exact" })
+      .order(sortField, { ascending: sortOrder === "asc" })
+      .range(offset, offset + limit - 1);
+
+    if (status) query = query.eq("status", status);
+
+    if (search) {
+      query = query.or(
+        `id.ilike.%${search}%,plan.ilike.%${search}%,product_name.ilike.%${search}%`
+      );
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      return NextResponse.json(
+        { items: [], total: 0, page, error: error.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      items: data ?? [],
+      total: count ?? 0,
+      page,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { items: [], total: 0, page: 1, error: err.message },
+      { status: 500 }
+    );
+  }
 }

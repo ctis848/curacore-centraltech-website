@@ -1,49 +1,32 @@
-// app/api/license/validate/route.ts
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // Service role for secure read
-);
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const licenseKey = searchParams.get('key');
+export async function POST(req: Request) {
+  const { licenseKey } = await req.json();
 
   if (!licenseKey) {
     return NextResponse.json(
-      { active: false, reason: 'missing_key' },
+      { error: "Missing licenseKey" },
       { status: 400 }
     );
   }
 
-  try {
-    const { data, error } = await supabase
-      .from('enterprise_licenses')
-      .select('active, service_expiry')
-      .eq('license_key', licenseKey)
-      .single();
+  const { data: license, error } = await supabaseAdmin
+    .from("licenses")
+    .select("*")
+    .eq("key", licenseKey)
+    .single();
 
-    if (error || !data) {
-      return NextResponse.json(
-        { active: false, reason: 'invalid_key' },
-        { status: 404 }
-      );
-    }
-
-    const isExpired = new Date(data.service_expiry) < new Date();
-
-    return NextResponse.json({
-      active: data.active && !isExpired,
-      reason: isExpired ? 'service_fee_expired' : null,
-      expiry: data.service_expiry,
-    });
-  } catch (err) {
-    console.error('Validate error:', err);
+  if (error || !license) {
     return NextResponse.json(
-      { active: false, reason: 'server_error' },
-      { status: 500 }
+      { valid: false, error: "License not found" },
+      { status: 404 }
     );
   }
+
+  return NextResponse.json({
+    valid: true,
+    status: license.status,
+    license,
+  });
 }

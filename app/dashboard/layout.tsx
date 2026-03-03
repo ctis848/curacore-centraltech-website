@@ -1,24 +1,30 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Sidebar from '@/components/Sidebar';
-import Topbar from '@/components/Topbar';
+import { useState } from "react";
+import Sidebar from "@/components/dashboard/Sidebar";
+import Topbar from "@/components/dashboard/Topbar";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="flex">
+    <div className="flex min-h-screen bg-gray-50">
+      {/* Sidebar */}
       <Sidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
       />
 
+      {/* Main Content */}
       <div
-        className={`flex-1 min-h-screen bg-gray-50 transition-all ${
-          collapsed ? 'ml-20' : 'ml-64'
+        className={`flex-1 transition-all duration-300 ${
+          collapsed ? "ml-20" : "ml-64"
         }`}
       >
         <Topbar
@@ -27,7 +33,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           openMobile={() => setMobileOpen(true)}
         />
 
-        <main className="p-10">{children}</main>
+        <main className="p-8">{children}</main>
       </div>
     </div>
   );

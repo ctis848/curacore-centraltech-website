@@ -1,37 +1,45 @@
-// app/api/license/activate/route.ts
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+export async function POST(req: Request) {
+  const { licenseKey, machineId, userId } = await req.json();
 
-export async function POST(request: Request) {
-  const { licenseCode, machineId, email } = await request.json();
+  if (!licenseKey || !machineId || !userId) {
+    return NextResponse.json(
+      { error: "Missing licenseKey, machineId or userId" },
+      { status: 400 }
+    );
+  }
 
-  // Validate user & license
-  const { data: user } = await supabase.auth.getUser(); // Use auth token from header in real setup
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  // Check if license is available (purchased, not active)
-  const { data: license, error } = await supabase
-    .from('licenses')
-    .select('*')
-    .eq('user_email', email)
-    .eq('code', licenseCode)
-    .eq('active', false)
+  const { data: license, error } = await supabaseAdmin
+    .from("licenses")
+    .select("*")
+    .eq("key", licenseKey)
     .single();
 
-  if (error || !license) return NextResponse.json({ error: 'Invalid license' }, { status: 400 });
+  if (error || !license) {
+    return NextResponse.json(
+      { error: "Invalid license key" },
+      { status: 404 }
+    );
+  }
 
-  // Activate on this machine
-  await supabase
-    .from('licenses')
+  if (license.status === "revoked") {
+    return NextResponse.json(
+      { error: "License revoked" },
+      { status: 403 }
+    );
+  }
+
+  await supabaseAdmin
+    .from("licenses")
     .update({
-      active: true,
+      status: "active",
       machine_id: machineId,
-      activation_date: new Date().toISOString(),
-      ip: request.headers.get('x-forwarded-for') || 'unknown',
+      user_id: userId,
+      activated_at: new Date().toISOString(),
     })
-    .eq('id', license.id);
+    .eq("id", license.id);
 
-  return NextResponse.json({ success: true, message: 'License activated on this machine' });
+  return NextResponse.json({ success: true, licenseId: license.id });
 }
