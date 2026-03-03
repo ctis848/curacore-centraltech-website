@@ -9,7 +9,7 @@ export async function POST(
 
   const { error } = await supabaseAdmin
     .from("subscriptions")
-    .update({ status: "canceled" })
+    .update({ status: "cancelled" })
     .eq("id", id);
 
   if (error) {

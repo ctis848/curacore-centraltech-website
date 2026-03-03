@@ -1,48 +1,36 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }  // ← this is the ONLY correct type
+  { params }: { params: { id: string } }
 ) {
-  const { id } = params;  // ← id is now safely typed as string
+  const { id } = params;
 
   try {
     if (!id) {
       return NextResponse.json(
-        { error: 'Missing license ID in route params' },
+        { error: "Missing ID parameter" },
         { status: 400 }
       );
     }
 
-    // Your revoke logic — adjust as needed
-    const { error } = await supabase
-      .from('licenses')
-      .update({
-        active: false,
-        revoked_at: new Date().toISOString(),
-      })
-      .eq('id', id);
+    const { error } = await supabaseAdmin
+      .from("history")
+      .update({ revoked: true })
+      .eq("id", id);
 
     if (error) {
-      console.error('Supabase revoke error:', error.message);
       return NextResponse.json(
-        { error: 'Database update failed', details: error.message },
+        { error: error.message },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ success: true });
-  } catch (err: unknown) {
-    console.error('Revoke handler failed:', err);
-    const message = err instanceof Error ? err.message : 'Unknown error';
+  } catch (err: any) {
     return NextResponse.json(
-      { error: 'Internal server error during revoke', details: message },
+      { error: err.message },
       { status: 500 }
     );
   }
