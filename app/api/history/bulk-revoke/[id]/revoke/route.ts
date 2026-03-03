@@ -1,23 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
-  const { id } = params;
+  const { id } = context.params;
 
   try {
-    // Your existing logic here
-    // Example:
-    // await supabaseAdmin
-    //   .from("history")
-    //   .update({ revoked: true })
-    //   .eq("id", id);
+    // Example logic — keep your real logic here
+    const { error } = await supabaseAdmin
+      .from("history")
+      .update({ revoked: true })
+      .eq("id", id);
+
+    if (error) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (err: any) {
     return NextResponse.json(
-      { error: error.message || "Something went wrong" },
+      { success: false, error: err.message },
       { status: 500 }
     );
   }
