@@ -2,19 +2,21 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
-  const protectedRoutes = ["/dashboard", "/profile", "/subscriptions"];
+  const url = req.nextUrl.clone();
+  const pathname = url.pathname;
 
+  const protectedRoutes = ["/dashboard", "/profile", "/subscriptions"];
   const isProtected = protectedRoutes.some((route) =>
-    req.nextUrl.pathname.startsWith(route)
+    pathname.startsWith(route)
   );
 
   if (!isProtected) return NextResponse.next();
 
   const access = req.cookies.get("sb-access-token")?.value;
-  const refresh = req.cookies.get("sb-refresh-token")?.value;
 
-  if (!access && !refresh) {
-    return NextResponse.redirect(new URL("/auth/login", req.url));
+  if (!access) {
+    url.pathname = "/auth/login";
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
