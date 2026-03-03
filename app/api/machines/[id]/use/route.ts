@@ -3,9 +3,9 @@ import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 
 export async function POST(
   _req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  const { id } = await context.params;
 
   const { error } = await supabaseAdmin
     .from("activation_codes")
