@@ -3,12 +3,11 @@ import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 
 export async function POST(
   req: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = context.params;
+  const { id } = params;
 
   try {
-    // Example logic — keep your real logic here
     const { error } = await supabaseAdmin
       .from("history")
       .update({ revoked: true })
