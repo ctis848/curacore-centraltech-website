@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
-import Topbar from '@/components/Topbar';
+import Topbar from '@/components/dashboard/Topbar';
 
 export default function ProfileLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);

@@ -1,75 +1,63 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Home, CreditCard, FileText, KeyRound, Settings, X } from "lucide-react";
-
-export default function Sidebar({
-  collapsed,
-  mobileOpen,
-  onCloseMobile,
-}: {
+type SidebarProps = {
   collapsed: boolean;
   mobileOpen: boolean;
   onCloseMobile: () => void;
-}) {
-  const pathname = usePathname();
+};
 
-  const links = [
-    { href: "/dashboard", label: "Overview", icon: Home },
-    { href: "/dashboard/subscriptions", label: "Subscriptions", icon: CreditCard },
-    { href: "/dashboard/invoices", label: "Invoices", icon: FileText },
-    { href: "/dashboard/license", label: "License", icon: KeyRound },
-    { href: "/dashboard/settings", label: "Settings", icon: Settings },
-  ];
-
+export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) {
   return (
     <>
-      {/* Mobile Sidebar */}
-      <div
-        className={cn(
-          "fixed inset-0 bg-black/40 z-40 lg:hidden transition-opacity",
-          mobileOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-        onClick={onCloseMobile}
-      />
-
+      {/* Desktop Sidebar */}
       <aside
-        className={cn(
-          "fixed z-50 h-full bg-white border-r shadow-sm transition-all",
-          collapsed ? "w-20" : "w-64",
-          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        )}
+        className={`hidden md:flex flex-col bg-white shadow-lg h-screen fixed top-0 left-0 transition-all duration-300 ${
+          collapsed ? "w-20" : "w-64"
+        }`}
       >
-        <div className="flex items-center justify-between p-4 border-b">
-          <span className="font-bold text-teal-700">
-            {collapsed ? "CC" : "CentralCore"}
-          </span>
-
-          <button className="lg:hidden" onClick={onCloseMobile}>
-            <X size={20} />
-          </button>
+        <div className="p-4 font-semibold text-gray-800">
+          {collapsed ? "CT" : "CTIS Dashboard"}
         </div>
 
-        <nav className="p-4 space-y-2">
-          {links.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition",
-                pathname.startsWith(href)
-                  ? "bg-teal-600 text-white"
-                  : "text-gray-700 hover:bg-gray-100"
-              )}
-            >
-              <Icon size={18} />
-              {!collapsed && label}
-            </Link>
-          ))}
+        <nav className="flex-1 px-2 space-y-2">
+          <a href="/dashboard" className="block py-2 px-3 rounded hover:bg-gray-100">
+            Dashboard
+          </a>
+          <a href="/profile" className="block py-2 px-3 rounded hover:bg-gray-100">
+            Profile
+          </a>
         </nav>
       </aside>
+
+      {/* Mobile Sidebar */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 flex md:hidden">
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={onCloseMobile}
+          />
+
+          {/* Drawer */}
+          <aside className="relative bg-white w-64 h-full shadow-lg z-50 p-4">
+            <button
+              onClick={onCloseMobile}
+              className="mb-4 text-gray-700 hover:text-gray-900"
+            >
+              Close
+            </button>
+
+            <nav className="space-y-2">
+              <a href="/dashboard" className="block py-2 px-3 rounded hover:bg-gray-100">
+                Dashboard
+              </a>
+              <a href="/profile" className="block py-2 px-3 rounded hover:bg-gray-100">
+                Profile
+              </a>
+            </nav>
+          </aside>
+        </div>
+      )}
     </>
   );
 }

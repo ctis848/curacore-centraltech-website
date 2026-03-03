@@ -1,29 +1,32 @@
 "use client";
 
-import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-
-export default function Topbar({
-  collapsed,
-  toggleCollapse,
-  openMobile,
-}: {
+type TopbarProps = {
   collapsed: boolean;
   toggleCollapse: () => void;
   openMobile: () => void;
-}) {
+};
+
+export default function Topbar({ collapsed, toggleCollapse, openMobile }: TopbarProps) {
   return (
-    <header className="h-16 bg-white border-b flex items-center px-4 justify-between">
-      {/* Mobile Menu Button */}
-      <button className="lg:hidden" onClick={openMobile}>
-        <Menu size={24} />
+    <header className="w-full flex items-center justify-between px-4 py-3 bg-white shadow-sm border-b">
+      {/* Collapse toggle (mobile only) */}
+      <button
+        onClick={toggleCollapse}
+        className="text-gray-700 hover:text-gray-900 md:hidden"
+      >
+        {collapsed ? "Open Menu" : "Close Menu"}
       </button>
 
-      {/* Desktop Collapse Button */}
-      <button className="hidden lg:block" onClick={toggleCollapse}>
-        {collapsed ? <PanelLeftOpen size={24} /> : <PanelLeftClose size={24} />}
-      </button>
+      {/* Title */}
+      <h1 className="font-semibold text-lg text-gray-800">Dashboard</h1>
 
-      <div className="font-medium text-gray-700">Dashboard</div>
+      {/* Mobile menu button */}
+      <button
+        onClick={openMobile}
+        className="text-gray-700 hover:text-gray-900 md:hidden"
+      >
+        Menu
+      </button>
     </header>
   );
 }
