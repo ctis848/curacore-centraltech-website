@@ -9,11 +9,11 @@ const supabase = createClient(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }  // ← correct type: plain object, NOT Promise
+  context: { params: { id: string } }  // ← correct: plain object, NOT Promise
 ) {
-  try {
-    const { id } = params;  // ← safe, id is string
+  const { id } = context.params;  // ← safe, id is string
 
+  try {
     if (!id) {
       return NextResponse.json(
         { error: 'Missing license ID' },
@@ -21,17 +21,20 @@ export async function POST(
       );
     }
 
-    // Your revoke logic here (example — adjust as needed)
+    // Your revoke logic (example — replace/adapt as needed)
     const { error } = await supabase
       .from('licenses')
-      .update({ active: false, revoked_at: new Date().toISOString() })
+      .update({
+        active: false,
+        revoked_at: new Date().toISOString(),
+      })
       .eq('id', id);
 
     if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Bulk revoke error:', error);
+    console.error('Bulk revoke failed:', error);
     return NextResponse.json(
       { error: 'Failed to revoke license' },
       { status: 500 }
