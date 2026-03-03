@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   const { id } = params;
 
   try {
-    // Your existing logic goes here
+    // Your existing logic goes here.
     // Example:
-    // await supabaseAdmin.from("history").update({ revoked: true }).eq("id", id);
+    // await supabaseAdmin
+    //   .from("history")
+    //   .update({ revoked: true })
+    //   .eq("id", id);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
