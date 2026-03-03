@@ -1,38 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 
-export default function InvoiceList() {
-  const [invoices, setInvoices] = useState<any[]>([]);
+type Invoice = {
+  id: string;
+  amount: number;
+  status: string;
+  created_at: string;
+};
 
-  useEffect(() => {
-    async function load() {
-      const res = await fetch("/api/my-invoices");
-      const data = await res.json();
-      setInvoices(data.invoices || []);
-    }
-    load();
-  }, []);
-
+export default function InvoiceList({ invoices }: { invoices: Invoice[] }) {
   return (
     <div className="space-y-4">
       {invoices.map((invoice) => (
-        <Card key={invoice.id} className="p-4 flex justify-between items-center">
+        <Card key={invoice.id} className="p-4 flex items-center justify-between">
           <div>
-            <p className="font-medium">Invoice #{invoice.id}</p>
-            <p className="text-sm text-gray-500">{invoice.plan}</p>
+            <p className="font-semibold">Invoice #{invoice.id}</p>
+            <p className="text-sm text-gray-600">
+              ₦{invoice.amount.toLocaleString()} — {invoice.status}
+            </p>
+            <p className="text-xs text-gray-500">
+              {new Date(invoice.created_at).toLocaleDateString()}
+            </p>
           </div>
 
           <div className="flex items-center gap-3">
-            <p className="font-semibold">
-              ₦{invoice.amount.toLocaleString()}
-            </p>
+            <Link
+              href={`/api/invoice/pdf?id=${invoice.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="outline">Download</Button>
+            </Link>
 
-            <Link href={`/api/invoice/pdf?id=${invoice.id}`} target="_blank">
-              <Button variant="outline">Download PDF</Button>
+            <Link href={`/dashboard/invoices/${invoice.id}`}>
+              <Button variant="default">View</Button>
             </Link>
           </div>
         </Card>
