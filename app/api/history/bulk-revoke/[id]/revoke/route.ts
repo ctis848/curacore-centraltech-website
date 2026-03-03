@@ -1,4 +1,3 @@
-// app/api/history/bulk-revoke/[id]/revoke/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -9,19 +8,19 @@ const supabase = createClient(
 
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } }  // ← correct: plain object, NOT Promise
+  { params }: { params: { id: string } }  // ← correct type: plain object (NOT Promise)
 ) {
-  const { id } = context.params;  // ← safe, id is string
+  const { id } = params;  // ← safe access, id is string
 
   try {
     if (!id) {
       return NextResponse.json(
-        { error: 'Missing license ID' },
+        { error: 'Missing license ID in route params' },
         { status: 400 }
       );
     }
 
-    // Your revoke logic (example — replace/adapt as needed)
+    // Your actual revoke logic (adapt as needed)
     const { error } = await supabase
       .from('licenses')
       .update({
@@ -30,13 +29,19 @@ export async function POST(
       })
       .eq('id', id);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase revoke error:', error);
+      return NextResponse.json(
+        { error: 'Failed to revoke license in database' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Bulk revoke failed:', error);
+  } catch (err) {
+    console.error('Bulk revoke handler error:', err);
     return NextResponse.json(
-      { error: 'Failed to revoke license' },
+      { error: 'Internal server error during revoke' },
       { status: 500 }
     );
   }
