@@ -1,18 +1,49 @@
-# ONLY non-www → www + HTTP → HTTPS
+###############################################
+# Build Settings
+###############################################
+[build]
+  command = "npm run build"
+  publish = "out"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+
+###############################################
+# Redirect Rules
+###############################################
+
+# 1. Redirect http://ctistech.com/* → https://www.ctistech.com/*
 [[redirects]]
   from = "http://ctistech.com/*"
   to = "https://www.ctistech.com/:splat"
   status = 301
   force = true
 
+# 2. Redirect https://ctistech.com/* → https://www.ctistech.com/*
 [[redirects]]
   from = "https://ctistech.com/*"
   to = "https://www.ctistech.com/:splat"
   status = 301
   force = true
 
+# 3. Redirect http://www.ctistech.com/* → https://www.ctistech.com/*
 [[redirects]]
   from = "http://www.ctistech.com/*"
+  to = "https://www.ctistech.com/:splat"
+  status = 301
+  force = true
+
+# 4. Redirect ANY http://*.ctistech.com/* → https://www.ctistech.com/*
+[[redirects]]
+  from = "http://*.ctistech.com/*"
+  to = "https://www.ctistech.com/:splat"
+  status = 301
+  force = true
+
+# 5. Redirect ANY https://*.ctistech.com/* → https://www.ctistech.com/*
+[[redirects]]
+  from = "https://*.ctistech.com/*"
   to = "https://www.ctistech.com/:splat"
   status = 301
   force = true
