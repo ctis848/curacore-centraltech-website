@@ -7,7 +7,7 @@ export async function POST(
   const { id } = params;
 
   try {
-    // Your existing logic goes here.
+    // Your existing logic here
     // Example:
     // await supabaseAdmin
     //   .from("history")
