@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
-  req: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const { id } = params;
 
   try {
-    // Your existing logic here
+    // Your existing logic goes here
     // Example:
     // await supabaseAdmin
     //   .from("history")
