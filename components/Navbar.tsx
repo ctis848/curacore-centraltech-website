@@ -1,74 +1,46 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import LogoutButton from "./LogoutButton";
 
-export default async function Navbar() {
-  const cookieStore = await cookies(); // FIX: await required
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: any) {
-          try {
-            cookieStore.set({ name, value, ...options });
-          } catch {}
-        },
-        remove(name: string, options: any) {
-          try {
-            cookieStore.set({ name, value: "", ...options });
-          } catch {}
-        },
-      },
-    }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export default function Navbar() {
+  const [open, setOpen] = useState(false);
 
   return (
-    <nav className="w-full flex items-center justify-between py-4 px-6 bg-white shadow">
-      <div className="flex items-center gap-6">
-        <Link href="/" className="font-bold text-xl text-teal-700">
-          CentralCore
+    <nav className="w-full bg-white shadow-sm sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 py-4 md:px-10">
+        
+        {/* Logo */}
+        <Link href="/" className="text-2xl font-bold text-teal-800">
+          CTIS
         </Link>
 
-        <Link href="/features">Features</Link>
-        <Link href="/services">Services</Link>
-        <Link href="/resources">Resources</Link>
-        <Link href="/download">Download</Link>
-      </div>
+        {/* Desktop Menu */}
+        <div className="hidden md:flex gap-10 text-gray-700 font-medium">
+          <Link href="/centralcore">CentralCore</Link>
+          <Link href="/features">Features</Link>
+          <Link href="/services">Services</Link>
+          <Link href="/resources">Resources</Link>
+        </div>
 
-      <div className="flex items-center gap-4">
-        <Link
-          href="/pricing"
-          className="bg-yellow-400 px-4 py-2 rounded-md font-semibold"
+        {/* Mobile Menu Button */}
+        <button
+          onClick={() => setOpen(!open)}
+          className="md:hidden text-3xl text-teal-800"
         >
-          Buy Now
-        </Link>
-
-        {user ? (
-          <LogoutButton />
-        ) : (
-          <>
-            <Link href="/auth/login" className="text-teal-700 font-semibold">
-              Login
-            </Link>
-            <Link
-              href="/auth/signup"
-              className="bg-teal-600 text-white px-4 py-2 rounded-md font-semibold"
-            >
-              Sign Up
-            </Link>
-          </>
-        )}
+          ☰
+        </button>
       </div>
+
+      {/* Mobile Dropdown */}
+      {open && (
+        <div className="md:hidden bg-white border-t border-gray-200 px-4 py-4 space-y-4 text-gray-700 font-medium">
+          <Link href="/centralcore" onClick={() => setOpen(false)}>CentralCore</Link>
+          <Link href="/features" onClick={() => setOpen(false)}>Features</Link>
+          <Link href="/services" onClick={() => setOpen(false)}>Services</Link>
+          <Link href="/resources" onClick={() => setOpen(false)}>Resources</Link>
+        </div>
+      )}
     </nav>
   );
 }
