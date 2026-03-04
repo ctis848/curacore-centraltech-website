@@ -6,40 +6,40 @@ import Image from 'next/image';
 export default function PricingPage() {
   const plans = [
     {
-      id: 'basic',
-      title: 'Basic License',
-      price: '₦150,000',
-      desc: 'Perfect for small clinics and consulting rooms.',
+      id: 'starter',
+      title: 'Starter',
+      price: '₦10,000 (One‑Time)',
+      desc: 'Full access to all CentralCore EMR features — perfect for small clinics.',
       features: [
-        'EMR Core Features',
-        'Patient Records',
-        'Basic Reporting',
-        '1 Device License'
+        'Complete EMR: Patient Records, Appointments, Billing, Pharmacy, Lab, Radiology, Inventory, Wards, Nurses Module, Messaging, HL7, Reports & more',
+        'All modules and integrations included',
+        'Maximum 5 users (seats/licenses)',
+        '20% annual support fee included'
       ]
     },
     {
-      id: 'standard',
-      title: 'Standard License',
-      price: '₦350,000',
-      desc: 'Ideal for medium-sized hospitals.',
+      id: 'pro',
+      title: 'Pro',
+      price: '₦20,000 (One‑Time)',
+      desc: 'Full access to all CentralCore EMR features — ideal for growing hospitals.',
       features: [
-        'Everything in Basic',
-        'Pharmacy Module',
-        'Laboratory Module',
-        '5 Device Licenses'
+        'Complete EMR: Patient Records, Appointments, Billing, Pharmacy, Lab, Radiology, Inventory, Wards, Nurses Module, Messaging, HL7, Reports & more',
+        'All modules and integrations included',
+        'Maximum 15 users (seats/licenses)',
+        '20% annual support fee included'
       ],
       highlight: true
     },
     {
       id: 'enterprise',
-      title: 'Enterprise License',
-      price: '₦750,000',
-      desc: 'For large hospitals with advanced needs.',
+      title: 'Enterprise',
+      price: '₦350,999 (One‑Time)',
+      desc: 'Full access to all CentralCore EMR features — for large institutions & networks.',
       features: [
-        'Everything in Standard',
-        'Radiology Module',
-        'Nurse Call System',
-        'Unlimited Devices'
+        'Complete EMR: Patient Records, Appointments, Billing, Pharmacy, Lab, Radiology, Inventory, Wards, Nurses Module, Messaging, HL7, Reports & more',
+        'All modules and integrations included',
+        'Unlimited users (seats/licenses)',
+        '20% annual support fee included'
       ]
     }
   ];

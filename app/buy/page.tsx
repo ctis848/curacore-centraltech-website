@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 export default function BuyLicensePage() {
   const router = useRouter();
 
-  const [plan, setPlan] = useState('standard');
+  const [plan, setPlan] = useState('starter');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [user, setUser] = useState<any>(null);
@@ -25,9 +25,9 @@ export default function BuyLicensePage() {
 
   // Map plan → amount
   function getAmount() {
-    if (plan === 'basic') return 150000;
-    if (plan === 'standard') return 350000;
-    return 750000; // enterprise
+    if (plan === 'starter') return 10000;
+    if (plan === 'pro') return 20000;
+    return 350999; // enterprise
   }
 
   // Handle Paystack payment
@@ -43,6 +43,7 @@ export default function BuyLicensePage() {
           amount: getAmount(),
           plan,
           user_id: user?.id || null,
+          fullName,
         }),
       });
 
@@ -85,9 +86,9 @@ export default function BuyLicensePage() {
               onChange={(e) => setPlan(e.target.value)}
               className="w-full p-4 rounded-xl border border-teal-200 focus:ring-2 focus:ring-teal-600"
             >
-              <option value="basic">Basic License — ₦150,000</option>
-              <option value="standard">Standard License — ₦350,000</option>
-              <option value="enterprise">Enterprise License — ₦750,000</option>
+              <option value="starter">Starter — ₦10,000 (One‑Time)</option>
+              <option value="pro">Pro — ₦20,000 (One‑Time)</option>
+              <option value="enterprise">Enterprise — ₦350,999 (One‑Time)</option>
             </select>
           </div>
 
