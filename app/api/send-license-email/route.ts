@@ -1,14 +1,21 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import nodemailer from "nodemailer";
 
 export async function POST(req: Request) {
-  const body = await req.json();
-  const { clientEmail, licenseKey, productName } = body;
+  const { clientEmail, licenseKey, productName } = await req.json();
 
-  await resend.emails.send({
-    from: "CTIS Licensing <no-reply@ctistech.com>",
+  const transporter = nodemailer.createTransport({
+    host: process.env.CTIS_SMTP_HOST,
+    port: Number(process.env.CTIS_SMTP_PORT),
+    secure: false,
+    auth: {
+      user: process.env.CTIS_SMTP_USER,
+      pass: process.env.CTIS_SMTP_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"CTIS Licensing" <${process.env.CTIS_SMTP_USER}>`,
     to: clientEmail,
     subject: "Your CTIS License Activation",
     html: `
