@@ -8,25 +8,31 @@ function PaymentFailedContent() {
   const reference = params.get("reference");
 
   return (
-    <div className="max-w-md mx-auto mt-20 p-6 bg-white shadow rounded-xl text-center">
-      <h1 className="text-2xl font-bold mb-4 text-red-600">Payment Failed</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-16">
+      <div className="w-full max-w-md bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-red-200 text-center space-y-4">
 
-      <p className="text-gray-700 mb-4">
-        Unfortunately, your payment could not be completed.
-      </p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-red-600">
+          Payment Failed
+        </h1>
 
-      {reference && (
-        <p className="text-sm text-gray-500 mb-4">
-          Reference: {reference}
+        <p className="text-gray-700 text-sm sm:text-base leading-relaxed">
+          Unfortunately, your payment could not be completed.  
+          You can try again or contact support if the issue persists.
         </p>
-      )}
 
-      <a
-        href="/dashboard/billing"
-        className="inline-block bg-teal-600 text-white px-4 py-2 rounded font-semibold"
-      >
-        Try Again
-      </a>
+        {reference && (
+          <p className="text-xs sm:text-sm text-gray-500">
+            Reference: <span className="font-medium">{reference}</span>
+          </p>
+        )}
+
+        <a
+          href="/dashboard"
+          className="block w-full bg-teal-700 text-white py-3 rounded-xl font-semibold text-sm sm:text-base hover:bg-teal-800 transition"
+        >
+          Try Again
+        </a>
+      </div>
     </div>
   );
 }

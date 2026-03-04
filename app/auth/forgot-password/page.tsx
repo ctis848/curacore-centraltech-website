@@ -1,55 +1,104 @@
 "use client";
 
 import { useState } from "react";
-import { createSupabaseClient } from "@/lib/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Mail, KeyRound } from "lucide-react";
+import Link from "next/link";
 
 export default function ForgotPasswordPage() {
-  const supabase = createSupabaseClient();
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  async function handleReset(e: any) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setLoading(true);
+    setErrorMsg("");
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const form = new FormData(e.currentTarget);
+    const email = form.get("email") as string;
 
-    if (error) {
-      setMessage(error.message);
-      return;
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+      setLoading(false);
+
+      if (!res.ok) {
+        setErrorMsg(data.error || "Something went wrong.");
+        return;
+      }
+
+      setSent(true);
+    } catch {
+      setErrorMsg("Network error. Please try again.");
+      setLoading(false);
     }
-
-    setMessage("Password reset link sent to your email.");
   }
 
   return (
-    <div className="max-w-md mx-auto mt-20 p-6 bg-white shadow rounded-xl">
-      <h1 className="text-3xl font-bold mb-6">Reset Password</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6 py-10">
+      <div className="bg-white/90 backdrop-blur-sm p-10 rounded-2xl shadow-xl border border-teal-200 max-w-md w-full">
 
-      {message && <p className="text-teal-600 mb-4">{message}</p>}
+        <div className="text-center mb-8">
+          <div className="mx-auto w-16 h-16 bg-teal-600 rounded-full flex items-center justify-center shadow-lg">
+            <KeyRound className="text-white w-8 h-8" />
+          </div>
+          <h1 className="text-3xl font-black text-teal-900 mt-4">Forgot Password</h1>
+          <p className="text-gray-600 mt-1">Enter your email to receive a reset link.</p>
+        </div>
 
-      <form onSubmit={handleReset} className="space-y-4">
-        <input
-          type="email"
-          placeholder="Email"
-          className="w-full border p-3 rounded"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        {sent && (
+          <div className="bg-green-100 text-green-700 p-3 rounded-lg text-sm mb-6">
+            A password reset link has been sent to your email.
+          </div>
+        )}
 
-        <button
-          type="submit"
-          className="w-full bg-teal-600 text-white py-3 rounded font-semibold"
-        >
-          Send Reset Link
-        </button>
-      </form>
+        {errorMsg && (
+          <div className="bg-red-100 text-red-700 p-3 rounded-lg text-sm mb-6">
+            {errorMsg}
+          </div>
+        )}
 
-      <p className="mt-4 text-center">
-        Back to{" "}
-        <a href="/auth/login" className="text-teal-600 font-semibold">
-          Login
-        </a>
-      </p>
+        {!sent && (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="text-sm font-semibold text-gray-700 mb-1 block">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+                <Input
+                  name="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  required
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-teal-700 hover:bg-teal-800 text-white py-3 rounded-xl font-semibold"
+            >
+              {loading ? "Sending..." : "Send Reset Link"}
+            </Button>
+          </form>
+        )}
+
+        <p className="text-center text-gray-700 mt-6">
+          Remember your password?{" "}
+          <Link href="/auth/login" className="text-teal-700 font-semibold hover:underline">
+            Back to Login
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
