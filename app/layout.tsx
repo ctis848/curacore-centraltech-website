@@ -1,4 +1,3 @@
-// app/layout.tsx
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -28,6 +27,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
 
           <Footer />
+
+          {/* WhatsApp Floating Chat Button */}
+          <a
+            href="https://wa.me/2348059318564"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="fixed bottom-6 right-6 bg-green-500 text-white p-4 rounded-full shadow-xl hover:bg-green-600 transition z-50"
+          >
+            💬
+          </a>
+
+          {/* Existing ChatButton Component (Optional) */}
           <ChatButton />
         </SupabaseProvider>
       </body>
