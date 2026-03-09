@@ -1,9 +1,9 @@
 // app/api/payments/renew-service/route.ts
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,   // FIXED
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
@@ -18,20 +18,17 @@ export async function POST(request: Request) {
   newExpiry.setFullYear(newExpiry.getFullYear() + 1);
 
   const { error } = await supabase
-    .from('enterprise_licenses')
+    .from("enterprise_licenses")
     .update({
       service_expiry: newExpiry.toISOString(),
       active: true,
     })
-    .eq('user_id', userId);
+    .eq("user_id", userId);
 
   if (error) {
-    console.error('Renewal update failed:', error);
-    return NextResponse.json({ error: 'Failed to renew' }, { status: 500 });
+    console.error("Renewal update failed:", error);
+    return NextResponse.json({ error: "Failed to renew" }, { status: 500 });
   }
-
-  // Send email via Resend (optional)
-  // ...
 
   return NextResponse.json({ success: true });
 }

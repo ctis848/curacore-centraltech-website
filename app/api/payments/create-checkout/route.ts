@@ -1,19 +1,57 @@
-// app/api/checkout/route.ts
-import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
+// app/api/payments/create-checkout/route.ts
+import { NextResponse } from "next/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
 
 export async function POST(request: Request) {
-  const { priceId, planName, quantity = 1 } = await request.json();
+  try {
+    const { amount, email, planName, quantity = 1 } = await request.json();
 
-  const session = await stripe.checkout.sessions.create({
-    line_items: [{ price: priceId, quantity }],
-    mode: priceId === 'price_1SaNJmECEzFismm5fDBhO46P' ? 'payment' : 'subscription',
-    success_url: `${process.env.NEXT_PUBLIC_URL}/portal/dashboard?success=true&plan=${planName}`,
-    cancel_url: `${process.env.NEXT_PUBLIC_URL}/buy?canceled=true`,
-    metadata: { plan: planName, quantity: quantity.toString() },  // ← STORE QUANTITY
-  });
+    if (!PAYSTACK_SECRET_KEY) {
+      return NextResponse.json(
+        { error: "PAYSTACK_SECRET_KEY is not configured" },
+        { status: 500 }
+      );
+    }
 
-  return NextResponse.json({ url: session.url });
+    if (!amount || !email) {
+      return NextResponse.json(
+        { error: "amount and email are required" },
+        { status: 400 }
+      );
+    }
+
+    const res = await fetch("https://api.paystack.co/transaction/initialize", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        amount: amount * 100, // Paystack expects kobo
+        email,
+        metadata: {
+          plan: planName,
+          quantity: quantity.toString(),
+        },
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.status) {
+      return NextResponse.json(
+        { error: data.message || "Failed to initialize Paystack transaction" },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ url: data.data.authorization_url });
+  } catch (error) {
+    console.error("Paystack error:", error);
+    return NextResponse.json(
+      { error: "Something went wrong initializing payment" },
+      { status: 500 }
+    );
+  }
 }

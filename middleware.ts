@@ -38,7 +38,12 @@ export function middleware(req: NextRequest) {
   ];
 
   if (rateLimitedPaths.some((p) => pathname.startsWith(p))) {
-    const ip = req.ip ?? "unknown";
+    // FIX: NextRequest does NOT have req.ip
+    const ip =
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("x-real-ip") ||
+      "unknown";
+
     const now = Date.now();
     const record = ipHits.get(ip) ?? { count: 0, ts: now };
 

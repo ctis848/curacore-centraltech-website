@@ -1,63 +1,36 @@
-'use client';
-
-import Link from 'next/link';
-
 export default function Footer() {
   return (
-    <footer className="mt-20 bg-white/80 backdrop-blur-md border-t border-teal-100">
-      <div className="max-w-7xl mx-auto px-6 py-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12">
+    <footer className="bg-gray-900 text-gray-300 py-12 mt-20">
+      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10">
 
-        {/* Company */}
         <div>
-          <h3 className="text-xl font-bold text-teal-800 mb-4">Company</h3>
-          <ul className="space-y-2 text-gray-700">
-            <li><Link href="/about" className="hover:text-teal-700 transition">About Us</Link></li>
-            <li><Link href="/careers" className="hover:text-teal-700 transition">Careers</Link></li>
-            <li><Link href="/contact" className="hover:text-teal-700 transition">Contact</Link></li>
-          </ul>
-        </div>
-
-        {/* CentralCore EMR */}
-        <div>
-          <h3 className="text-xl font-bold text-teal-800 mb-4">CentralCore EMR</h3>
-          <ul className="space-y-2 text-gray-700">
-            <li><Link href="/features" className="hover:text-teal-700 transition">Features</Link></li>
-            <li><Link href="/pricing" className="hover:text-teal-700 transition">Pricing & License</Link></li>
-            <li><Link href="/download" className="hover:text-teal-700 transition">Download App</Link></li>
-          </ul>
-        </div>
-
-        {/* Resources */}
-        <div>
-          <h3 className="text-xl font-bold text-teal-800 mb-4">Resources</h3>
-          <ul className="space-y-2 text-gray-700">
-            <li><Link href="/support" className="hover:text-teal-700 transition">Support</Link></li>
-            <li><Link href="/docs" className="hover:text-teal-700 transition">Documentation</Link></li>
-            <li><Link href="/faq" className="hover:text-teal-700 transition">FAQ</Link></li>
-          </ul>
-        </div>
-
-        {/* Contact */}
-        <div>
-          <h3 className="text-xl font-bold text-teal-800 mb-4">Contact</h3>
-          <p className="text-gray-700 leading-relaxed">
-            Central Tech Information Systems Ltd.<br />
-            Lagos, Nigeria<br />
-            <span className="block mt-2">Email: info@ctistech.com</span>
+          <h2 className="text-xl font-bold text-white">CentralCore EMR</h2>
+          <p className="mt-3 text-gray-400">
+            A complete electronic medical record system for modern healthcare.
           </p>
         </div>
+
+        <div>
+          <h3 className="text-lg font-semibold text-white">Quick Links</h3>
+          <ul className="mt-3 space-y-2">
+            <li><a href="/features" className="hover:text-white">Features</a></li>
+            <li><a href="/services" className="hover:text-white">Services</a></li>
+            <li><a href="/resources" className="hover:text-white">Resources</a></li>
+            <li><a href="/pricing" className="hover:text-white">Pricing</a></li>
+            <li><a href="/download" className="hover:text-white">Download</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 className="text-lg font-semibold text-white">Contact</h3>
+          <p className="mt-3 text-gray-400">support@ctisetech.com</p>
+          <p className="text-gray-400">+234 (000) 000‑0000</p>
+        </div>
+
       </div>
 
-      {/* Bottom Bar */}
-      <div className="border-t border-teal-100 py-6">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center text-gray-600 text-sm">
-          <p>© {new Date().getFullYear()} CentralCore EMR. All rights reserved.</p>
-
-          <div className="flex gap-6 mt-4 md:mt-0">
-            <Link href="/privacy" className="hover:text-teal-700 transition">Privacy Policy</Link>
-            <Link href="/terms" className="hover:text-teal-700 transition">Terms of Service</Link>
-          </div>
-        </div>
+      <div className="text-center text-gray-500 mt-10">
+        © {new Date().getFullYear()} CentralCore EMR. All rights reserved.
       </div>
     </footer>
   );
