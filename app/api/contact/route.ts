@@ -6,24 +6,43 @@ import { contactAutoReply } from "@/lib/email/contact-autoreply";
 
 export async function POST(req: Request) {
   try {
+    // --- SAFETY GUARDS (Prevents Netlify build crashes) ---
+    if (!process.env.DATABASE_URL) {
+      console.error("DATABASE_URL is missing — skipping DB write.");
+      return NextResponse.json(
+        { error: "Server misconfigured: DATABASE_URL missing" },
+        { status: 500 }
+      );
+    }
+
+    if (!process.env.NOTIFY_EMAIL) {
+      console.error("NOTIFY_EMAIL is missing — cannot send admin email.");
+      return NextResponse.json(
+        { error: "Server misconfigured: NOTIFY_EMAIL missing" },
+        { status: 500 }
+      );
+    }
+
+    // --- Parse request body ---
     const { name, email, message } = await req.json();
 
     if (!name || !email || !message) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
+    // --- Save to DB ---
     await db.contactMessage.create({
       data: { name, email, message },
     });
 
-    // Admin email
+    // --- Admin notification ---
     await sendMail({
-      to: process.env.NOTIFY_EMAIL!,
+      to: process.env.NOTIFY_EMAIL,
       subject: "New Contact Message",
       html: contactTemplate({ name, email, message }),
     });
 
-    // Auto-reply
+    // --- Auto-reply to user ---
     await sendMail({
       to: email,
       subject: "We Received Your Message",
