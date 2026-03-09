@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
@@ -13,91 +14,103 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Prevent auto-redirect loop — only check session after form interaction
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-      if (error) throw error;
-
-      // Successful login → go to dashboard
-      router.push('/dashboard');
-      router.refresh(); // Force refresh to update server components
-    } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your credentials.');
-    } finally {
+    if (error) {
+      setError(error.message);
       setLoading(false);
+      return;
     }
+
+    router.push('/dashboard');
+    router.refresh();
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to CentralCore
-          </h2>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-teal-100 dark:from-gray-900 dark:to-gray-800 px-6">
+      <div className="w-full max-w-md bg-white dark:bg-gray-900 shadow-xl rounded-2xl p-10 border border-gray-200 dark:border-gray-700">
 
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email-address" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-teal-500 focus:border-teal-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-teal-500 focus:border-teal-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-              />
-            </div>
+        {/* HEADER */}
+        <h2 className="text-center text-3xl font-extrabold text-teal-800 dark:text-teal-300 mb-6">
+          Sign in to CentralCore
+        </h2>
+
+        {/* FORM */}
+        <form onSubmit={handleLogin} className="space-y-5">
+
+          <div>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Email
+            </label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 w-full px-4 py-3 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white focus:ring-teal-500 focus:border-teal-500"
+              placeholder="you@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Password
+            </label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 w-full px-4 py-3 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white focus:ring-teal-500 focus:border-teal-500"
+              placeholder="••••••••"
+            />
           </div>
 
           {error && (
-            <div className="text-red-600 text-sm text-center mt-2">{error}</div>
+            <p className="text-red-600 text-sm text-center">{error}</p>
           )}
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
-                loading ? 'bg-teal-400 cursor-not-allowed' : 'bg-teal-600 hover:bg-teal-700'
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500`}
-            >
-              {loading ? 'Signing in...' : 'Sign in'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full py-3 rounded-lg text-white font-semibold shadow-md transition ${
+              loading
+                ? 'bg-teal-400 cursor-not-allowed'
+                : 'bg-teal-600 hover:bg-teal-700'
+            }`}
+          >
+            {loading ? 'Signing in...' : 'Login'}
+          </button>
         </form>
+
+        {/* FORGOT PASSWORD */}
+        <div className="text-center mt-4">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-teal-700 dark:text-teal-300 hover:underline"
+          >
+            Forgot Password?
+          </Link>
+        </div>
+
+        {/* SIGNUP LINK */}
+        <div className="text-center mt-6 text-gray-600 dark:text-gray-400 text-sm">
+          Don’t have an account?{' '}
+          <Link
+            href="/auth/signup"
+            className="text-teal-700 dark:text-teal-300 font-semibold hover:underline"
+          >
+            Sign Up
+          </Link>
+        </div>
       </div>
     </div>
   );

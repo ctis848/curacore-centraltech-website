@@ -1,35 +1,39 @@
-// app/layout.tsx
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
+import localFont from 'next/font/local';
+import './globals.css';
 
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import ChatButton from "@/components/ChatButton";
-import SupabaseProvider from "@/components/SupabaseProvider";
-
-const inter = Inter({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "CentralCore EMR - Complete Hospital Information System",
-  description:
-    "CentralCore EMR by Central Tech Information Systems Ltd. — A powerful, secure, and intuitive Electronic Medical Record system.",
-};
+// Load local Inter font
+const inter = localFont({
+  src: [
+    {
+      path: '../public/fonts/inter/Inter-Regular.woff2',
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/inter/Inter-Medium.woff2',
+      weight: '500',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/inter/Inter-SemiBold.woff2',
+      weight: '600',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/inter/Inter-Bold.woff2',
+      weight: '700',
+      style: 'normal',
+    },
+  ],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} bg-background text-foreground antialiased`}>
-        <SupabaseProvider>
-          <Navbar />
-
-          <main className="min-h-screen">
-            {children}
-          </main>
-
-          <Footer />
-          <ChatButton />
-        </SupabaseProvider>
+    <html lang="en" className={inter.variable}>
+      <body className="antialiased">
+        {children}
       </body>
     </html>
   );

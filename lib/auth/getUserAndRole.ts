@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
 export async function getUserAndRole() {
-  const cookieStore = await cookies(); // MUST await in Next.js 16
+  const cookieStore = await cookies();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,9 +26,8 @@ export async function getUserAndRole() {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getUser();
+  const user = data.user;
 
   if (!user) return { user: null, role: null };
 

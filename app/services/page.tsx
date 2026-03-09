@@ -37,53 +37,16 @@ export default function ServicesPage() {
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-
           {[
-            {
-              title: "EMR Installation & Setup",
-              desc: "Full deployment of CentralCore EMR across your hospital infrastructure with zero downtime.",
-              icon: "⚙️"
-            },
-            {
-              title: "Data Migration",
-              desc: "Secure transfer of patient records, lab results, and historical data into CentralCore EMR.",
-              icon: "📁"
-            },
-            {
-              title: "Staff Training",
-              desc: "Hands‑on training for doctors, nurses, pharmacists, and administrative staff.",
-              icon: "🎓"
-            },
-            {
-              title: "24/7 Technical Support",
-              desc: "Round‑the‑clock assistance to ensure your hospital never experiences workflow interruptions.",
-              icon: "🛠️"
-            },
-            {
-              title: "Custom Integrations",
-              desc: "Connect your EMR with lab machines, pharmacy systems, CCTV, nurse call systems, and more.",
-              icon: "🔗"
-            },
-            {
-              title: "System Maintenance",
-              desc: "Regular updates, security patches, and performance optimization for smooth operation.",
-              icon: "🔒"
-            },
-            {
-              title: "Cloud Backup & Recovery",
-              desc: "Automatic secure backups with fast recovery options to protect your hospital data.",
-              icon: "☁️"
-            },
-            {
-              title: "On‑Site Support",
-              desc: "Our engineers can visit your hospital for installation, troubleshooting, or upgrades.",
-              icon: "🏥"
-            },
-            {
-              title: "Custom Feature Development",
-              desc: "Need a unique workflow? We build custom modules tailored to your hospital.",
-              icon: "🧩"
-            }
+            { title: "EMR Installation & Setup", desc: "Full deployment of CentralCore EMR across your hospital infrastructure with zero downtime.", icon: "⚙️" },
+            { title: "Data Migration", desc: "Secure transfer of patient records, lab results, and historical data into CentralCore EMR.", icon: "📁" },
+            { title: "Staff Training", desc: "Hands‑on training for doctors, nurses, pharmacists, and administrative staff.", icon: "🎓" },
+            { title: "24/7 Technical Support", desc: "Round‑the‑clock assistance to ensure your hospital never experiences workflow interruptions.", icon: "🛠️" },
+            { title: "Custom Integrations", desc: "Connect your EMR with lab machines, pharmacy systems, CCTV, nurse call systems, and more.", icon: "🔗" },
+            { title: "System Maintenance", desc: "Regular updates, security patches, and performance optimization for smooth operation.", icon: "🔒" },
+            { title: "Cloud Backup & Recovery", desc: "Automatic secure backups with fast recovery options to protect your hospital data.", icon: "☁️" },
+            { title: "On‑Site Support", desc: "Our engineers can visit your hospital for installation, troubleshooting, or upgrades.", icon: "🏥" },
+            { title: "Custom Feature Development", desc: "Need a unique workflow? We build custom modules tailored to your hospital.", icon: "🧩" }
           ].map((s, i) => (
             <div
               key={i}
@@ -94,7 +57,6 @@ export default function ServicesPage() {
               <p className="text-gray-700 leading-relaxed">{s.desc}</p>
             </div>
           ))}
-
         </div>
       </section>
 
@@ -122,6 +84,14 @@ export default function ServicesPage() {
               className="bg-white text-teal-900 px-12 py-6 rounded-full text-2xl md:text-3xl font-bold shadow-2xl hover:bg-gray-100 hover:scale-105 transition-all duration-300"
             >
               Contact Us
+            </Link>
+
+            {/* REQUEST QUOTE BUTTON */}
+            <Link
+              href="mailto:centralcore@yourdomain.com?subject=Request%20Quote&body=Hello%20CentralCore%20Team,%0D%0A%0D%0AI%20would%20like%20to%20request%20a%20quote%20for%20your%20services.%20Please%20contact%20me%20with%20more%20details.%0D%0A%0D%0AThank%20you."
+              className="bg-teal-500 text-white px-12 py-6 rounded-full text-2xl md:text-3xl font-bold shadow-2xl hover:bg-teal-400 hover:scale-105 transition-all duration-300"
+            >
+              Request Quote
             </Link>
           </div>
         </div>

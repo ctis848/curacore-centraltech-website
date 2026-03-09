@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 import { useRouter } from 'next/navigation';
 
@@ -9,9 +9,9 @@ export default function ForgotPasswordPage() {
   const user = useUser();
   const router = useRouter();
 
-  const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     if (user) {
@@ -21,11 +21,11 @@ export default function ForgotPasswordPage() {
     setChecking(false);
   }, [user, router]);
 
-  const handleReset = async (e: any) => {
+  const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
 
     await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/update-password`,
+      redirectTo: `${window.location.origin}/reset-password`,
     });
 
     setSent(true);
@@ -54,6 +54,7 @@ export default function ForgotPasswordPage() {
             <input
               type="email"
               placeholder="you@example.com"
+              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-5 py-4 rounded-xl bg-white/20 border border-white/30 text-white"

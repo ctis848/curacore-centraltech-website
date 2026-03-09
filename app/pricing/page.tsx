@@ -1,52 +1,51 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import Image from 'next/image';
+import Link from "next/link";
+import Image from "next/image";
 
 export default function PricingPage() {
   const plans = [
     {
-      id: 'basic',
-      title: 'Basic License',
-      price: '₦150,000',
-      desc: 'Perfect for small clinics and consulting rooms.',
+      id: "starter",
+      title: "Starter",
+      price: "₦50,000 (One‑Time)",
+      desc: "Full access to all CentralCore EMR features — perfect for small clinics.",
       features: [
-        'EMR Core Features',
-        'Patient Records',
-        'Basic Reporting',
-        '1 Device License'
-      ]
-    },
-    {
-      id: 'standard',
-      title: 'Standard License',
-      price: '₦350,000',
-      desc: 'Ideal for medium-sized hospitals.',
-      features: [
-        'Everything in Basic',
-        'Pharmacy Module',
-        'Laboratory Module',
-        '5 Device Licenses'
+        "Complete EMR Suite",
+        "All modules included",
+        "Up to 5 users",
+        "20% annual support fee included",
       ],
-      highlight: true
     },
     {
-      id: 'enterprise',
-      title: 'Enterprise License',
-      price: '₦750,000',
-      desc: 'For large hospitals with advanced needs.',
+      id: "pro",
+      title: "Pro",
+      price: "₦150,000 (One‑Time)",
+      desc: "Ideal for growing hospitals with more staff and departments.",
       features: [
-        'Everything in Standard',
-        'Radiology Module',
-        'Nurse Call System',
-        'Unlimited Devices'
-      ]
-    }
+        "Complete EMR Suite",
+        "All modules included",
+        "Up to 15 users",
+        "20% annual support fee included",
+      ],
+      highlight: true,
+    },
+    {
+      id: "enterprise",
+      title: "Enterprise",
+      price: "₦550,000 (One‑Time)",
+      desc: "For large institutions, networks, and multi‑facility operations.",
+      features: [
+        "Complete EMR Suite",
+        "All modules included",
+        "Unlimited users",
+        "20% annual support fee included",
+      ],
+    },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-
+    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* HERO */}
       <section className="relative h-[60vh] w-full overflow-hidden">
         <Image
@@ -72,18 +71,18 @@ export default function PricingPage() {
 
       {/* PRICING CARDS */}
       <section className="py-24 px-6 md:px-10 max-w-7xl mx-auto space-y-16">
-        <h2 className="text-4xl md:text-5xl font-black text-teal-800 text-center">
+        <h2 className="text-4xl md:text-5xl font-black text-teal-800 dark:text-teal-300 text-center">
           Choose Your License
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-          {plans.map((p, i) => (
+          {plans.map((p) => (
             <div
-              key={i}
-              className={`p-10 rounded-2xl shadow-lg border ${
+              key={p.id}
+              className={`p-10 rounded-2xl shadow-lg border transition ${
                 p.highlight
                   ? "bg-teal-700 text-white border-teal-800 scale-[1.03]"
-                  : "bg-white/90 backdrop-blur-sm border-teal-200"
+                  : "bg-white dark:bg-gray-800 dark:text-white border-teal-200 dark:border-gray-700"
               }`}
             >
               <h3 className="text-3xl font-bold mb-3">{p.title}</h3>

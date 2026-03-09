@@ -17,6 +17,7 @@ import {
   Moon,
   Bell,
 } from "lucide-react";
+
 import Breadcrumbs from "./components/Breadcrumbs";
 import NotificationsPanel from "./components/NotificationsPanel";
 import SearchBar from "./components/SearchBar";

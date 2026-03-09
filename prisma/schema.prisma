@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ContactMessage {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  message   String
+  createdAt DateTime @default(now())
+
+  @@map("contact_messages")
+}
+
+model QuoteRequest {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String
+  organization String
+  details      String
+  createdAt    DateTime @default(now())
+
+  @@map("quote_requests")
+}
+
+model EmailLog {
+  id        Int      @id @default(autoincrement())
+  subject   String?
+  to        String
+  status    String?  // optional – sent / failed / queued
+  createdAt DateTime @default(now())
+  // add other fields like body, errorMessage, etc. if needed
+}

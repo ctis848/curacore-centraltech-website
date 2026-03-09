@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 
 export default function ResetPasswordPage() {
   const supabase = useSupabaseClient();
@@ -34,10 +32,23 @@ export default function ResetPasswordPage() {
         <h1 className="text-2xl font-bold text-center mb-6">Reset Password</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input name="password" type="password" placeholder="New password" required />
-          <Button type="submit" disabled={loading}>
+          <input
+            name="password"
+            type="password"
+            placeholder="New password"
+            required
+            className="w-full px-4 py-3 border rounded-lg focus:ring-teal-500 focus:border-teal-500"
+          />
+
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full py-3 rounded-lg text-white font-semibold ${
+              loading ? 'bg-teal-400' : 'bg-teal-600 hover:bg-teal-700'
+            }`}
+          >
             {loading ? 'Updating...' : 'Update Password'}
-          </Button>
+          </button>
         </form>
       </div>
     </div>
