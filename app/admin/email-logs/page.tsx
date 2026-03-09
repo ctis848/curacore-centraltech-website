@@ -1,7 +1,15 @@
 import { db } from '@/lib/db';
 import { getUserAndRole } from '@/lib/auth/getUserAndRole';
 import { redirect } from 'next/navigation';
-import type { EmailLog } from '@prisma/client';
+
+// Local type matching EXACT Prisma return shape
+type EmailLog = {
+  id: number;
+  to: string;
+  subject: string | null;
+  status: string | null;
+  createdAt: Date;
+};
 
 export default async function EmailLogsPage() {
   const { user, role } = await getUserAndRole();
@@ -38,7 +46,7 @@ export default async function EmailLogsPage() {
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-3">
                 <div>
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
-                    {log.subject}
+                    {log.subject ?? "No subject"}
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     To: {log.to}
