@@ -5,6 +5,31 @@ import QuoteCharts from "@/components/Charts/QuoteChart";
 import { getUserAndRole } from "@/lib/auth/getUserAndRole";
 import { redirect } from "next/navigation";
 
+// -----------------------------
+// TYPES (corrected to match Prisma)
+// -----------------------------
+
+type Quote = {
+  id: number;
+  name: string;
+  organization: string;
+  email: string;
+  details: string;
+  createdAt: Date;
+};
+
+type Message = {
+  id: number;
+  name: string;
+  email: string;
+  message: string;
+  createdAt: Date;
+};
+
+// -----------------------------
+// PAGE
+// -----------------------------
+
 export default async function DashboardPage() {
   const { user, role } = await getUserAndRole();
   if (!user || role !== "admin") redirect("/login");
@@ -13,13 +38,13 @@ export default async function DashboardPage() {
   const { data: userData } = await supabase.auth.getUser();
 
   // Fetch recent messages
-  const recentMessages = await db.contactMessage.findMany({
+  const recentMessages: Message[] = await db.contactMessage.findMany({
     orderBy: { createdAt: "desc" },
     take: 5,
   });
 
   // Fetch recent quote requests
-  const recentQuotes = await db.quoteRequest.findMany({
+  const recentQuotes: Quote[] = await db.quoteRequest.findMany({
     orderBy: { createdAt: "desc" },
     take: 5,
   });
@@ -28,7 +53,6 @@ export default async function DashboardPage() {
   const totalMessages = await db.contactMessage.count();
   const totalQuotes = await db.quoteRequest.count();
 
-  // Simple active user fallback
   const activeUsers = userData?.user ? 1 : 0;
 
   return (
@@ -57,7 +81,6 @@ export default async function DashboardPage() {
           </h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-
             <div className="bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-700 p-4 sm:p-6 rounded-xl shadow-sm">
               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Contact Messages</p>
               <p className="text-2xl sm:text-3xl font-black text-teal-900 dark:text-white">{totalMessages}</p>
@@ -77,7 +100,6 @@ export default async function DashboardPage() {
               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">System Status</p>
               <p className="text-lg sm:text-xl font-bold text-green-700 dark:text-green-300">Operational</p>
             </div>
-
           </div>
         </div>
 
@@ -100,7 +122,7 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {recentQuotes.map((q) => (
+                {recentQuotes.map((q: Quote) => (
                   <tr key={q.id} className="border-b dark:border-gray-700">
                     <td className="py-2">{q.name}</td>
                     <td className="py-2">{q.organization}</td>
@@ -121,7 +143,7 @@ export default async function DashboardPage() {
           </h2>
 
           <div className="space-y-4">
-            {recentMessages.map((m) => (
+            {recentMessages.map((m: Message) => (
               <div
                 key={m.id}
                 className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm"
