@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { db } from '@/lib/db';
 import { getUserAndRole } from '@/lib/auth/getUserAndRole';
 import { redirect } from 'next/navigation';

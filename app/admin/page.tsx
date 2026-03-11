@@ -1,5 +1,8 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseClient } from "@/lib/supabase/client";
@@ -17,13 +20,11 @@ export default function AdminDashboard() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      // Not logged in → redirect
       if (!user) {
         router.push("/auth/login");
         return;
       }
 
-      // Role-based admin check
       if (user.user_metadata.role !== "admin") {
         router.push("/unauthorized");
         return;
@@ -48,7 +49,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      {/* Header */}
       <header className="bg-gray-900 text-white py-6 px-8 shadow-lg">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <h1 className="text-4xl font-black">CTIS Admin Portal</h1>
@@ -62,7 +62,6 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto py-12 px-6">
         <div className="bg-white rounded-3xl shadow-2xl p-10 border border-gray-200">
           <h2 className="text-3xl font-black text-gray-900 mb-10 text-center">
@@ -70,7 +69,6 @@ export default function AdminDashboard() {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Activation Requests */}
             <a
               href="/admin/activation-requests"
               className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
@@ -81,7 +79,6 @@ export default function AdminDashboard() {
               </p>
             </a>
 
-            {/* License Management */}
             <a
               href="/admin/licenses"
               className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
@@ -92,7 +89,6 @@ export default function AdminDashboard() {
               </p>
             </a>
 
-            {/* License Generator */}
             <a
               href="/admin/licenses/generate"
               className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
@@ -103,7 +99,6 @@ export default function AdminDashboard() {
               </p>
             </a>
 
-            {/* Machine Logs */}
             <a
               href="/admin/machines"
               className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
@@ -114,7 +109,6 @@ export default function AdminDashboard() {
               </p>
             </a>
 
-            {/* Client Portal */}
             <a
               href="/dashboard"
               className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
@@ -125,7 +119,6 @@ export default function AdminDashboard() {
               </p>
             </a>
 
-            {/* System Settings */}
             <a
               href="/admin/settings"
               className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"

@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import "@/app/globals.css";
 import Link from "next/link";
 import { adminGuard } from "@/lib/guards/adminGuard";

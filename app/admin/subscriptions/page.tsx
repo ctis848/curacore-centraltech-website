@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function SubscriptionsPage() {
   return (
     <div className="p-6">

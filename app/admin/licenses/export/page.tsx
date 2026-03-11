@@ -1,5 +1,8 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function ExportLicensesPage() {
   async function exportData() {
     const res = await fetch("/api/admin/licenses/export");

@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import LogoutButton from "@/components/LogoutButton";
@@ -84,24 +87,19 @@ export default async function DashboardPage() {
   // MRR (20% SERVICE FEE)
   // -----------------------------
 
-  const LICENSE_BASE_PRICE = 1; // Replace with real license price
+  const LICENSE_BASE_PRICE = 1; 
   const mrr = activeLicenses * (LICENSE_BASE_PRICE * 0.2) / 12;
 
   // -----------------------------
   // ADVANCED ANALYTICS
   // -----------------------------
 
-  // 1. Monthly Activation Trends
   const { data: monthlyActivations } = await supabase.rpc("monthly_license_activations");
-
-  // 2. Revenue by Month
   const { data: monthlyRevenue } = await supabase.rpc("monthly_revenue");
 
-  // 3. Churn Rate
   const churnedLicenses = expiredLicenses + revokedLicenses;
   const churnRate = totalLicenses > 0 ? (churnedLicenses / totalLicenses) * 100 : 0;
 
-  // 4. Customer Lifetime Value (LTV)
   const avgRevenuePerUser = totalRevenue / (totalLicenses || 1);
   const avgCustomerLifespanYears = 3;
   const ltv = avgRevenuePerUser * avgCustomerLifespanYears;
@@ -132,7 +130,6 @@ export default async function DashboardPage() {
           </h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-
             <StatCard label="Total Licenses" value={totalLicenses} color="teal" />
             <StatCard label="Active Licenses" value={activeLicenses} color="green" />
             <StatCard label="Expired Licenses" value={expiredLicenses} color="yellow" />
@@ -141,7 +138,6 @@ export default async function DashboardPage() {
             <StatCard label="MRR (20% Service)" value={`₦${mrr.toLocaleString()}`} color="purple" />
             <StatCard label="Churn Rate" value={`${churnRate.toFixed(1)}%`} color="red" />
             <StatCard label="Customer LTV" value={`₦${ltv.toLocaleString()}`} color="purple" />
-
           </div>
         </div>
 
