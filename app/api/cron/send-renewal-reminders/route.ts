@@ -19,19 +19,23 @@ export async function GET() {
     `)
     .eq("service_fee_paid", false);
 
-  if (error) {
-    console.error("Supabase error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  // Runtime guard — REQUIRED for Netlify TypeScript
+  if (error || !licenses || !Array.isArray(licenses)) {
+    console.error("Unable to load licenses:", error ?? licenses);
+    return NextResponse.json(
+      { error: "Failed to load licenses" },
+      { status: 500 }
+    );
   }
 
   const today = new Date();
 
-  for (const license of (licenses as LicenseWithUser[]) || []) {
+  // Now TypeScript knows licenses is LicenseWithUser[]
+  for (const license of licenses as unknown as LicenseWithUser[]) {
     if (!license.renewal_due_date) continue;
 
     const due = new Date(license.renewal_due_date);
 
-    // Days until renewal
     const diff = Math.ceil(
       (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
     );
@@ -39,7 +43,7 @@ export async function GET() {
     // Send reminder exactly 7 days before due date
     if (diff === 7) {
       await sendEmail(
-        license.user.email,
+        license.user?.email ?? "",
         "Your Annual Service Fee is Due Soon",
         `Your 20% annual service fee for license ${license.id} is due in 7 days. Please renew to avoid automatic revocation.`
       );
