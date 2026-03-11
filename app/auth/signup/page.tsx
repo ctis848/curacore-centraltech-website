@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import toast from 'react-hot-toast';
-import { getPasswordStrength } from '@/lib/passwordStrength';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useState } from "react";
+import Link from "next/link";
+import toast from "react-hot-toast";
+import { getPasswordStrength } from "@/lib/passwordStrength";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 export default function SignupPage() {
   const supabase = createClientComponentClient();
@@ -16,7 +16,6 @@ export default function SignupPage() {
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
 
-    // Basic rate limiting (client-side)
     if (password.length < 6) {
       toast.error("Password must be at least 6 characters.");
       return;
@@ -26,7 +25,10 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        data: { fullName },
+        data: {
+          fullName,
+          role: "client"   // ⭐ Assign client role here
+        },
         emailRedirectTo: `${location.origin}/auth/verify-email`,
       },
     });

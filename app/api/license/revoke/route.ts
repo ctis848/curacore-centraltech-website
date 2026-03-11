@@ -1,70 +1,48 @@
-// app/api/license/revoke/route.ts
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createServerClient } from '@supabase/ssr'; // Use SSR client for API routes
+import { NextResponse } from "next/server";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 
-// Use environment variables safely
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+export async function POST(req: Request) {
+  const supabase = createRouteHandlerClient({ cookies });
+  const { license_id } = await req.json();
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase environment variables');
-}
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-export async function POST(request: Request) {
-  try {
-    // Get auth token from Authorization header (client must send Bearer token)
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized - No token provided' }, { status: 401 });
-    }
-
-    const token = authHeader.split(' ')[1];
-
-    // Verify user with token
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
-    }
-
-    // Parse request body safely
-    const body = await request.json();
-    const { licenseId, machineId } = body;
-
-    if (!licenseId || !machineId) {
-      return NextResponse.json({ error: 'Missing required fields: licenseId or machineId' }, { status: 400 });
-    }
-
-    // Revoke (deactivate) the license for this machine
-    const { error: updateError } = await supabase
-      .from('licenses')
-      .update({
-        active: false,
-        machine_id: null,
-        revoked_at: new Date().toISOString(),
-      })
-      .eq('id', licenseId)
-      .eq('machine_id', machineId)
-      .eq('user_email', user.email)
-      .single();
-
-    if (updateError) {
-      console.error('Supabase update error:', updateError);
-      return NextResponse.json({ error: 'Failed to revoke license' }, { status: 400 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'License revoked successfully — can be reused on a new computer',
-    });
-  } catch (error) {
-    console.error('Revoke license route error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Ensure license belongs to the user
+  const { data: license } = await supabase
+    .from("licenses")
+    .select("*")
+    .eq("id", license_id)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!license) {
+    return NextResponse.json({ error: "License not found" }, { status: 404 });
+  }
+
+  // Revoke license (free machine)
+  await supabase
+    .from("licenses")
+    .update({
+      is_active: false,
+      auto_revoked: false,
+      service_fee_paid: false,
+      renewal_due_date: null,
+    })
+    .eq("id", license.id);
+
+  // Log the revocation
+  await supabase.from("license_renewal_history").insert({
+    license_id: license.id,
+    user_id: user.id,
+    action: "revoked_by_client",
+  });
+
+  return NextResponse.json({ success: true });
 }

@@ -1,45 +1,62 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
-  const { licenseKey, machineId, userId } = await req.json();
+  const supabase = createRouteHandlerClient({ cookies });
+  const { request_key } = await req.json();
 
-  if (!licenseKey || !machineId || !userId) {
-    return NextResponse.json(
-      { error: "Missing licenseKey, machineId or userId" },
-      { status: 400 }
-    );
+  if (!request_key) {
+    return NextResponse.json({ error: "Request key is required" }, { status: 400 });
   }
 
-  const { data: license, error } = await supabaseAdmin
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Find license by request key
+  const { data: license } = await supabase
     .from("licenses")
     .select("*")
-    .eq("key", licenseKey)
+    .eq("request_key", request_key)
     .single();
 
-  if (error || !license) {
-    return NextResponse.json(
-      { error: "Invalid license key" },
-      { status: 404 }
-    );
+  if (!license) {
+    return NextResponse.json({ error: "Invalid request key" }, { status: 404 });
   }
 
-  if (license.status === "revoked") {
-    return NextResponse.json(
-      { error: "License revoked" },
-      { status: 403 }
-    );
-  }
-
-  await supabaseAdmin
+  // Activate license
+  const { error } = await supabase
     .from("licenses")
     .update({
-      status: "active",
-      machine_id: machineId,
-      user_id: userId,
-      activated_at: new Date().toISOString(),
+      user_id: user.id,
+      is_active: true,
+      auto_revoked: false,
+      service_fee_paid: true,
+      last_payment_date: new Date().toISOString(),
+      renewal_due_date: new Date(
+        new Date().getFullYear() + 1,
+        new Date().getMonth(),
+        new Date().getDate()
+      ).toISOString(),
     })
     .eq("id", license.id);
 
-  return NextResponse.json({ success: true, licenseId: license.id });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  // Log activation
+  await supabase.from("license_renewal_history").insert({
+    license_id: license.id,
+    user_id: user.id,
+    action: "activated",
+    metadata: { request_key },
+  });
+
+  return NextResponse.json({ success: true });
 }

@@ -2,11 +2,14 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import LogoutButton from "@/components/LogoutButton";
 import QuoteCharts from "@/components/Charts/QuoteChart";
+import ActivationChart from "@/components/Charts/ActivationChart";
+import RevenueChart from "@/components/Charts/RevenueChart";
+import LicenseRenewalChart from "@/components/Charts/LicenseRenewalChart";
 import { getUserAndRole } from "@/lib/auth/getUserAndRole";
 import { redirect } from "next/navigation";
 
 // -----------------------------
-// TYPES (corrected to match Prisma)
+// TYPES
 // -----------------------------
 
 type Quote = {
@@ -53,7 +56,55 @@ export default async function DashboardPage() {
   const totalMessages = await db.contactMessage.count();
   const totalQuotes = await db.quoteRequest.count();
 
-  const activeUsers = userData?.user ? 1 : 0;
+  // -----------------------------
+  // LICENSE ANALYTICS (Supabase)
+  // -----------------------------
+
+  const { data: licenses } = await supabase
+    .from("licenses")
+    .select("status");
+
+  const totalLicenses = licenses?.length || 0;
+  const activeLicenses = licenses?.filter(l => l.status === "active").length || 0;
+  const expiredLicenses = licenses?.filter(l => l.status === "expired").length || 0;
+  const revokedLicenses = licenses?.filter(l => l.status === "revoked").length || 0;
+
+  // -----------------------------
+  // REVENUE ANALYTICS
+  // -----------------------------
+
+  const { data: invoices } = await supabase
+    .from("invoices")
+    .select("amount");
+
+  const totalRevenue =
+    invoices?.reduce((sum, inv) => sum + Number(inv.amount), 0) || 0;
+
+  // -----------------------------
+  // MRR (20% SERVICE FEE)
+  // -----------------------------
+
+  const LICENSE_BASE_PRICE = 1; // Replace with real license price
+  const mrr = activeLicenses * (LICENSE_BASE_PRICE * 0.2) / 12;
+
+  // -----------------------------
+  // ADVANCED ANALYTICS
+  // -----------------------------
+
+  // 1. Monthly Activation Trends
+  const { data: monthlyActivations } = await supabase.rpc("monthly_license_activations");
+
+  // 2. Revenue by Month
+  const { data: monthlyRevenue } = await supabase.rpc("monthly_revenue");
+
+  // 3. Churn Rate
+  const churnedLicenses = expiredLicenses + revokedLicenses;
+  const churnRate = totalLicenses > 0 ? (churnedLicenses / totalLicenses) * 100 : 0;
+
+  // 4. Customer Lifetime Value (LTV)
+  const avgRevenuePerUser = totalRevenue / (totalLicenses || 1);
+  const avgCustomerLifespanYears = 3;
+  const ltv = avgRevenuePerUser * avgCustomerLifespanYears;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-10">
@@ -81,30 +132,44 @@ export default async function DashboardPage() {
           </h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-            <div className="bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-700 p-4 sm:p-6 rounded-xl shadow-sm">
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Contact Messages</p>
-              <p className="text-2xl sm:text-3xl font-black text-teal-900 dark:text-white">{totalMessages}</p>
-            </div>
 
-            <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 p-4 sm:p-6 rounded-xl shadow-sm">
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Quote Requests</p>
-              <p className="text-2xl sm:text-3xl font-black text-yellow-700 dark:text-yellow-300">{totalQuotes}</p>
-            </div>
+            <StatCard label="Total Licenses" value={totalLicenses} color="teal" />
+            <StatCard label="Active Licenses" value={activeLicenses} color="green" />
+            <StatCard label="Expired Licenses" value={expiredLicenses} color="yellow" />
+            <StatCard label="Revoked Licenses" value={revokedLicenses} color="red" />
+            <StatCard label="Total Revenue" value={`₦${totalRevenue.toLocaleString()}`} color="blue" />
+            <StatCard label="MRR (20% Service)" value={`₦${mrr.toLocaleString()}`} color="purple" />
+            <StatCard label="Churn Rate" value={`${churnRate.toFixed(1)}%`} color="red" />
+            <StatCard label="Customer LTV" value={`₦${ltv.toLocaleString()}`} color="purple" />
 
-            <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 p-4 sm:p-6 rounded-xl shadow-sm">
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Active Users</p>
-              <p className="text-2xl sm:text-3xl font-black text-blue-700 dark:text-blue-300">{activeUsers}</p>
-            </div>
-
-            <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 p-4 sm:p-6 rounded-xl shadow-sm">
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">System Status</p>
-              <p className="text-lg sm:text-xl font-bold text-green-700 dark:text-green-300">Operational</p>
-            </div>
           </div>
         </div>
 
         {/* Charts */}
         <QuoteCharts />
+
+        <div className="space-y-10">
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold text-teal-800 dark:text-white mb-4">
+              Monthly Activation Trends
+            </h2>
+            <ActivationChart data={monthlyActivations || []} />
+          </div>
+
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold text-teal-800 dark:text-white mb-4">
+              Revenue Trends
+            </h2>
+            <RevenueChart data={monthlyRevenue || []} />
+          </div>
+
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold text-teal-800 dark:text-white mb-4">
+              License Renewal Trends
+            </h2>
+            <LicenseRenewalChart data={monthlyActivations || []} />
+          </div>
+        </div>
 
         {/* Recent Quote Requests */}
         <div>
@@ -157,6 +222,39 @@ export default async function DashboardPage() {
         </div>
 
       </div>
+    </div>
+  );
+}
+
+// -----------------------------
+// STAT CARD COMPONENT
+// -----------------------------
+
+function StatCard({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: any;
+  color: string;
+}) {
+  const bg = {
+    teal: "bg-teal-50 dark:bg-teal-900/30 border-teal-200 dark:border-teal-700",
+    green: "bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700",
+    yellow: "bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700",
+    red: "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700",
+    blue: "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700",
+    purple: "bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700",
+    gray: "bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-700",
+  }[color];
+
+  return (
+    <div className={`${bg} p-4 sm:p-6 rounded-xl shadow-sm border`}>
+      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">{label}</p>
+      <p className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white">
+        {value}
+      </p>
     </div>
   );
 }

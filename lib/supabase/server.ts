@@ -1,30 +1,33 @@
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+// lib/supabase/server.ts
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import type { CookieOptions } from '@supabase/ssr';
 
-export async function createSupabaseServerClient() {
-  const cookieStore = await cookies(); // Next.js 16 requires await
+export function createSupabaseServerClient() {
+  // In Next.js 14+ (including 16), cookies() returns a Promise in server contexts
+  // → we MUST await it to get the actual cookie store object
+  const cookieStorePromise = cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
+        // get can be sync because it's only reading
         get(name: string) {
-          return cookieStore.get(name)?.value ?? "";
+          // But to be safe, we await the store in the first read
+          return cookieStorePromise.then(store => store.get(name)?.value ?? null);
         },
-        set(name: string, value: string, options: any) {
-          try {
-            cookieStore.set({ name, value, ...options });
-          } catch {
-            // ignore during SSR
-          }
+
+        // set & remove must be async because they write cookies
+        async set(name: string, value: string, options: CookieOptions) {
+          const cookieStore = await cookieStorePromise;
+          cookieStore.set({ name, value, ...options });
         },
-        remove(name: string, options: any) {
-          try {
-            cookieStore.set({ name, value: "", ...options });
-          } catch {
-            // ignore during SSR
-          }
+
+        async remove(name: string, options: CookieOptions) {
+          const cookieStore = await cookieStorePromise;
+          cookieStore.set({ name, value: '', ...options });
         },
       },
     }

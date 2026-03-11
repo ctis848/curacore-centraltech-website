@@ -1,20 +1,30 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
 
-// Simple in-memory rate limiter (for production use Redis/KV)
-const RATE_LIMIT_WINDOW = 60_000; // 1 minute
-const RATE_LIMIT_MAX = 20; // max requests per minute
-const ipHits = new Map<string, { count: number; ts: number }>();
+export async function middleware(req: NextRequest) {
+  // Create a response early so Supabase can modify cookies
+  const res = NextResponse.next({
+    request: {
+      headers: req.headers,
+    },
+  });
 
-export function middleware(req: NextRequest) {
-  const token = req.cookies.get("sb-access-token")?.value;
-  const { pathname } = req.nextUrl;
+  const supabase = createMiddlewareClient({ req, res });
 
-  // Public routes
+  // Refresh session & attach to request
+  await supabase.auth.getSession();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const pathname = req.nextUrl.pathname;
+
   const publicPaths = [
     "/",
-    "/login",
-    "/signup",
+    "/client/login",
+    "/client/signup",
     "/auth/login",
     "/auth/signup",
     "/auth/forgot-password",
@@ -29,79 +39,41 @@ export function middleware(req: NextRequest) {
     "/buy",
   ];
 
-  // ⭐ Rate limit auth endpoints
-  const rateLimitedPaths = [
-    "/auth/login",
-    "/auth/signup",
-    "/auth/forgot-password",
-    "/auth/reset-password",
-  ];
-
-  if (rateLimitedPaths.some((p) => pathname.startsWith(p))) {
-    // FIX: NextRequest does NOT have req.ip
-    const ip =
-      req.headers.get("x-forwarded-for") ||
-      req.headers.get("x-real-ip") ||
-      "unknown";
-
-    const now = Date.now();
-    const record = ipHits.get(ip) ?? { count: 0, ts: now };
-
-    if (now - record.ts > RATE_LIMIT_WINDOW) {
-      ipHits.set(ip, { count: 1, ts: now });
-    } else {
-      record.count += 1;
-      ipHits.set(ip, record);
-
-      if (record.count > RATE_LIMIT_MAX) {
-        return new NextResponse("Too many requests. Try again later.", {
-          status: 429,
-        });
-      }
-    }
-  }
-
   // Allow public pages
   if (publicPaths.includes(pathname)) {
-    return NextResponse.next();
+    return res;
   }
 
-  // ⭐ Protect admin routes
+  // ADMIN AREA
   if (pathname.startsWith("/admin")) {
-    if (!token) {
-      return NextResponse.redirect(new URL("/login", req.url));
+    if (!user) {
+      return NextResponse.redirect(new URL("/auth/login", req.url));
     }
 
-    const payload = JSON.parse(
-      Buffer.from(token.split(".")[1], "base64").toString()
-    );
-
-    if (payload.email !== "your-email@domain.com") {
+    const role = user.user_metadata?.role;
+    if (role !== "admin" && role !== "superadmin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
 
-    return NextResponse.next();
+    return res;
   }
 
-  // ⭐ Protect dashboard
-  if (pathname.startsWith("/dashboard") && !token) {
-    return NextResponse.redirect(new URL("/login", req.url));
+  // CLIENT PANEL
+  if (pathname.startsWith("/client/client-panel")) {
+    if (!user) {
+      return NextResponse.redirect(new URL("/client/login", req.url));
+    }
+
+    return res;
   }
 
-  // ⭐ Prevent logged-in users from accessing login/signup
-  if (token && (pathname === "/login" || pathname === "/signup")) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
-  }
-
-  return NextResponse.next();
+  return res;
 }
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
+    "/client/client-panel/:path*",
     "/admin/:path*",
     "/auth/:path*",
-    "/login",
-    "/signup",
   ],
 };

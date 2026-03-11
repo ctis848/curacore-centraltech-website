@@ -2,9 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ------------------------------
-   🔥 Animated Success Screens
------------------------------- */
+/* -------------------------------------
+   🔥 Smooth Fade + Slide Animations
+-------------------------------------- */
 @keyframes fadeUp {
   from {
     opacity: 0;
@@ -20,20 +20,46 @@
   animation: fadeUp 0.45s ease-out forwards;
 }
 
-/* ------------------------------
-   🌙 Theme Variables
------------------------------- */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+/* -------------------------------------
+   🌙 Theme Variables (Light + Dark)
+-------------------------------------- */
 @layer base {
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
 
     --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
     --border: 214.3 31.8% 91.4%;
-    --primary: 222.2 47.4% 11.2%;
+    --input: 214.3 31.8% 91.4%;
+
+    --primary: 174 60% 40%; /* Teal */
+    --primary-foreground: 210 40% 98%;
+
     --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --accent: 174 60% 92%;
+    --accent-foreground: 174 60% 20%;
+
     --muted: 210 40% 96.1%;
-    --accent: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --radius: 0.5rem;
   }
 
   .dark {
@@ -41,11 +67,22 @@
     --foreground: 210 40% 98%;
 
     --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
     --border: 217.2 32.6% 17.5%;
-    --primary: 210 40% 98%;
+    --input: 217.2 32.6% 17.5%;
+
+    --primary: 174 60% 50%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
     --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --accent: 217.2 32.6% 22%;
+    --accent-foreground: 210 40% 98%;
+
     --muted: 217.2 32.6% 17.5%;
-    --accent: 217.2 32.6% 17.5%;
+    --muted-foreground: 215.4 16.3% 56.9%;
   }
 
   html {
@@ -53,7 +90,7 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground transition-colors duration-300;
     margin: 0;
     padding: 0;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
@@ -65,5 +102,56 @@
 
   * {
     box-sizing: border-box;
+  }
+}
+
+/* -------------------------------------
+   ⭐ Sidebar Active Link Highlight
+-------------------------------------- */
+.sidebar-link {
+  @apply flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-pointer;
+}
+
+.sidebar-link:hover {
+  @apply bg-accent text-accent-foreground;
+}
+
+.sidebar-link-active {
+  @apply bg-primary text-primary-foreground shadow-md;
+}
+
+/* -------------------------------------
+   ⭐ Icon Coloring
+-------------------------------------- */
+.icon {
+  @apply w-5 h-5 text-gray-500 transition-colors;
+}
+
+.sidebar-link:hover .icon {
+  @apply text-teal-700;
+}
+
+.sidebar-link-active .icon {
+  @apply text-white;
+}
+
+/* -------------------------------------
+   ⭐ Custom Utility Classes (Fix Build Error)
+-------------------------------------- */
+@layer utilities {
+  .bg-accent {
+    background-color: hsl(var(--accent));
+  }
+
+  .text-accent-foreground {
+    color: hsl(var(--accent-foreground));
+  }
+
+  .bg-primary {
+    background-color: hsl(var(--primary));
+  }
+
+  .text-primary-foreground {
+    color: hsl(var(--primary-foreground));
   }
 }

@@ -1,56 +1,89 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { useState } from "react";
+import { createSupabaseClient } from "@/lib/supabase/client";
+import AuthNavbar from "@/components/AuthNavbar";
 
 export default function ResetPasswordPage() {
-  const supabase = useSupabaseClient();
-  const [loading, setLoading] = useState(false);
+  const supabase = createSupabaseClient();
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleReset(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setMessage(null);
+    setError(null);
 
-    const form = new FormData(e.currentTarget);
-    const password = form.get('password') as string;
-
-    const { error } = await supabase.auth.updateUser({ password });
-
-    if (error) {
-      alert(error.message);
+    if (password !== confirm) {
+      setError("Passwords do not match.");
       setLoading(false);
       return;
     }
 
-    alert('Password updated successfully.');
-    window.location.href = '/login';
+    const { error } = await supabase.auth.updateUser({ password });
+
+    setLoading(false);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setMessage("Your password has been updated successfully.");
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-      <div className="w-full max-w-md bg-white shadow-md rounded-lg p-8">
-        <h1 className="text-2xl font-bold text-center mb-6">Reset Password</h1>
+    <>
+      <AuthNavbar />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="max-w-md mx-auto p-6 bg-white dark:bg-gray-900 rounded-lg shadow">
+        <form onSubmit={handleReset} className="space-y-4">
           <input
-            name="password"
             type="password"
-            placeholder="New password"
             required
-            className="w-full px-4 py-3 border rounded-lg focus:ring-teal-500 focus:border-teal-500"
+            placeholder="New password"
+            className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:text-white"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+
+          <input
+            type="password"
+            required
+            placeholder="Confirm new password"
+            className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:text-white"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
           />
 
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-3 rounded-lg text-white font-semibold ${
-              loading ? 'bg-teal-400' : 'bg-teal-600 hover:bg-teal-700'
-            }`}
+            className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg transition"
           >
-            {loading ? 'Updating...' : 'Update Password'}
+            {loading ? "Updating..." : "Update Password"}
           </button>
         </form>
+
+        {message && (
+          <p className="mt-4 text-green-600 dark:text-green-400">{message}</p>
+        )}
+
+        {error && (
+          <p className="mt-4 text-red-600 dark:text-red-400">{error}</p>
+        )}
+
+        <div className="mt-6 text-center">
+          <a href="/login" className="text-blue-600 hover:underline">
+            Back to Login
+          </a>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

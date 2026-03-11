@@ -26,8 +26,8 @@ export default function BuyLicensePage() {
 
   // Plan prices (in Naira)
   const planPrices: Record<string, number> = {
-    starter: 50000,
-    pro: 1500000,
+    starter: 100000,
+    pro: 2500000,
     enterprise: 550000,
   };
 
@@ -109,8 +109,8 @@ export default function BuyLicensePage() {
               }}
               className="w-full p-4 text-lg border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             >
-              <option value="starter">Starter — ₦50,000 per license</option>
-              <option value="pro">Pro — ₦1,500,000 per license</option>
+              <option value="starter">Starter — ₦100,000 per license</option>
+              <option value="pro">Pro — ₦250,000 per license</option>
               <option value="enterprise">Enterprise — ₦550,000 per license</option>
             </select>
           </div>

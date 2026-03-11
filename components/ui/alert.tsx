@@ -1,21 +1,43 @@
+"use client";
+
 import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const Alert = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    role="alert"
-    className={cn(
-      "w-full rounded-md border border-red-300 bg-red-50 p-4 text-red-700",
-      className
-    )}
-    {...props}
-  />
-));
+const alertVariants = cva(
+  "relative w-full rounded-lg border p-4",
+  {
+    variants: {
+      variant: {
+        default: "bg-background text-foreground",
+        destructive:
+          "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+);
 
-Alert.displayName = "Alert";
+export interface AlertProps
+  extends React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof alertVariants> {}
 
-export { Alert };
+export function Alert({ className, variant, ...props }: AlertProps) {
+  return (
+    <div
+      role="alert"
+      className={cn(alertVariants({ variant }), className)}
+      {...props}
+    />
+  );
+}
+
+export function AlertTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+  return <h5 className={cn("mb-1 font-medium leading-none tracking-tight", className)} {...props} />;
+}
+
+export function AlertDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
+  return <div className={cn("text-sm [&_p]:leading-relaxed", className)} {...props} />;
+}

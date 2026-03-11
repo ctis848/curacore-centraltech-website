@@ -1,36 +1,22 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
-  const { email, amount, currency, plan, quantity } = await req.json();
+  const supabase = createRouteHandlerClient({ cookies });
+  const body = await req.json();
 
-  if (!email || !amount || !currency || !plan) {
-    return NextResponse.json(
-      { error: "Missing required fields" },
-      { status: 400 }
-    );
-  }
+  const { user_id, amount, description, plan } = body;
 
-  const { data, error } = await supabaseAdmin
-    .from("invoices")
-    .insert({
-      email,
-      amount,
-      currency,
-      plan,
-      quantity: quantity || 1,
-      status: "pending",
-      created_at: new Date().toISOString(),
-    })
-    .select()
-    .single();
+  const { data, error } = await supabase.from("invoices").insert({
+    user_id,
+    amount,
+    description,
+    plan,
+    status: "pending",
+  }).select().single();
 
-  if (error) {
-    return NextResponse.json(
-      { error: error.message },
-      { status: 400 }
-    );
-  }
+  if (error) return NextResponse.json({ error }, { status: 400 });
 
   return NextResponse.json({ success: true, invoice: data });
 }

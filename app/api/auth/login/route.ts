@@ -1,36 +1,41 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
-  const { email, password } = await req.json();
+  try {
+    const { email, password } = await req.json();
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: "Email and password are required" },
+        { status: 400 }
+      );
+    }
 
-  if (error || !data.session) {
+    // Create a fresh Supabase server client for this request
+    const supabase = await createSupabaseServerClient();
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error || !data.session) {
+      return NextResponse.json(
+        { error: error?.message || "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
+    // Supabase SSR automatically sets cookies on the response
+    const res = NextResponse.json({ user: data.user });
+
+    return res;
+  } catch (err) {
+    console.error("Login API Error:", err);
     return NextResponse.json(
-      { error: error?.message || "Invalid email or password" },
-      { status: 401 }
+      { error: "Server error" },
+      { status: 500 }
     );
   }
-
-  const res = NextResponse.json({ user: data.user });
-
-  res.cookies.set("sb-access-token", data.session.access_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-  });
-
-  res.cookies.set("sb-refresh-token", data.session.refresh_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-  });
-
-  return res;
 }

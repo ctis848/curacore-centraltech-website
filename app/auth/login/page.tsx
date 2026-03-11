@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClientComponentClient();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,8 +31,28 @@ export default function LoginPage() {
       return;
     }
 
+    // Fetch user metadata
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      toast.error("Login failed. Try again.");
+      setLoading(false);
+      return;
+    }
+
     toast.success("Welcome back!");
-    router.push('/dashboard');
+
+    // ⭐ ROLE‑BASED REDIRECT (FIXED)
+    const role = user.user_metadata.role;
+
+    if (role === "admin") {
+      router.push("/admin");
+    } else {
+      router.push("/client/client-panel"); // ⭐ Correct dashboard route
+    }
+
     router.refresh();
   };
 
@@ -40,7 +60,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${location.origin}/dashboard`,
+        redirectTo: `${location.origin}/auth/callback`,
       },
     });
 
@@ -92,10 +112,10 @@ export default function LoginPage() {
             type="submit"
             disabled={loading}
             className={`w-full py-3 rounded-lg text-white font-semibold shadow-md transition ${
-              loading ? 'bg-teal-400 cursor-not-allowed' : 'bg-teal-600 hover:bg-teal-700'
+              loading ? "bg-teal-400 cursor-not-allowed" : "bg-teal-600 hover:bg-teal-700"
             }`}
           >
-            {loading ? 'Signing in…' : 'Login'}
+            {loading ? "Signing in…" : "Login"}
           </button>
         </form>
 
@@ -116,7 +136,7 @@ export default function LoginPage() {
         </div>
 
         <div className="text-center mt-6 text-gray-600 dark:text-gray-400 text-sm">
-          Don’t have an account?{' '}
+          Don’t have an account?{" "}
           <Link href="/auth/signup" className="text-teal-700 dark:text-teal-300 font-semibold hover:underline">
             Sign Up
           </Link>
