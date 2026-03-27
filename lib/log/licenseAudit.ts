@@ -1,19 +1,32 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
+import { db } from "@/lib/db";
 
-export async function auditLicenseChange(licenseId: string, oldData: any, newData: any) {
-  const supabase = createRouteHandlerClient({ cookies });
+export async function auditLicenseChange(
+  licenseId: string,
+  oldData: any,
+  newData: any
+) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  if (!token) return;
 
-  if (!user) return;
+  const session = await db.session.findUnique({
+    where: { token },
+    include: { user: true },
+  });
 
-  await supabase.from("license_audit").insert({
-    license_id: licenseId,
-    admin_id: user.id,
-    old_data: oldData,
-    new_data: newData,
+  if (!session || !session.user) return;
+
+  await db.licenseHistory.create({
+    data: {
+      licenseId,
+      action: "UPDATED",
+      details: JSON.stringify({
+        adminId: session.user.id,
+        old: oldData,
+        new: newData,
+      }),
+    },
   });
 }

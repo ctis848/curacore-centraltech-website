@@ -1,93 +1,62 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-export default function SignupPage() {
+export default function ClientSignupPage() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSignup = async (e: React.FormEvent) => {
+  async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
+    setError("");
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { role: 'client' }, // ⭐ Assign role
-      },
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
     });
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data.error);
       return;
     }
 
-    router.refresh();
-    router.push('/client/dashboard');
-  };
+    router.push("/auth/client/login");
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-teal-100 px-6">
-      <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-10 border border-gray-200">
+    <div className="max-w-md mx-auto mt-20 p-6 bg-white dark:bg-gray-800 rounded-xl shadow">
+      <h1 className="text-2xl font-bold mb-4 text-center">Client Signup</h1>
 
-        <h2 className="text-center text-3xl font-extrabold text-teal-800 mb-6">
-          Create Your Account
-        </h2>
+      {error && <p className="text-red-500 text-center mb-3">{error}</p>}
 
-        <form onSubmit={handleSignup} className="space-y-5">
-          <div>
-            <label className="text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full px-4 py-3 border rounded-lg bg-gray-50 text-gray-900 focus:ring-teal-500 focus:border-teal-500"
-            />
-          </div>
+      <form onSubmit={handleSignup} className="space-y-4">
+        <input
+          type="email"
+          placeholder="Email"
+          className="w-full p-3 rounded border dark:bg-gray-700"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
 
-          <div>
-            <label className="text-sm font-medium text-gray-700">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full px-4 py-3 border rounded-lg bg-gray-50 text-gray-900 focus:ring-teal-500 focus:border-teal-500"
-            />
-          </div>
+        <input
+          type="password"
+          placeholder="Password"
+          className="w-full p-3 rounded border dark:bg-gray-700"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
 
-          {error && <p className="text-red-600 text-sm text-center">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-3 rounded-lg text-white font-semibold shadow-md transition ${
-              loading ? 'bg-teal-400' : 'bg-teal-600 hover:bg-teal-700'
-            }`}
-          >
-            {loading ? 'Creating...' : 'Sign Up'}
-          </button>
-        </form>
-
-        <div className="text-center mt-6 text-gray-600 text-sm">
-          Already have an account?{' '}
-          <Link href="/client/login" className="text-teal-700 font-semibold hover:underline">
-            Login
-          </Link>
-        </div>
-      </div>
+        <button className="w-full bg-teal-600 text-white p-3 rounded hover:bg-teal-700">
+          Create Account
+        </button>
+      </form>
     </div>
   );
 }

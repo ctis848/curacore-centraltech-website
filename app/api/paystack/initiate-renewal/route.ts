@@ -1,30 +1,41 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { supabase } from "@/lib/supabase";
 
 export async function POST(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
-  const { license_id } = await req.json();
+  const body = await req.json();
+  const { license_id, amount } = body;
+
+  if (!license_id || !amount) {
+    return NextResponse.json(
+      { error: "license_id and amount are required" },
+      { status: 400 }
+    );
+  }
 
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: license } = await supabase
+  if (userError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: license, error: licenseError } = await supabase
     .from("licenses")
     .select("*")
     .eq("id", license_id)
     .eq("user_id", user.id)
     .single();
 
-  if (!license) {
-    return NextResponse.json({ error: "License not found" }, { status: 404 });
+  if (licenseError || !license) {
+    return NextResponse.json(
+      { error: "License not found" },
+      { status: 404 }
+    );
   }
 
-  const amountKobo = 2000 * 100; // example: ₦2000 as 20% fee
-
-  const initRes = await fetch("https://api.paystack.co/transaction/initialize", {
+  const paystackInit = await fetch("https://api.paystack.co/transaction/initialize", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
@@ -32,18 +43,25 @@ export async function POST(req: Request) {
     },
     body: JSON.stringify({
       email: user.email,
-      amount: amountKobo,
-      metadata: { license_id: license.id, type: "service_fee" },
-      callback_url: `${process.env.NEXT_PUBLIC_SITE_URL}/client/payment/callback`,
+      amount: amount * 100,
+      metadata: {
+        license_id,
+        user_id: user.id,
+      },
     }),
   });
 
-  const initData = await initRes.json();
-  if (!initData.status) {
-    return NextResponse.json({ error: initData.message }, { status: 400 });
+  const response = await paystackInit.json();
+
+  if (!response.status) {
+    return NextResponse.json(
+      { error: "Failed to initialize Paystack transaction" },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({
-    authorization_url: initData.data.authorization_url,
+    authorization_url: response.data.authorization_url,
+    reference: response.data.reference,
   });
 }

@@ -1,25 +1,39 @@
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { supabase } from "@/lib/supabase";
 
 export async function POST(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
   const body = await req.json();
-
   const { subject, message } = body;
+
+  if (!subject || !message) {
+    return NextResponse.json(
+      { error: "subject and message are required" },
+      { status: 400 }
+    );
+  }
 
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
 
-  const { data, error } = await supabase.from("support_tickets").insert({
-    user_id: user?.id,
+  if (userError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { error } = await supabase.from("support_tickets").insert({
+    user_id: user.id,
     subject,
     message,
     status: "open",
-  }).select().single();
+  });
 
-  if (error) return NextResponse.json({ error }, { status: 400 });
+  if (error) {
+    return NextResponse.json(
+      { error: "Failed to create support ticket" },
+      { status: 500 }
+    );
+  }
 
-  return NextResponse.json({ success: true, ticket: data });
+  return NextResponse.json({ success: true });
 }

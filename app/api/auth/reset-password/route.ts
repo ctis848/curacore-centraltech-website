@@ -1,14 +1,35 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
-  const { password } = await req.json();
+  const { token, password } = await req.json();
 
-  const { data, error } = await supabase.auth.updateUser({ password });
+  // Look up reset token
+  const record = await db.passwordResetToken.findUnique({
+    where: { token },
+  });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  if (!record || record.expiresAt < new Date()) {
+    return NextResponse.json(
+      { error: "Invalid or expired token" },
+      { status: 400 }
+    );
   }
+
+  // Hash new password
+  const hashed = await bcrypt.hash(password, 10);
+
+  // Update user password
+  await db.user.update({
+    where: { id: record.userId },
+    data: { passwordHash: hashed },
+  });
+
+  // Delete used token
+  await db.passwordResetToken.delete({
+    where: { token },
+  });
 
   return NextResponse.json({ success: true });
 }

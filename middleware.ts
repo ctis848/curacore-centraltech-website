@@ -1,79 +1,80 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
 
 export async function middleware(req: NextRequest) {
-  // Create a response early so Supabase can modify cookies
-  const res = NextResponse.next({
-    request: {
-      headers: req.headers,
-    },
-  });
+  const res = NextResponse.next();
 
-  const supabase = createMiddlewareClient({ req, res });
-
-  // Refresh session & attach to request
-  await supabase.auth.getSession();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return req.cookies.get(name)?.value;
+        },
+        set(name: string, value: string) {
+          res.cookies.set(name, value);
+        },
+        remove(name: string) {
+          res.cookies.delete(name);
+        },
+      },
+    }
+  );
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = req.nextUrl.pathname;
+  const { pathname } = req.nextUrl;
 
   const publicPaths = [
-    "/",
-    "/client/login",
+    "/auth/client/login",
     "/client/signup",
-    "/auth/login",
-    "/auth/signup",
-    "/auth/forgot-password",
-    "/auth/reset-password",
-    "/auth/verify-email",
-    "/pricing",
-    "/contact",
-    "/features",
-    "/services",
-    "/resources",
-    "/download",
-    "/buy",
+    "/superadmin/login",
+    "/auth/admin/login",
   ];
 
-  // Allow public pages
   if (publicPaths.includes(pathname)) {
     return res;
   }
 
-  // ADMIN AREA
-  if (pathname.startsWith("/admin")) {
+  if (pathname.startsWith("/superadmin")) {
     if (!user) {
-      return NextResponse.redirect(new URL("/auth/login", req.url));
+      const url = req.nextUrl.clone();
+      url.pathname = "/superadmin/login";
+      return NextResponse.redirect(url);
     }
 
     const role = user.user_metadata?.role;
-    if (role !== "admin" && role !== "superadmin") {
-      return NextResponse.redirect(new URL("/unauthorized", req.url));
-    }
 
-    return res;
+    if (role !== "SUPERADMIN") {
+      const url = req.nextUrl.clone();
+      url.pathname = "/unauthorized";
+      return NextResponse.redirect(url);
+    }
   }
 
-  // CLIENT PANEL
-  if (pathname.startsWith("/client/client-panel")) {
+  if (pathname.startsWith("/admin")) {
     if (!user) {
-      return NextResponse.redirect(new URL("/client/login", req.url));
+      const url = req.nextUrl.clone();
+      url.pathname = "/auth/admin/login";
+      return NextResponse.redirect(url);
     }
 
-    return res;
+    const role = user.user_metadata?.role;
+
+    if (role !== "ADMIN" && role !== "SUPERADMIN") {
+      const url = req.nextUrl.clone();
+      url.pathname = "/unauthorized";
+      return NextResponse.redirect(url);
+    }
   }
 
   return res;
 }
 
 export const config = {
-  matcher: [
-    "/client/client-panel/:path*",
-    "/admin/:path*",
-    "/auth/:path*",
-  ],
+  matcher: ["/superadmin/:path*", "/admin/:path*"],
 };

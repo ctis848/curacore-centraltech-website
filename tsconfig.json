@@ -16,8 +16,12 @@
     "incremental": true,
 
     "baseUrl": ".",
+
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@/lib/*": ["./lib/*"],
+      "@/components/*": ["./components/*"],
+      "@/app/*": ["./app/*"]
     },
 
     "plugins": [
@@ -32,8 +36,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "test-db.js"
+    ".next/dev/types/**/*.ts"
   ],
 
   "exclude": ["node_modules"]

@@ -1,14 +1,22 @@
-export default function VerifyEmailPage() {
+import { redirect } from "next/navigation";
+
+export default async function VerifyEmailPage({
+  searchParams,
+}: {
+  searchParams: { token?: string };
+}) {
+  const token = searchParams?.token;
+
+  if (token) {
+    redirect(`/api/auth/verify-email?token=${token}`);
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 pt-32">
-      <div className="bg-white p-10 rounded-2xl shadow-lg max-w-md w-full text-center">
-        <h1 className="text-3xl font-bold text-teal-700 mb-4">
-          Check your email
-        </h1>
-        <p className="text-gray-600">
-          We sent you a verification link. Click it to activate your account.
-        </p>
-      </div>
+    <div className="p-8 text-center">
+      <h1 className="text-2xl font-bold">Invalid or missing verification token</h1>
+      <p className="text-gray-600 mt-2">
+        The verification link may have expired or is incorrect.
+      </p>
     </div>
   );
 }

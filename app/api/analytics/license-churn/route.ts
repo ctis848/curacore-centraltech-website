@@ -4,8 +4,7 @@ import { getUserAndRole } from "@/lib/auth/getUserAndRole";
 
 export async function GET() {
   const { role } = await getUserAndRole();
-  if (role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (role !== "ADMIN") {    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { data, error } = await supabaseAdmin

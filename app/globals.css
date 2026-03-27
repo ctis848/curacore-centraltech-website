@@ -47,7 +47,7 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
 
-    --primary: 174 60% 40%; /* Teal */
+    --primary: 174 60% 40%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -154,4 +154,67 @@
   .text-primary-foreground {
     color: hsl(var(--primary-foreground));
   }
+
+  .bg-card {
+    background-color: hsl(var(--card));
+  }
+
+  .text-card-foreground {
+    color: hsl(var(--card-foreground));
+  }
+}
+
+/* ============================================================
+   ✨ NEW ANIMATIONS FOR ADVANCED TESTIMONIAL SYSTEM
+   (3D Tilt, Shine, Parallax, Floating Glows, Marquee)
+============================================================ */
+
+/* Floating glowing accents */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-20px) translateX(10px); }
+}
+
+@keyframes float-slower {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(25px) translateX(-15px); }
+}
+
+.animate-float-slow {
+  animation: float-slow 8s ease-in-out infinite;
+}
+
+.animate-float-slower {
+  animation: float-slower 12s ease-in-out infinite;
+}
+
+/* Glassmorphism shine */
+@keyframes shine {
+  0% { transform: translateX(-150%); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateX(250%); opacity: 0; }
+}
+
+.animate-shine {
+  animation: shine 2.2s ease-in-out infinite;
+}
+
+/* Infinite marquee */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 25s linear infinite;
+}
+
+/* Smooth slide-up for cards */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slideUp 1s ease-out forwards;
 }

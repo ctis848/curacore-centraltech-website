@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
-import { sendEmail } from "@/app/lib/sendEmail";
+import { supabase } from "@/lib/supabase";
+import { sendEmail } from "@/lib/sendEmail";
 import { LicenseWithUser } from "@/app/types/licenseWithUser";
 
 export async function GET() {
-  const supabase = createRouteHandlerClient({ cookies });
-
-  // Fetch licenses with unpaid service fee + user email
   const { data: licenses, error } = await supabase
     .from("licenses")
     .select(`
@@ -19,9 +15,7 @@ export async function GET() {
     `)
     .eq("service_fee_paid", false);
 
-  // Runtime guard — REQUIRED for Netlify TypeScript
-  if (error || !licenses || !Array.isArray(licenses)) {
-    console.error("Unable to load licenses:", error ?? licenses);
+  if (error || !licenses) {
     return NextResponse.json(
       { error: "Failed to load licenses" },
       { status: 500 }
@@ -30,23 +24,20 @@ export async function GET() {
 
   const today = new Date();
 
-  // Now TypeScript knows licenses is LicenseWithUser[]
   for (const license of licenses as unknown as LicenseWithUser[]) {
     if (!license.renewal_due_date) continue;
 
     const due = new Date(license.renewal_due_date);
-
     const diff = Math.ceil(
       (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
     );
 
-    // Send reminder exactly 7 days before due date
     if (diff === 7) {
-      await sendEmail(
-        license.user?.email ?? "",
-        "Your Annual Service Fee is Due Soon",
-        `Your 20% annual service fee for license ${license.id} is due in 7 days. Please renew to avoid automatic revocation.`
-      );
+      await sendEmail({
+        to: license.user?.email ?? "",
+        subject: "Your Annual Service Fee is Due Soon",
+        html: `Your 20% annual service fee for license ${license.id} is due in 7 days.`,
+      });
     }
   }
 

@@ -1,29 +1,33 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
-import { useRouter } from 'next/navigation';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export default function RegisterPage() {
-  const supabase = useSupabaseClient();
-  const user = useUser();
   const router = useRouter();
 
   const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // If user is already logged in, redirect to dashboard
-    if (user) {
-      router.replace('/dashboard');
-      return;
+    async function checkUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        router.replace("/dashboard");
+        return;
+      }
+
+      setChecking(false);
     }
 
-    // If no user, show registration form
-    setChecking(false);
-  }, [user, router]);
+    checkUser();
+  }, [router]);
 
   async function handleRegister(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -33,7 +37,7 @@ export default function RegisterPage() {
     const email = form.get("email") as string;
     const password = form.get("password") as string;
 
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
     });

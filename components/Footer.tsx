@@ -1,36 +1,92 @@
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-gray-300 py-12 mt-20">
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10">
+    <footer className="bg-gray-950 text-gray-300 pt-16 pb-10 mt-20 border-t border-gray-800">
+      <div className="max-w-7xl mx-auto px-6">
 
-        <div>
-          <h2 className="text-xl font-bold text-white">CentralCore EMR</h2>
-          <p className="mt-3 text-gray-400">
-            A complete electronic medical record system for modern healthcare.
+        {/* Top CTA */}
+        <div className="text-center mb-16">
+          <h2 className="text-3xl font-bold text-white">
+            Empowering Modern Healthcare
+          </h2>
+          <p className="text-gray-400 mt-3 max-w-xl mx-auto">
+            CentralCore EMR delivers secure, intelligent, and scalable medical record
+            management for clinics, hospitals, and enterprise health networks.
           </p>
+          <a
+            href="/contact"
+            className="inline-block mt-6 px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-semibold transition"
+          >
+            Contact Sales
+          </a>
         </div>
 
-        <div>
-          <h3 className="text-lg font-semibold text-white">Quick Links</h3>
-          <ul className="mt-3 space-y-2">
-            <li><a href="/features" className="hover:text-white">Features</a></li>
-            <li><a href="/services" className="hover:text-white">Services</a></li>
-            <li><a href="/resources" className="hover:text-white">Resources</a></li>
-            <li><a href="/pricing" className="hover:text-white">Pricing</a></li>
-            <li><a href="/download" className="hover:text-white">Download</a></li>
-          </ul>
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+
+          {/* Brand */}
+          <div>
+            <h2 className="text-2xl font-bold text-white">CentralCore EMR</h2>
+            <p className="mt-4 text-gray-400 leading-relaxed">
+              Enterprise‑grade electronic medical record software designed for
+              performance, security, and seamless clinical workflows.
+            </p>
+
+            {/* Social Icons */}
+            <div className="flex gap-4 mt-6">
+              <a href="#" className="hover:text-white transition">🌐</a>
+              <a href="#" className="hover:text-white transition">🐦</a>
+              <a href="#" className="hover:text-white transition">💼</a>
+              <a href="#" className="hover:text-white transition">📘</a>
+            </div>
+          </div>
+
+          {/* Quick Links */}
+          <div>
+            <h3 className="text-lg font-semibold text-white">Product</h3>
+            <ul className="mt-4 space-y-2">
+              <li><a href="/features" className="hover:text-white transition">Features</a></li>
+              <li><a href="/pricing" className="hover:text-white transition">Pricing</a></li>
+              <li><a href="/download" className="hover:text-white transition">Download</a></li>
+              <li><a href="/roadmap" className="hover:text-white transition">Roadmap</a></li>
+              <li><a href="/updates" className="hover:text-white transition">Release Notes</a></li>
+            </ul>
+          </div>
+
+          {/* Resources */}
+          <div>
+            <h3 className="text-lg font-semibold text-white">Resources</h3>
+            <ul className="mt-4 space-y-2">
+              <li><a href="/docs" className="hover:text-white transition">Documentation</a></li>
+              <li><a href="/api" className="hover:text-white transition">API Reference</a></li>
+              <li><a href="/support" className="hover:text-white transition">Support Center</a></li>
+              <li><a href="/blog" className="hover:text-white transition">Blog</a></li>
+              <li><a href="/partners" className="hover:text-white transition">Partners</a></li>
+            </ul>
+          </div>
+
+          {/* Contact */}
+          <div>
+            <h3 className="text-lg font-semibold text-white">Contact</h3>
+            <ul className="mt-4 space-y-2">
+              <li className="text-gray-400">support@ctisetech.com</li>
+              <li className="text-gray-400">+234 (000) 000‑0000</li>
+              <li className="text-gray-400">Lagos, Nigeria</li>
+            </ul>
+
+            <h3 className="text-lg font-semibold text-white mt-6">Compliance</h3>
+            <ul className="mt-4 space-y-2">
+              <li><a href="/privacy" className="hover:text-white transition">Privacy Policy</a></li>
+              <li><a href="/terms" className="hover:text-white transition">Terms of Service</a></li>
+              <li><a href="/security" className="hover:text-white transition">Security</a></li>
+            </ul>
+          </div>
+
         </div>
 
-        <div>
-          <h3 className="text-lg font-semibold text-white">Contact</h3>
-          <p className="mt-3 text-gray-400">support@ctisetech.com</p>
-          <p className="text-gray-400">+234 (000) 000‑0000</p>
+        {/* Bottom */}
+        <div className="text-center text-gray-500 mt-16 border-t border-gray-800 pt-6">
+          © {new Date().getFullYear()} CentralCore EMR — All rights reserved.
         </div>
-
-      </div>
-
-      <div className="text-center text-gray-500 mt-10">
-        © {new Date().getFullYear()} CentralCore EMR. All rights reserved.
       </div>
     </footer>
   );

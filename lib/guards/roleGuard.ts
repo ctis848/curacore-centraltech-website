@@ -1,21 +1,29 @@
 import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
 
 export async function roleGuard(allowedRoles: string[]) {
-  const supabase = createRouteHandlerClient({ cookies });
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  if (!token) {
+    redirect("/auth/login");
+  }
 
-  if (!user) redirect("/auth/login");
+  const session = await db.session.findUnique({
+    where: { token },
+    include: { user: true },
+  });
 
-  const role = user.user_metadata.role;
+  if (!session || !session.user) {
+    redirect("/auth/login");
+  }
+
+  const role = session.user.role;
 
   if (!allowedRoles.includes(role)) {
     redirect("/unauthorized");
   }
 
-  return user;
+  return session.user;
 }

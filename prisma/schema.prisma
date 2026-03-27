@@ -4,34 +4,338 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String?
+  email         String     @unique
+  emailVerified DateTime?
+  passwordHash  String
+  role          Role       @default(CLIENT)
+
+  tenantId      String?
+  tenant        Tenant?    @relation(fields: [tenantId], references: [id])
+
+  createdAt     DateTime   @default(now())
+
+  accounts                Account[]
+  emailVerificationTokens EmailVerificationToken[]
+  licenses                License[]
+  licenseRequests         LicenseRequest[]
+  passwordResetTokens     PasswordResetToken[]
+  sessions                Session[]
+  teams                   Team[]          @relation("OwnedTeams")
+  teamMemberships         TeamMember[]
+  invoices                Invoice[]
+  supportTickets          SupportTicket[]
+  notifications           Notification[]
+  auditLogs               AuditLog[]      @relation("UserAuditLogs")
+  exportHistory           ExportHistory[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Account {
+  id                String  @id
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model License {
+  id                  String        @id @default(uuid())
+  userId              String
+  licenseRequestId    String?       @unique
+  productName         String?
+  licenseKey          String?       @unique
+  machineId           String?
+  purchasedAt         DateTime?
+  activatedAt         DateTime?
+  expiresAt           DateTime?
+  annualFeePercent    Int           @default(20)
+  lastAnnualFeePaidAt DateTime?
+  status              LicenseStatus @default(PENDING)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  licenseRequest     LicenseRequest? @relation(fields: [licenseRequestId], references: [id])
+  user               User            @relation(fields: [userId], references: [id])
+  licenseHistory     LicenseHistory[]
+  machineActivations MachineActivation[]
+  invoices           Invoice[]
+  supportTickets     SupportTicket[]
+
+  @@index([status])
+  @@index([userId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  adminId   String
+  action    String
+  targetId  String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  admin User @relation("UserAuditLogs", fields: [adminId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String?
+  type      String
+  message   String
+  createdAt DateTime @default(now())
+  read      Boolean  @default(false)
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+model LicenseHistory {
+  id        String   @id @default(uuid())
+  licenseId String
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+
+  license License @relation(fields: [licenseId], references: [id])
+
+  @@index([licenseId])
+}
+
+model LicenseRequest {
+  id          String        @id @default(uuid())
+  userId      String
+  requestKey  String
+  productName String?
+  notes       String?
+  status      LicenseStatus @default(PENDING)
+  createdAt   DateTime      @default(now())
+  processedAt DateTime?
+  processedBy String?
+
+  license License?
+  user    User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model MachineActivation {
+  id          String   @id @default(uuid())
+  licenseId   String
+  machineId   String
+  machineName String?
+  osVersion   String?
+  ipAddress   String?
+  activatedAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  license License @relation(fields: [licenseId], references: [id])
+
+  @@unique([licenseId, machineId])
+  @@index([licenseId])
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  ownerId   String
+  name      String
+  createdAt DateTime @default(now())
+
+  owner   User         @relation("OwnedTeams", fields: [ownerId], references: [id])
+  members TeamMember[]
+
+  @@index([ownerId])
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String
+  userId    String
+  role      TeamRole @default(MEMBER)
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model EmailVerificationToken {
+  token     String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model PasswordResetToken {
+  token     String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Invoice {
+  id          String        @id @default(uuid())
+  userId      String
+  licenseId   String?
+  amount      Float
+  currency    String        @default("USD")
+  status      InvoiceStatus @default(PENDING)
+  createdAt   DateTime      @default(now())
+  paidAt      DateTime?
+  description String?
+
+  user    User     @relation(fields: [userId], references: [id])
+  license License? @relation(fields: [licenseId], references: [id])
+
+  @@index([userId])
+  @@index([licenseId])
+}
+
+model SupportTicket {
+  id        String       @id @default(uuid())
+  userId    String
+  licenseId String?
+  subject   String
+  message   String
+  status    TicketStatus @default(OPEN)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id])
+  license License? @relation(fields: [licenseId], references: [id])
+
+  @@index([userId])
+  @@index([licenseId])
+}
+
+model EmailTemplate {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  subject   String
+  body      String
+  updatedAt DateTime @updatedAt
 }
 
 model ContactMessage {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(uuid())
   name      String
   email     String
+  subject   String
   message   String
   createdAt DateTime @default(now())
-
-  @@map("contact_messages")
 }
 
 model QuoteRequest {
-  id           Int      @id @default(autoincrement())
+  id           String   @id @default(uuid())
   name         String
   email        String
-  organization String
+  organization String?
   details      String
   createdAt    DateTime @default(now())
-
-  @@map("quote_requests")
 }
 
-model EmailLog {
-  id        Int      @id @default(autoincrement())
-  subject   String?
-  to        String
-  status    String?  // optional – sent / failed / queued
+model ApiLog {
+  id         String   @id @default(uuid())
+  endpoint   String
+  statusCode Int
+  createdAt  DateTime @default(now())
+}
+
+model ExportHistory {
+  id        String   @id @default(uuid())
+  userId    String?
+  fileName  String?
+  dataset   String?   // <— add this
   createdAt DateTime @default(now())
-  // add other fields like body, errorMessage, etc. if needed
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+
+  users     User[]
+}
+
+model Theme {
+  id        String   @id @default(uuid())
+  name      String
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  CLIENT
+  ADMIN
+  SUPERADMIN
+}
+
+enum LicenseStatus {
+  PENDING
+  APPROVED
+  ACTIVE
+  EXPIRED
+  DEACTIVATED
+  INACTIVE
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
 }

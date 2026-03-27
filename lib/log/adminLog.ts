@@ -1,18 +1,24 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
+import { db } from "@/lib/db";
 
 export async function logAdminAction(action: string, details: any = {}) {
-  const supabase = createRouteHandlerClient({ cookies });
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  if (!token) return;
 
-  if (!user) return;
+  const session = await db.session.findUnique({
+    where: { token },
+    include: { user: true },
+  });
 
-  await supabase.from("admin_logs").insert({
-    admin_id: user.id,
-    action,
-    details,
+  if (!session || !session.user) return;
+
+  await db.auditLog.create({
+    data: {
+      adminId: session.user.id,
+      action,
+      details: typeof details === "string" ? details : JSON.stringify(details),
+    },
   });
 }

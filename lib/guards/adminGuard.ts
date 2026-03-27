@@ -1,23 +1,23 @@
 import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
 
 export async function adminGuard() {
-  const supabase = createRouteHandlerClient({ cookies });
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Not logged in → redirect
-  if (!user) {
+  if (!token) {
     redirect("/auth/login");
   }
 
-  // Not an admin → redirect
-  if (user.user_metadata?.role !== "admin") {
-    redirect("/unauthorized");
+  const session = await db.session.findUnique({
+    where: { token },
+    include: { user: true },
+  });
+
+  if (!session || session.user.role !== "ADMIN") {
+    redirect("/auth/login");
   }
 
-  return user;
+  return session.user;
 }

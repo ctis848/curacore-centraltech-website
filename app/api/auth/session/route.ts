@@ -1,12 +1,41 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
+import { cookies } from "next/headers";
+import { db } from "@/lib/db";
 
 export async function GET() {
-  const { data, error } = await supabaseAdmin.auth.getUser();
+  try {
+    // Must await cookies() in Next.js 16+
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value || null;
 
-  if (error || !data.user) {
-    return NextResponse.json({ user: null }, { status: 401 });
+    if (!token) {
+      return NextResponse.json({ user: null }, { status: 401 });
+    }
+
+    // Validate session
+    const session = await db.session.findFirst({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!session || !session.user) {
+      return NextResponse.json({ user: null }, { status: 401 });
+    }
+
+    // Return user info
+    return NextResponse.json({
+      user: {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        role: session.user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Session error:", error);
+    return NextResponse.json(
+      { user: null, error: "Server error" },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ user: data.user });
 }

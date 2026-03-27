@@ -1,43 +1,53 @@
-"use client";
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+import crypto from "crypto";
 
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+const prisma = new PrismaClient();
 
-export default function ForgotPasswordForm() {
-  const [loading, setLoading] = useState(false);
+export async function POST(req: Request) {
+  try {
+    const { email } = await req.json();
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-
-    const form = new FormData(e.currentTarget);
-    const email = form.get("email");
-
-    const res = await fetch("/api/auth/forgot-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.error);
-      setLoading(false);
-      return;
+    if (!email) {
+      return NextResponse.json(
+        { error: "Email is required" },
+        { status: 400 }
+      );
     }
 
-    alert("Password reset email sent.");
-    setLoading(false);
-  }
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input name="email" type="email" placeholder="Email" required />
-      <Button type="submit" disabled={loading}>
-        {loading ? "Sending..." : "Send Reset Link"}
-      </Button>
-    </form>
-  );
+    if (!user) {
+      return NextResponse.json(
+        { error: "No account found with that email" },
+        { status: 404 }
+      );
+    }
+
+    // Generate reset token
+    const token = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 30); // 30 minutes
+
+    // Store token in DB
+    await prisma.passwordResetToken.create({
+      data: {
+        token,
+        userId: user.id,
+        expiresAt,
+      },
+    });
+
+    // In production, send email here
+    console.log("RESET LINK:", `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password?token=${token}`);
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("Forgot Password Error:", err);
+    return NextResponse.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
+  }
 }

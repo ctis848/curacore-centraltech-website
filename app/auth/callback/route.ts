@@ -1,31 +1,18 @@
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { supabase } from "@/lib/supabase";
 
 export async function GET(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
+  const url = new URL(req.url);
+  const code = url.searchParams.get("code");
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.redirect("/auth/login");
+  if (!code) {
+    return NextResponse.redirect("/login?error=missing_code");
   }
 
-  let role = user.user_metadata.role;
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-  // Assign default role if missing
-  if (!role) {
-    await supabase.auth.updateUser({
-      data: { role: "client" },
-    });
-    role = "client";
-  }
-
-  // Redirect based on role
-  if (role === "admin") {
-    return NextResponse.redirect("/admin");
+  if (error) {
+    return NextResponse.redirect("/login?error=auth_failed");
   }
 
   return NextResponse.redirect("/dashboard");

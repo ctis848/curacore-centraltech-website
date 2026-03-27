@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createServerDbClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
   try {
@@ -10,15 +10,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createServerDbClient();
 
-    const { data: license } = await supabase
-      .from("licenses")
-      .select("*")
-      .eq("request_key", requestKey)
-      .eq("machine_id", machineId)
-      .eq("status", "pending")
-      .single();
+    // Find pending license request by requestKey
+    const licenseRequest = await db.licenseRequest.findFirst({
+      where: {
+        requestKey,
+        status: "PENDING",
+      },
+    });
+
+    if (!licenseRequest) {
+      return NextResponse.json(
+        { error: "Pending license request not found" },
+        { status: 404 }
+      );
+    }
+
+    // Find license tied to that request + machine
+    const license = await db.license.findFirst({
+      where: {
+        licenseRequestId: licenseRequest.id,
+        machineId,
+        status: "PENDING",
+      },
+    });
 
     if (!license) {
       return NextResponse.json(
@@ -27,14 +43,22 @@ export async function POST(req: Request) {
       );
     }
 
-    await supabase
-      .from("licenses")
-      .update({
-        license_key: licenseKey,
-        status: "active",
-        activated_at: new Date().toISOString(),
-      })
-      .eq("id", license.id);
+    await db.license.update({
+      where: { id: license.id },
+      data: {
+        licenseKey,
+        status: "ACTIVE",
+        activatedAt: new Date(),
+      },
+    });
+
+    await db.licenseRequest.update({
+      where: { id: licenseRequest.id },
+      data: {
+        status: "APPROVED",
+        processedAt: new Date(),
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

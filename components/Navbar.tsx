@@ -28,10 +28,13 @@ export default function Navbar() {
           <Link href="/products">Products</Link>
           <Link href="/buy" className="text-yellow-600 font-semibold">Buy</Link>
 
-          {/* FIXED AUTH ROUTES */}
-          <Link href="/client/login" className="text-blue-600">Login</Link>
+          {/* AUTH ROUTES */}
+          <Link href="/auth/client/login" className="text-blue-600">
+            Login
+          </Link>
+
           <Link
-            href="/client/signup"
+            href="/auth/client/signup"
             className="px-4 py-2 bg-blue-600 text-white rounded-md"
           >
             Sign Up
@@ -57,12 +60,21 @@ export default function Navbar() {
           <Link href="/resources" onClick={toggleMenu}>Resources</Link>
           <Link href="/pricing" onClick={toggleMenu}>Pricing</Link>
           <Link href="/products" onClick={toggleMenu}>Products</Link>
-          <Link href="/buy" onClick={toggleMenu} className="text-yellow-600 font-semibold">Buy</Link>
+          <Link href="/buy" onClick={toggleMenu} className="text-yellow-600 font-semibold">
+            Buy
+          </Link>
 
-          {/* FIXED AUTH ROUTES */}
-          <Link href="/client/login" onClick={toggleMenu} className="text-blue-600">Login</Link>
+          {/* AUTH ROUTES */}
           <Link
-            href="/client/signup"
+            href="/auth/client/login"
+            onClick={toggleMenu}
+            className="text-blue-600"
+          >
+            Login
+          </Link>
+
+          <Link
+            href="/auth/client/signup"
             onClick={toggleMenu}
             className="px-4 py-2 bg-blue-600 text-white rounded-md text-center"
           >

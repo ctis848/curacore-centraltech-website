@@ -1,62 +1,78 @@
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { PrismaClient } from "@prisma/client";
 import { cookies } from "next/headers";
 
+const prisma = new PrismaClient();
+
 export async function POST(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
-  const { request_key } = await req.json();
+  try {
+    const body = await req.json();
+    const { reference, licenseKey } = body;
 
-  if (!request_key) {
-    return NextResponse.json({ error: "Request key is required" }, { status: 400 });
+    if (!reference || !licenseKey) {
+      return NextResponse.json(
+        { error: "Missing activation data" },
+        { status: 400 }
+      );
+    }
+
+    // Must await cookies() in Next.js 16+
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // Validate session
+    const session = await prisma.session.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!session || !session.user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const user = session.user;
+
+    // Prevent duplicate activation
+    const existing = await prisma.license.findFirst({
+      where: {
+        licenseKey,
+        userId: user.id,
+      },
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        { error: "License already activated" },
+        { status: 400 }
+      );
+    }
+
+    // Activate license using ONLY fields that exist in your schema
+    const activated = await prisma.license.create({
+      data: {
+        licenseKey,
+        userId: user.id,
+        status: "ACTIVE",
+        activatedAt: new Date(), // this field exists
+      },
+    });
+
+    return NextResponse.json({ license: activated });
+  } catch (err: any) {
+    console.error("License activation error:", err);
+    return NextResponse.json(
+      { error: "Server error", details: err.message },
+      { status: 500 }
+    );
   }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // Find license by request key
-  const { data: license } = await supabase
-    .from("licenses")
-    .select("*")
-    .eq("request_key", request_key)
-    .single();
-
-  if (!license) {
-    return NextResponse.json({ error: "Invalid request key" }, { status: 404 });
-  }
-
-  // Activate license
-  const { error } = await supabase
-    .from("licenses")
-    .update({
-      user_id: user.id,
-      is_active: true,
-      auto_revoked: false,
-      service_fee_paid: true,
-      last_payment_date: new Date().toISOString(),
-      renewal_due_date: new Date(
-        new Date().getFullYear() + 1,
-        new Date().getMonth(),
-        new Date().getDate()
-      ).toISOString(),
-    })
-    .eq("id", license.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  }
-
-  // Log activation
-  await supabase.from("license_renewal_history").insert({
-    license_id: license.id,
-    user_id: user.id,
-    action: "activated",
-    metadata: { request_key },
-  });
-
-  return NextResponse.json({ success: true });
 }

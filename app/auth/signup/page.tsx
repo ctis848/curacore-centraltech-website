@@ -1,118 +1,111 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import toast from "react-hot-toast";
-import { getPasswordStrength } from "@/lib/passwordStrength";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useRouter } from "next/navigation";
+import AuthCard from "@/components/auth/AuthCard";
 
 export default function SignupPage() {
-  const supabase = createClientComponentClient();
+  const router = useRouter();
 
-  const [fullName, setFullName] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  async function handleSignup(e: React.FormEvent) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters.");
-      return;
-    }
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          fullName,
-          role: "client"   // ⭐ Assign client role here
-        },
-        emailRedirectTo: `${location.origin}/auth/verify-email`,
-      },
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password }),
     });
 
-    if (error) {
-      toast.error(error.message);
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data.error || "Signup failed");
+      setLoading(false);
       return;
     }
 
-    toast.success("Account created! Check your email to verify.");
-  }
-
-  const strength = getPasswordStrength(password);
+    setSuccess(true);
+    setLoading(false);
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6 pt-32">
-      <div className="bg-white/90 backdrop-blur-sm p-10 rounded-2xl shadow-lg border border-teal-200 max-w-md w-full">
-        <h1 className="text-4xl font-black text-teal-800 mb-8 text-center">
-          Create Account
-        </h1>
-
-        <form onSubmit={handleSignup} className="space-y-6">
-          <input
-            type="text"
-            placeholder="Full Name"
-            className="w-full p-4 rounded-xl border border-teal-200 focus:ring-2 focus:ring-teal-600"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            required
-          />
-
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full p-4 rounded-xl border border-teal-200 focus:ring-2 focus:ring-teal-600"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+    <AuthCard title="Create an Account">
+      {success ? (
+        <div className="text-center animate-fade-in">
+          <h2 className="text-xl font-semibold text-teal-700 mb-2">
+            Check Your Email
+          </h2>
+          <p className="text-gray-700">
+            We sent you a verification link. Click it to activate your account.
+          </p>
+        </div>
+      ) : (
+        <form onSubmit={handleSignup} className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Name</label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1 w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
 
           <div>
+            <label className="text-sm font-medium text-gray-700">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-700">Password</label>
             <input
               type="password"
-              placeholder="Password"
-              className="w-full p-4 rounded-xl border border-teal-200 focus:ring-2 focus:ring-teal-600"
+              required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
+              className="mt-1 w-full px-3 py-2 border rounded-lg"
             />
-
-            {/* PASSWORD STRENGTH METER */}
-            <div className="mt-3">
-              <div className="h-2 rounded bg-gray-200">
-                <div
-                  className={`h-full rounded transition-all ${
-                    strength.score === 1
-                      ? "bg-red-500 w-1/4"
-                      : strength.score === 2
-                      ? "bg-yellow-500 w-2/4"
-                      : strength.score === 3
-                      ? "bg-blue-500 w-3/4"
-                      : "bg-green-600 w-full"
-                  }`}
-                />
-              </div>
-              <p className="text-sm mt-1 text-gray-600">{strength.label}</p>
-            </div>
           </div>
+
+          {error && (
+            <p className="text-sm text-red-600 text-center">{error}</p>
+          )}
 
           <button
             type="submit"
-            className="w-full bg-teal-700 text-white py-4 rounded-xl font-semibold hover:bg-teal-800 transition"
+            disabled={loading}
+            className={`w-full py-2 rounded-lg text-white font-semibold ${
+              loading ? "bg-gray-400" : "bg-teal-600 hover:bg-teal-700"
+            }`}
           >
-            Sign Up
+            {loading ? "Creating..." : "Sign Up"}
           </button>
         </form>
+      )}
 
-        <p className="text-center text-gray-700 mt-6">
-          Already have an account?{" "}
-          <Link href="/auth/login" className="text-teal-700 font-semibold hover:underline">
-            Login
-          </Link>
-        </p>
-      </div>
-    </div>
+      <p className="text-center mt-4 text-sm">
+        Already have an account?{" "}
+        <a href="/auth/login" className="text-teal-600 hover:underline">
+          Login
+        </a>
+      </p>
+    </AuthCard>
   );
 }

@@ -1,24 +1,34 @@
 import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import { Role } from "@prisma/client";
 
 export async function tenantAdminGuard() {
-  const supabase = createRouteHandlerClient({ cookies });
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  if (!token) {
+    redirect("/auth/login");
+  }
 
-  if (!user) redirect("/auth/login");
+  const session = await db.session.findUnique({
+    where: { token },
+    include: { user: true },
+  });
 
-  const role = user.user_metadata.role;
-  const tenantId = user.user_metadata.tenant_id;
+  if (!session || !session.user) {
+    redirect("/auth/login");
+  }
 
-  if (!tenantId) redirect("/unauthorized");
+  const user = session.user;
+  const role = user.role;
 
-  if (!["admin", "tenant_admin"].includes(role)) {
+  // Only ADMIN or SUPERADMIN allowed
+  const allowedRoles = new Set<Role>([Role.ADMIN, Role.SUPERADMIN]);
+
+  if (!allowedRoles.has(role)) {
     redirect("/unauthorized");
   }
 
-  return { user, tenantId };
+  return { user };
 }

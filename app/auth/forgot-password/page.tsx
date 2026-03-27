@@ -1,60 +1,95 @@
-'use client';
+"use client";
 
 import { useState } from "react";
-import { createSupabaseClient } from "@/lib/supabase/client";
 
 export default function ForgotPasswordPage() {
-  const supabase = createSupabaseClient();
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  async function handleReset(e: React.FormEvent<HTMLFormElement>) {
+  const validateEmail = (email: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage("");
-    setErrorMsg("");
+    setError(null);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${location.origin}/auth/reset-password`,
-    });
-
-    if (error) {
-      setErrorMsg(error.message);
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address.");
       return;
     }
 
-    setMessage("Password reset link sent to your email.");
-  }
+    setLoading(true);
+
+    const res = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data.error || "Failed to send reset link");
+      setLoading(false);
+      return;
+    }
+
+    setSuccess(true);
+    setLoading(false);
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 pt-32 bg-gray-100">
-      <form
-        onSubmit={handleReset}
-        className="bg-white p-8 rounded-2xl shadow-lg border border-teal-200 w-full max-w-sm"
-      >
-        <h1 className="text-3xl font-black text-teal-800 mb-6 text-center">
-          Reset Password
-        </h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
+      <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-8">
 
-        {message && <p className="text-green-600 mb-4 text-center">{message}</p>}
-        {errorMsg && <p className="text-red-600 mb-4 text-center">{errorMsg}</p>}
+        {success ? (
+          <div className="text-center animate-fade-in">
+            <h2 className="text-2xl font-bold text-teal-700 mb-2">
+              Check Your Email
+            </h2>
+            <p className="text-gray-700">
+              If an account exists, a reset link has been sent.
+            </p>
+          </div>
+        ) : (
+          <>
+            <h2 className="text-2xl font-bold text-center mb-6">
+              Forgot Password
+            </h2>
 
-        <input
-          type="email"
-          placeholder="Enter your email"
-          className="w-full p-4 border rounded-xl mb-6"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
 
-        <button
-          type="submit"
-          className="w-full bg-teal-700 text-white py-3 rounded-xl font-semibold hover:bg-teal-800 transition"
-        >
-          Send Reset Link
-        </button>
-      </form>
+              {error && (
+                <p className="text-sm text-red-600 text-center">{error}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className={`w-full py-2 rounded-lg text-white font-semibold ${
+                  loading ? "bg-gray-400" : "bg-teal-600 hover:bg-teal-700"
+                }`}
+              >
+                {loading ? "Sending..." : "Send Reset Link"}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
     </div>
   );
 }

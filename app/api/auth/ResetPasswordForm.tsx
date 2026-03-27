@@ -1,43 +1,52 @@
-"use client";
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+const prisma = new PrismaClient();
 
-export default function ResetPasswordForm() {
-  const [loading, setLoading] = useState(false);
+export async function POST(req: Request) {
+  try {
+    const { token, password } = await req.json();
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-
-    const form = new FormData(e.currentTarget);
-    const password = form.get("password");
-
-    const res = await fetch("/api/auth/reset-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.error);
-      setLoading(false);
-      return;
+    if (!token || !password) {
+      return NextResponse.json(
+        { error: "Token and password are required" },
+        { status: 400 }
+      );
     }
 
-    alert("Password updated successfully.");
-    window.location.href = "/login";
-  }
+    const reset = await prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input name="password" type="password" placeholder="New password" required />
-      <Button type="submit" disabled={loading}>
-        {loading ? "Updating..." : "Update Password"}
-      </Button>
-    </form>
-  );
+    if (!reset || reset.expiresAt < new Date()) {
+      return NextResponse.json(
+        { error: "Invalid or expired reset token" },
+        { status: 400 }
+      );
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    // Update user password
+    await prisma.user.update({
+      where: { id: reset.userId },
+      data: { passwordHash },
+    });
+
+    // Delete token
+    await prisma.passwordResetToken.delete({
+      where: { token },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("Reset Password Error:", err);
+    return NextResponse.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
+  }
 }

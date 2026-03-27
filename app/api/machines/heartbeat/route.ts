@@ -1,15 +1,30 @@
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
-  const { machine_id } = await req.json();
+  const { licenseKey, machineId, ipAddress, machineName, osVersion } = await req.json();
 
-  await supabase
-    .from("machines")
-    .update({ last_active: new Date() })
-    .eq("device_id", machine_id);
+  const license = await prisma.license.findFirst({
+    where: { licenseKey },
+  });
 
-  return NextResponse.json({ success: true });
+  if (!license) {
+    return NextResponse.json({ ok: false, error: "Invalid license" }, { status: 400 });
+  }
+
+  const activation = await prisma.machineActivation.upsert({
+    where: { licenseId_machineId: { licenseId: license.id, machineId } },
+    update: { lastSeenAt: new Date(), ipAddress, machineName, osVersion },
+    create: {
+      licenseId: license.id,
+      machineId,
+      ipAddress,
+      machineName,
+      osVersion,
+    },
+  });
+
+  return NextResponse.json({ ok: true, activationId: activation.id });
 }

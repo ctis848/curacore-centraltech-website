@@ -1,136 +1,101 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createSupabaseClient } from "@/lib/supabase/client";
+import RequireRole from "./components/RequireRole";
+import DashboardKPI from "./components/dashboard/DashboardKPI";
+import DashboardChart from "./components/dashboard/DashboardChart";
+import DashboardErrorChart from "./components/dashboard/DashboardErrorChart";
+
+interface DashboardData {
+  totalUsers: number;
+  totalLicenses: number;
+  activeLicenses: number;
+  totalRevenue: number;
+  recentUsers: number[];
+  recentLicenses: number[];
+  recentRevenue: number[];
+  recentErrors: number[];
+}
+
+interface Tenant {
+  id: string;
+  name: string;
+}
 
 export default function AdminDashboard() {
-  const router = useRouter();
-  const supabase = createSupabaseClient();
-
-  const [authUser, setAuthUser] = useState<any>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [tenantFilter, setTenantFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    Promise.all([
+      fetch(`/admin/api/dashboard?tenant=${tenantFilter}`).then((r) => r.json()),
+      fetch("/admin/api/tenants").then((r) => r.json()),
+    ])
+      .then(([dashboardData, tenantData]) => {
+        setData(dashboardData);
+        setTenants(tenantData);
+      })
+      .finally(() => setLoading(false));
+  }, [tenantFilter]);
 
-      if (!user) {
-        router.push("/auth/login");
-        return;
-      }
-
-      if (user.user_metadata.role !== "admin") {
-        router.push("/unauthorized");
-        return;
-      }
-
-      setAuthUser(user);
-      setLoading(false);
-    }
-
-    load();
-  }, [router, supabase]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-2xl font-bold text-gray-700 animate-pulse">
-          Loading Admin Dashboard...
-        </p>
-      </div>
-    );
+  if (loading || !data) {
+    return <p className="p-6 dark:text-white">Loading dashboard...</p>;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      <header className="bg-gray-900 text-white py-6 px-8 shadow-lg">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="text-4xl font-black">CTIS Admin Portal</h1>
+    <RequireRole role="ADMIN">
+      <div className="space-y-8">
+        <h1 className="text-3xl font-bold dark:text-white">Dashboard</h1>
 
-          <button
-            onClick={() => supabase.auth.signOut()}
-            className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-xl font-bold transition"
+        {/* Tenant Filter */}
+        <div className="flex gap-4">
+          <select
+            value={tenantFilter}
+            onChange={(e) => setTenantFilter(e.target.value)}
+            className="p-2 border rounded dark:bg-gray-900 dark:border-gray-700 dark:text-white"
           >
-            Logout
-          </button>
+            <option value="ALL">All tenants</option>
+            {tenants.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
         </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto py-12 px-6">
-        <div className="bg-white rounded-3xl shadow-2xl p-10 border border-gray-200">
-          <h2 className="text-3xl font-black text-gray-900 mb-10 text-center">
-            Welcome, Administrator
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <a
-              href="/admin/activation-requests"
-              className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
-            >
-              <h3 className="text-xl font-bold mb-3">Activation Requests</h3>
-              <p className="text-gray-600">
-                View all license activation requests submitted by clients.
-              </p>
-            </a>
-
-            <a
-              href="/admin/licenses"
-              className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
-            >
-              <h3 className="text-xl font-bold mb-3">License Management</h3>
-              <p className="text-gray-600">
-                View, manage, assign, revoke, and resend licenses.
-              </p>
-            </a>
-
-            <a
-              href="/admin/licenses/generate"
-              className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
-            >
-              <h3 className="text-xl font-bold mb-3">Generate License</h3>
-              <p className="text-gray-600">
-                Create new licenses manually for clients.
-              </p>
-            </a>
-
-            <a
-              href="/admin/machines"
-              className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
-            >
-              <h3 className="text-xl font-bold mb-3">Machine Logs</h3>
-              <p className="text-gray-600">
-                View machine activations and binding history.
-              </p>
-            </a>
-
-            <a
-              href="/dashboard"
-              className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
-            >
-              <h3 className="text-xl font-bold mb-3">Client Portal</h3>
-              <p className="text-gray-600">
-                Switch back to the client dashboard.
-              </p>
-            </a>
-
-            <a
-              href="/admin/settings"
-              className="p-8 bg-gray-100 rounded-2xl shadow hover:shadow-lg transition text-center"
-            >
-              <h3 className="text-xl font-bold mb-3">System Settings</h3>
-              <p className="text-gray-600">
-                Configure admin roles, license defaults, and system behavior.
-              </p>
-            </a>
-          </div>
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <DashboardKPI title="Total Users" value={data.totalUsers} />
+          <DashboardKPI title="Total Licenses" value={data.totalLicenses} />
+          <DashboardKPI title="Active Licenses" value={data.activeLicenses} />
+          <DashboardKPI
+            title="Total Revenue"
+            value={`$${data.totalRevenue.toLocaleString()}`}
+          />
         </div>
-      </main>
-    </div>
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <DashboardChart
+            title="New Users (Last 30 Days)"
+            data={data.recentUsers}
+          />
+          <DashboardChart
+            title="New Licenses (Last 30 Days)"
+            data={data.recentLicenses}
+          />
+          <DashboardChart
+            title="Revenue (Last 30 Days)"
+            data={data.recentRevenue}
+          />
+          <DashboardErrorChart
+            title="Errors (Last 30 Days)"
+            data={data.recentErrors}
+          />
+        </div>
+      </div>
+    </RequireRole>
   );
 }

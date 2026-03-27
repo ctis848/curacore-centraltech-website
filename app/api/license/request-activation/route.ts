@@ -1,45 +1,55 @@
 import { NextResponse } from "next/server";
-import { sendEmail } from "@/app/lib/sendEmail";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { supabase } from "@/lib/supabase";
+import { sendEmail } from "@/lib/sendEmail";
 
 export async function POST(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
-  const { request_key } = await req.json();
+  const body = await req.json();
+  const { license_id, message } = body;
 
-  if (!request_key) {
-    return NextResponse.json({ error: "Request key is required" }, { status: 400 });
+  if (!license_id) {
+    return NextResponse.json(
+      { error: "license_id is required" },
+      { status: 400 }
+    );
   }
 
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (userError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Email to CTIS
-  await sendEmail(
-    "info@ctistech.com",
-    "New License Activation Request",
-    `A client has submitted a license activation request.
+  const { data: license, error: licenseError } = await supabase
+    .from("licenses")
+    .select("id, user_id")
+    .eq("id", license_id)
+    .eq("user_id", user.id)
+    .single();
 
-User ID: ${user.id}
-Email: ${user.email}
+  if (licenseError || !license) {
+    return NextResponse.json(
+      { error: "License not found" },
+      { status: 404 }
+    );
+  }
 
-Request Key:
-${request_key}
-
-Please generate the license manually and email it back to the client.`
-  );
-
-  // Log request
-  await supabase.from("license_renewal_history").insert({
-    license_id: null,
+  await supabase.from("activation_requests").insert({
+    license_id,
     user_id: user.id,
-    action: "activation_requested",
-    metadata: { request_key },
+    message: message || "",
+    status: "pending",
+  });
+
+  await sendEmail({
+    to: "admin@centralcore.com",
+    subject: "New License Activation Request",
+    html: `
+      <p>User <strong>${user.email}</strong> requested activation for license <strong>${license_id}</strong>.</p>
+      <p>Message: ${message || "No message provided"}</p>
+    `,
   });
 
   return NextResponse.json({ success: true });

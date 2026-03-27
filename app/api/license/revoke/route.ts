@@ -1,47 +1,60 @@
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { supabase } from "@/lib/supabase";
 
 export async function POST(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
-  const { license_id } = await req.json();
+  const body = await req.json();
+  const { license_id } = body;
+
+  if (!license_id) {
+    return NextResponse.json(
+      { error: "license_id is required" },
+      { status: 400 }
+    );
+  }
 
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (userError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Ensure license belongs to the user
-  const { data: license } = await supabase
+  const { data: license, error: licenseError } = await supabase
     .from("licenses")
     .select("*")
     .eq("id", license_id)
     .eq("user_id", user.id)
     .single();
 
-  if (!license) {
-    return NextResponse.json({ error: "License not found" }, { status: 404 });
+  if (licenseError || !license) {
+    return NextResponse.json(
+      { error: "License not found" },
+      { status: 404 }
+    );
   }
 
-  // Revoke license (free machine)
-  await supabase
+  const { error: updateError } = await supabase
     .from("licenses")
     .update({
-      is_active: false,
-      auto_revoked: false,
-      service_fee_paid: false,
-      renewal_due_date: null,
+      active: false,
+      revoked_at: new Date().toISOString(),
     })
-    .eq("id", license.id);
+    .eq("id", license_id);
 
-  // Log the revocation
+  if (updateError) {
+    return NextResponse.json(
+      { error: "Failed to revoke license" },
+      { status: 500 }
+    );
+  }
+
   await supabase.from("license_renewal_history").insert({
-    license_id: license.id,
+    license_id,
     user_id: user.id,
-    action: "revoked_by_client",
+    action: "revoked",
+    metadata: {},
   });
 
   return NextResponse.json({ success: true });

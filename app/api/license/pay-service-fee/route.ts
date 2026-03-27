@@ -1,53 +1,61 @@
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { supabase } from "@/lib/supabase";
 
 export async function POST(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
-  const { license_id } = await req.json();
+  const body = await req.json();
+  const { license_id, amount } = body;
 
-  // Get logged-in user
+  if (!license_id || !amount) {
+    return NextResponse.json(
+      { error: "license_id and amount are required" },
+      { status: 400 }
+    );
+  }
+
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (userError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Fetch license
-  const { data: license } = await supabase
+  const { data: license, error: licenseError } = await supabase
     .from("licenses")
     .select("*")
     .eq("id", license_id)
     .eq("user_id", user.id)
     .single();
 
-  if (!license) {
-    return NextResponse.json({ error: "License not found" }, { status: 404 });
+  if (licenseError || !license) {
+    return NextResponse.json(
+      { error: "License not found" },
+      { status: 404 }
+    );
   }
 
-  const now = new Date();
-
-  // Update renewal fields
-  const { error } = await supabase
+  const { error: updateError } = await supabase
     .from("licenses")
     .update({
       service_fee_paid: true,
-      last_payment_date: now.toISOString(),
-      renewal_due_date: new Date(
-        now.getFullYear() + 1,
-        now.getMonth(),
-        now.getDate()
-      ).toISOString(),
-      is_active: true,
-      auto_revoked: false,
+      service_fee_paid_at: new Date().toISOString(),
     })
-    .eq("id", license.id);
+    .eq("id", license_id);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  if (updateError) {
+    return NextResponse.json(
+      { error: "Failed to update license" },
+      { status: 500 }
+    );
   }
+
+  await supabase.from("license_renewal_history").insert({
+    license_id,
+    user_id: user.id,
+    action: "service_fee_paid",
+    metadata: { amount },
+  });
 
   return NextResponse.json({ success: true });
 }

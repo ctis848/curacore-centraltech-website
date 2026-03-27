@@ -2,17 +2,24 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 export default function RoleNavBar() {
-  const supabase = createClientComponentClient();
   const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      setRole(user?.user_metadata.role || null);
+      try {
+        const res = await fetch("/api/auth/session", {
+          credentials: "include",
+        });
+
+        const data = await res.json();
+        setRole(data?.user?.role || null);
+      } catch {
+        setRole(null);
+      }
     }
+
     load();
   }, []);
 
@@ -34,7 +41,7 @@ export default function RoleNavBar() {
           )}
 
           {role === "client" && (
-            <Link href="/dashboard" className="font-bold text-green-300">
+            <Link href="/client/panel" className="font-bold text-green-300">
               Dashboard
             </Link>
           )}

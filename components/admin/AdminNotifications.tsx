@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 type Notification = {
   id: string;
@@ -12,22 +11,20 @@ type Notification = {
 };
 
 export default function AdminNotifications() {
-  const supabase = createClientComponentClient();
   const [notes, setNotes] = useState<Notification[]>([]);
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("read", false)
-        .order("created_at", { ascending: false });
+      const res = await fetch("/api/admin/notifications", {
+        credentials: "include",
+      });
 
-      setNotes((data as Notification[]) || []);
+      const data = await res.json();
+      setNotes((data.notifications as Notification[]) || []);
     }
 
     load();
-  }, [supabase]);
+  }, []);
 
   return (
     <div className="bg-white shadow-lg rounded-xl p-4 w-80">

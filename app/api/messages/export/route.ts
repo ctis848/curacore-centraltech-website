@@ -7,7 +7,7 @@ export async function GET() {
   const csv =
     "id,name,email,message,createdAt\n" +
     messages
-      .map((m) =>
+      .map((m: any) =>
         [m.id, m.name, m.email, m.message, m.createdAt.toISOString()].join(",")
       )
       .join("\n");
