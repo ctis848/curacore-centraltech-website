@@ -8,6 +8,11 @@
 [build.environment]
   NODE_VERSION = "22"
 
+###############################################
+# Next.js Plugin (REQUIRED)
+###############################################
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 ###############################################
 # Redirect Rules
