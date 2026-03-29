@@ -32,20 +32,24 @@ export default function Topbar({
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
-  const profileRef = useRef(null);
-  const notifRef = useRef(null);
+  // FIX: Properly typed refs
+  const profileRef = useRef<HTMLDivElement | null>(null);
+  const notifRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    function handleClick(e: any) {
-      if (profileRef.current && !profileRef.current.contains(e.target)) {
+    function handleClick(e: MouseEvent) {
+      const target = e.target as Node;
+
+      if (profileRef.current && !profileRef.current.contains(target)) {
         setProfileOpen(false);
       }
-      if (notifRef.current && !notifRef.current.contains(e.target)) {
+      if (notifRef.current && !notifRef.current.contains(target)) {
         setNotifOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
   }, []);
 
   return (
