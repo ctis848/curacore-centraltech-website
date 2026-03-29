@@ -9,17 +9,26 @@ import {
   UserCircleIcon,
 } from "@heroicons/react/24/outline";
 
-export default function Topbar({
-  onToggleSidebar,
-  onToggleMobile,
-  onToggleTheme,
-  darkMode,
-}: {
+type UserType = {
+  name?: string | null;
+  email?: string | null;
+};
+
+type TopbarProps = {
+  user?: UserType;
   onToggleSidebar: () => void;
   onToggleMobile: () => void;
   onToggleTheme: () => void;
   darkMode: boolean;
-}) {
+};
+
+export default function Topbar({
+  user,
+  onToggleSidebar,
+  onToggleMobile,
+  onToggleTheme,
+  darkMode,
+}: TopbarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -108,6 +117,14 @@ export default function Topbar({
 
           {profileOpen && (
             <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-slate-700 shadow rounded">
+              <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 border-b dark:border-slate-600">
+                {user?.name ?? "Admin"}
+                <br />
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {user?.email ?? ""}
+                </span>
+              </div>
+
               <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-600 text-sm">
                 Profile
               </button>
