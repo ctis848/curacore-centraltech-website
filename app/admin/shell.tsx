@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import Sidebar from "./sidebar";
 import Topbar from "./topbar";
 
@@ -15,6 +15,11 @@ interface AdminShellProps {
 export default function AdminShell({ user, children }: AdminShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+  }, [darkMode]);
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-900">
@@ -42,6 +47,8 @@ export default function AdminShell({ user, children }: AdminShellProps) {
           user={user ?? undefined}
           onToggleSidebar={() => setCollapsed((prev) => !prev)}
           onToggleMobile={() => setMobileOpen(true)}
+          onToggleTheme={() => setDarkMode((prev) => !prev)}
+          darkMode={darkMode}
         />
 
         <main className="p-6">{children}</main>
