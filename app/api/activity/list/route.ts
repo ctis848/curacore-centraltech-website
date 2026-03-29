@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function GET() {
+  const supabase = supabaseServer();
+
+  // Get authenticated user
   const {
     data: { user },
     error: userError,
@@ -11,6 +14,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Fetch activity logs for this user
   const { data, error } = await supabase
     .from("activity_logs")
     .select("*")

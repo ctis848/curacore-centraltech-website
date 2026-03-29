@@ -1,17 +1,30 @@
+// FILE: app/api/client/licenses/route.ts
 import { NextResponse } from "next/server";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function GET() {
-  // Example static licenses (replace with DB query later)
-  const licenses = [
-    {
-      licenseKey: "TEST-123-ABC",
-      productName: "Test Product",
-      status: "ACTIVE",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
-    },
-  ];
+  const supabase = supabaseServer();
 
-  return NextResponse.json({ licenses });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data, error } = await supabase
+    .from("licenses")
+    .select("*")
+    .eq("client_id", user.id)
+    .order("activated_at", { ascending: false });
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Failed to load licenses" },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ licenses: data });
 }

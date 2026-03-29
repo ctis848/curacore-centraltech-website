@@ -1,9 +1,11 @@
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 
 async function getHistory() {
+  const supabase = supabaseServer();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();

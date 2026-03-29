@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
+  const supabase = supabaseServer();
+
   const body = await req.json();
   const { subject, message } = body;
 
@@ -12,6 +14,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Get authenticated user
   const {
     data: { user },
     error: userError,
@@ -21,6 +24,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Create support ticket
   const { error } = await supabase.from("support_tickets").insert({
     user_id: user.id,
     subject,

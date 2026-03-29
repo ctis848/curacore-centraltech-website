@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
+  const supabase = supabaseServer();
+
   const body = await req.json();
   const { license_id } = body;
 
@@ -12,6 +14,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Get authenticated user
   const {
     data: { user },
     error: userError,
@@ -21,6 +24,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Verify license belongs to user
   const { data: license, error: licenseError } = await supabase
     .from("licenses")
     .select("*")
@@ -35,6 +39,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Revoke license
   const { error: updateError } = await supabase
     .from("licenses")
     .update({
@@ -50,6 +55,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Log revocation
   await supabase.from("license_renewal_history").insert({
     license_id,
     user_id: user.id,

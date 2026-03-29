@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
+  const supabase = supabaseServer();
+
   const body = await req.json();
   const { user_id, amount, description } = body;
 
@@ -12,6 +14,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Fetch user
   const { data: userData, error: userError } = await supabase
     .from("users")
     .select("id, email")
@@ -25,6 +28,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Create invoice
   const { data, error } = await supabase
     .from("invoices")
     .insert({

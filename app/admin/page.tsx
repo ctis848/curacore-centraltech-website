@@ -1,101 +1,59 @@
-"use client";
+// FILE: app/admin/page.tsx
+export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
-import RequireRole from "./components/RequireRole";
-import DashboardKPI from "./components/dashboard/DashboardKPI";
-import DashboardChart from "./components/dashboard/DashboardChart";
-import DashboardErrorChart from "./components/dashboard/DashboardErrorChart";
+import { supabaseServer } from "@/lib/supabase/server";
+import RevenueChart from "./RevenueChart";
 
-interface DashboardData {
-  totalUsers: number;
-  totalLicenses: number;
-  activeLicenses: number;
-  totalRevenue: number;
-  recentUsers: number[];
-  recentLicenses: number[];
-  recentRevenue: number[];
-  recentErrors: number[];
-}
+export default async function AdminDashboard() {
+  const supabase = supabaseServer();
 
-interface Tenant {
-  id: string;
-  name: string;
-}
+  const [{ count: clients }, { count: licenses }, { count: pending }] =
+    await Promise.all([
+      supabase.from("clients").select("*", { count: "exact", head: true }),
+      supabase.from("licenses").select("*", { count: "exact", head: true }),
+      supabase
+        .from("license_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending"),
+    ]);
 
-export default function AdminDashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [tenantFilter, setTenantFilter] = useState("ALL");
-  const [loading, setLoading] = useState(true);
+  const { data: payments } = await supabase
+    .from("payments")
+    .select("amount, paid_at")
+    .eq("status", "paid");
 
-  useEffect(() => {
-    Promise.all([
-      fetch(`/admin/api/dashboard?tenant=${tenantFilter}`).then((r) => r.json()),
-      fetch("/admin/api/tenants").then((r) => r.json()),
-    ])
-      .then(([dashboardData, tenantData]) => {
-        setData(dashboardData);
-        setTenants(tenantData);
-      })
-      .finally(() => setLoading(false));
-  }, [tenantFilter]);
-
-  if (loading || !data) {
-    return <p className="p-6 dark:text-white">Loading dashboard...</p>;
-  }
+  const totalRevenue =
+    payments?.reduce((sum, p) => sum + Number(p.amount), 0) ?? 0;
 
   return (
-    <RequireRole role="ADMIN">
-      <div className="space-y-8">
-        <h1 className="text-3xl font-bold dark:text-white">Dashboard</h1>
+    <div className="space-y-8">
+      <h1 className="text-2xl font-bold">Dashboard</h1>
 
-        {/* Tenant Filter */}
-        <div className="flex gap-4">
-          <select
-            value={tenantFilter}
-            onChange={(e) => setTenantFilter(e.target.value)}
-            className="p-2 border rounded dark:bg-gray-900 dark:border-gray-700 dark:text-white"
-          >
-            <option value="ALL">All tenants</option>
-            {tenants.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <DashboardKPI title="Total Users" value={data.totalUsers} />
-          <DashboardKPI title="Total Licenses" value={data.totalLicenses} />
-          <DashboardKPI title="Active Licenses" value={data.activeLicenses} />
-          <DashboardKPI
-            title="Total Revenue"
-            value={`$${data.totalRevenue.toLocaleString()}`}
-          />
-        </div>
-
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <DashboardChart
-            title="New Users (Last 30 Days)"
-            data={data.recentUsers}
-          />
-          <DashboardChart
-            title="New Licenses (Last 30 Days)"
-            data={data.recentLicenses}
-          />
-          <DashboardChart
-            title="Revenue (Last 30 Days)"
-            data={data.recentRevenue}
-          />
-          <DashboardErrorChart
-            title="Errors (Last 30 Days)"
-            data={data.recentErrors}
-          />
-        </div>
+      {/* STATS GRID */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Clients" value={clients ?? 0} />
+        <StatCard title="Licenses" value={licenses ?? 0} />
+        <StatCard title="Pending Requests" value={pending ?? 0} />
+        <StatCard
+          title="Total Revenue"
+          value={"₦" + totalRevenue.toLocaleString()}
+        />
       </div>
-    </RequireRole>
+
+      {/* REVENUE CHART */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-semibold mb-4">Revenue (Last 12 Months)</h2>
+        <RevenueChart payments={payments || []} />
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ title, value }: { title: string; value: any }) {
+  return (
+    <div className="bg-white p-6 rounded-lg shadow text-center">
+      <p className="text-sm text-slate-500">{title}</p>
+      <p className="text-3xl font-bold mt-1">{value}</p>
+    </div>
   );
 }

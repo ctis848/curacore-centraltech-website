@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function GET() {
   try {
+    const supabase = supabaseServer();
+
     // Fetch all licenses
     const { data: licenses, error } = await supabase
       .from("licenses")

@@ -1,64 +1,83 @@
 import { NextResponse } from "next/server";
-import { createServerDbClient } from "@/lib/supabase/server";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { requestKey, machineId, licenseKey, secret } = body;
 
+    // Validate webhook secret
     if (secret !== process.env.WINDOWS_APP_WEBHOOK_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { db } = await createServerDbClient();
+    const supabase = supabaseServer();
 
-    // Find pending license request by requestKey
-    const licenseRequest = await db.licenseRequest.findFirst({
-      where: {
-        requestKey,
-        status: "PENDING",
-      },
-    });
+    // 1. Find pending license request
+    const { data: licenseRequest, error: requestError } = await supabase
+      .from("license_requests")
+      .select("*")
+      .eq("requestKey", requestKey)
+      .eq("status", "PENDING")
+      .single();
 
-    if (!licenseRequest) {
+    if (requestError || !licenseRequest) {
       return NextResponse.json(
         { error: "Pending license request not found" },
         { status: 404 }
       );
     }
 
-    // Find license tied to that request + machine
-    const license = await db.license.findFirst({
-      where: {
-        licenseRequestId: licenseRequest.id,
-        machineId,
-        status: "PENDING",
-      },
-    });
+    // 2. Find pending license tied to request + machine
+    const { data: license, error: licenseError } = await supabase
+      .from("licenses")
+      .select("*")
+      .eq("licenseRequestId", licenseRequest.id)
+      .eq("machineId", machineId)
+      .eq("status", "PENDING")
+      .single();
 
-    if (!license) {
+    if (licenseError || !license) {
       return NextResponse.json(
         { error: "Pending license not found" },
         { status: 404 }
       );
     }
 
-    await db.license.update({
-      where: { id: license.id },
-      data: {
+    // 3. Activate license
+    const { error: updateLicenseError } = await supabase
+      .from("licenses")
+      .update({
         licenseKey,
         status: "ACTIVE",
-        activatedAt: new Date(),
-      },
-    });
+        activatedAt: new Date().toISOString(),
+      })
+      .eq("id", license.id);
 
-    await db.licenseRequest.update({
-      where: { id: licenseRequest.id },
-      data: {
+    if (updateLicenseError) {
+      console.error("License update error:", updateLicenseError.message);
+      return NextResponse.json(
+        { error: "Failed to activate license" },
+        { status: 500 }
+      );
+    }
+
+    // 4. Mark license request as approved
+    const { error: updateRequestError } = await supabase
+      .from("license_requests")
+      .update({
         status: "APPROVED",
-        processedAt: new Date(),
-      },
-    });
+        processedAt: new Date().toISOString(),
+      })
+      .eq("id", licenseRequest.id);
+
+    if (updateRequestError) {
+      console.error("License request update error:", updateRequestError.message);
+      return NextResponse.json(
+        { error: "Failed to update license request" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

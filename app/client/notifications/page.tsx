@@ -1,102 +1,80 @@
-"use client";
+// FILE: app/client/notifications/page.tsx
+export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { supabaseServer } from "@/lib/supabase/server";
+import MarkAsReadButton from "./MarkAsReadButton";
 
-type Notification = {
-  id: string;
-  type: string;
-  message: string;
-  createdAt: string;
-  read: boolean;
-};
+export default async function ClientNotificationsPage() {
+  const supabase = supabaseServer();
 
-export default function NotificationsPage() {
-  const [items, setItems] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Get logged-in client
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  async function load() {
-    setLoading(true);
-    const res = await fetch("/api/client/notifications");
-    const data = await res.json();
-    setItems(data);
-    setLoading(false);
+  if (!user) {
+    return (
+      <div className="p-6 text-center text-red-600">
+        You must be logged in to view notifications.
+      </div>
+    );
   }
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function markRead(id: string, read: boolean) {
-    await fetch(`/api/client/notifications/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ read }),
-    });
-    await load();
-  }
-
-  async function remove(id: string) {
-    await fetch(`/api/client/notifications/${id}`, { method: "DELETE" });
-    await load();
-  }
+  // Fetch notifications for this client
+  const { data: notifications } = await supabase
+    .from("notifications")
+    .select("id, title, message, created_at, read")
+    .eq("client_id", user.id)
+    .order("created_at", { ascending: false });
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <h1 className="text-2xl font-bold">Notifications</h1>
-      <p className="text-slate-500">
-        See important updates about your licenses, invoices, and account.
-      </p>
+    <div className="space-y-6 max-w-3xl mx-auto py-6">
+      <h2 className="text-2xl font-bold">Your Notifications</h2>
 
-      {loading ? (
-        <p className="text-slate-500">Loading...</p>
-      ) : items.length === 0 ? (
-        <p className="text-slate-500">No notifications.</p>
-      ) : (
-        <div className="space-y-3">
-          {items.map((n) => (
-            <div
+      <table className="w-full text-sm bg-white rounded-lg shadow overflow-hidden">
+        <thead className="bg-slate-100 text-left">
+          <tr>
+            <th className="p-2">Title</th>
+            <th className="p-2">Message</th>
+            <th className="p-2">Date</th>
+            <th className="p-2">Status</th>
+            <th className="p-2">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {notifications?.map((n) => (
+            <tr
               key={n.id}
-              className={`border rounded-lg px-4 py-3 text-sm flex items-start justify-between gap-3 ${
-                n.read ? "bg-white" : "bg-slate-50 dark:bg-slate-900/40"
-              }`}
+              className={`border-t ${!n.read ? "bg-yellow-50" : ""}`}
             >
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">
-                  {n.type}
-                </p>
-                <p>{n.message}</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  {new Date(n.createdAt).toLocaleString()}
-                </p>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                {!n.read && (
-                  <button
-                    onClick={() => markRead(n.id, true)}
-                    className="text-xs text-teal-600 hover:underline"
-                  >
-                    Mark as read
-                  </button>
+              <td className="p-2 font-semibold">{n.title}</td>
+              <td className="p-2">{n.message}</td>
+              <td className="p-2">
+                {new Date(n.created_at).toLocaleString()}
+              </td>
+              <td className="p-2">
+                {n.read ? (
+                  <span className="text-green-600 font-medium">Read</span>
+                ) : (
+                  <span className="text-red-600 font-medium">Unread</span>
                 )}
-                {n.read && (
-                  <button
-                    onClick={() => markRead(n.id, false)}
-                    className="text-xs text-slate-500 hover:underline"
-                  >
-                    Mark as unread
-                  </button>
-                )}
-                <button
-                  onClick={() => remove(n.id)}
-                  className="text-xs text-rose-600 hover:underline"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
+              </td>
+              <td className="p-2">
+                {!n.read && <MarkAsReadButton id={n.id} />}
+              </td>
+            </tr>
           ))}
-        </div>
-      )}
+
+          {notifications?.length === 0 && (
+            <tr>
+              <td colSpan={5} className="p-4 text-center text-slate-500">
+                No notifications yet
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }

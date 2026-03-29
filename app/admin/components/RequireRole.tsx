@@ -1,37 +1,42 @@
-// app/admin/components/RequireRole.tsx
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { createSupabaseClient } from "@/lib/supabase/client";
 
 interface RequireRoleProps {
-  role: "ADMIN" | "SUPER_ADMIN";
-  children: ReactNode;
+  role: string;
+  children: React.ReactNode;
 }
 
 export default function RequireRole({ role, children }: RequireRoleProps) {
-  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const router = useRouter();
+  const supabase = createSupabaseClient();
 
   useEffect(() => {
-    fetch("/admin/api/me")
-      .then((res) => res.json())
-      .then((user) => {
-        if (!user?.role) return setAllowed(false);
-        setAllowed(user.role === role || user.role === "SUPER_ADMIN");
-      })
-      .catch(() => setAllowed(false));
+    async function checkRole() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push("/auth/login");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile || profile.role !== role) {
+        router.push("/unauthorized");
+      }
+    }
+
+    checkRole();
   }, [role]);
-
-  if (allowed === null) {
-    return <p className="p-6 dark:text-white">Checking permissions...</p>;
-  }
-
-  if (!allowed) {
-    return (
-      <p className="p-6 text-red-500 dark:text-red-400">
-        You do not have permission to view this page.
-      </p>
-    );
-  }
 
   return <>{children}</>;
 }

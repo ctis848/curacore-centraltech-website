@@ -1,20 +1,31 @@
-import { createServerDbClient } from "../supabase/server";
+import { supabaseServer } from "../supabase/server";
 
 export async function getUserAndRole() {
-  const { db, token } = await createServerDbClient();
+  const supabase = supabaseServer();
 
-  // Load session + user
-  const session = await db.session.findUnique({
-    where: { token },
-    include: { user: true },
-  });
+  // Get authenticated user
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (userError || !user) {
     return { user: null, role: null };
   }
 
+  // Load role from your profiles table
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError) {
+    console.error("Error loading user role:", profileError.message);
+  }
+
   return {
-    user: session.user,
-    role: session.user.role,
+    user,
+    role: profile?.role ?? null,
   };
 }

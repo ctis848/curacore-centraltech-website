@@ -41,6 +41,7 @@ export default function Topbar({
     }
   };
 
+  // Load notifications
   useEffect(() => {
     fetch("/admin/api/notifications")
       .then(safeJson)
@@ -48,6 +49,7 @@ export default function Topbar({
       .catch(() => setNotifications([]));
   }, []);
 
+  // Load tenants
   useEffect(() => {
     fetch("/admin/api/tenants")
       .then(safeJson)
@@ -59,6 +61,7 @@ export default function Topbar({
       .catch(() => setTenants([]));
   }, []);
 
+  // Real‑time notifications via Pusher
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
     const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER ?? "mt1";
@@ -81,6 +84,7 @@ export default function Topbar({
     };
   }, []);
 
+  // Theme toggle
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
@@ -89,7 +93,9 @@ export default function Topbar({
 
   return (
     <header className="w-full bg-white dark:bg-gray-900 shadow p-4 flex justify-between items-center transition-colors">
+      {/* Left Section */}
       <div className="flex items-center gap-4">
+        {/* Desktop Sidebar Toggle */}
         <button
           onClick={onToggleSidebar}
           className="hidden md:block p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -97,6 +103,7 @@ export default function Topbar({
           <MenuIcon size={22} className="dark:text-white" />
         </button>
 
+        {/* Mobile Sidebar Toggle */}
         <button
           onClick={onToggleMobile}
           className="md:hidden p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -109,7 +116,9 @@ export default function Topbar({
         </h1>
       </div>
 
+      {/* Right Section */}
       <div className="flex items-center gap-6">
+        {/* Tenant Switcher */}
         <select
           value={activeTenant}
           onChange={(e) => setActiveTenant(e.target.value)}
@@ -122,6 +131,7 @@ export default function Topbar({
           ))}
         </select>
 
+        {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
           className="p-2 rounded bg-gray-200 dark:bg-gray-700"
@@ -129,6 +139,7 @@ export default function Topbar({
           <Palette size={20} className="dark:text-white" />
         </button>
 
+        {/* Alerts */}
         <a
           href="/admin/alerts"
           className="p-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -139,6 +150,7 @@ export default function Topbar({
           />
         </a>
 
+        {/* Notifications Dropdown */}
         <Menu as="div" className="relative inline-block text-left">
           <Menu.Button className="relative">
             <Bell
@@ -171,6 +183,7 @@ export default function Topbar({
           </Menu.Items>
         </Menu>
 
+        {/* Profile Dropdown */}
         <Menu as="div" className="relative inline-block text-left">
           <Menu.Button className="flex items-center gap-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded">
             <span className="dark:text-white">{displayName}</span>

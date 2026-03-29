@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 
 function verifyPaystackSignature(rawBody: string, signature: string | null) {
   if (!signature) return false;
@@ -14,6 +14,8 @@ function verifyPaystackSignature(rawBody: string, signature: string | null) {
 }
 
 export async function POST(req: Request) {
+  const supabase = supabaseServer();
+
   const rawBody = await req.text();
   const signature = req.headers.get("x-paystack-signature");
 
@@ -30,6 +32,7 @@ export async function POST(req: Request) {
     const user_id = metadata.user_id;
 
     if (license_id && user_id) {
+      // Mark license as paid
       await supabase
         .from("licenses")
         .update({
@@ -38,6 +41,7 @@ export async function POST(req: Request) {
         })
         .eq("id", license_id);
 
+      // Log renewal history
       await supabase.from("license_renewal_history").insert({
         license_id,
         user_id,

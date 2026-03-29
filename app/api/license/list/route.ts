@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 
 export async function GET() {
   try {
+    const supabase = supabaseServer();
+
     // Must await cookies() in Next.js 16+
     const cookieStore = await cookies();
     const accessToken = cookieStore.get("sb-access-token")?.value;
@@ -15,18 +17,18 @@ export async function GET() {
       );
     }
 
-    // Get user from Supabase using the token
-    const { data: userData, error: userError } =
-      await supabase.auth.getUser(accessToken);
+    // Supabase server client automatically reads cookies
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    if (userError || !userData?.user) {
+    if (userError || !user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
-
-    const user = userData.user;
 
     // Fetch licenses for this user
     const { data: licenses, error } = await supabase

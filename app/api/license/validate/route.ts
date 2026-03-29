@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
+  const supabase = supabaseServer();
+
   const body = await req.json();
   const { license_key, machine_id } = body;
 
@@ -12,6 +14,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Fetch license
   const { data: license, error: licenseError } = await supabase
     .from("licenses")
     .select("*")
@@ -32,6 +35,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Validate machine
   const { data: machine, error: machineError } = await supabase
     .from("machines")
     .select("*")

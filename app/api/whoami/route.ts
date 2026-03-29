@@ -1,8 +1,29 @@
-// app/api/whoami/route.ts
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function GET() {
-  const { data, error } = await supabase.auth.getUser();
-  return NextResponse.json({ data, error });
+  const supabase = supabaseServer();
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return NextResponse.json(
+      { user: null, authenticated: false },
+      { status: 200 }
+    );
+  }
+
+  return NextResponse.json(
+    {
+      user: {
+        id: user.id,
+        email: user.email,
+      },
+      authenticated: true,
+    },
+    { status: 200 }
+  );
 }

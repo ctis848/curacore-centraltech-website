@@ -89,6 +89,10 @@ export default function EnhancedTestimonials() {
             ref={cardRef}
             className="relative bg-teal-900/40 backdrop-blur-xl rounded-3xl p-10 border border-teal-500/40 shadow-2xl transition-transform duration-200 overflow-hidden group"
           >
+            {/* Glass shine */}
+            <div className="pointer-events-none absolute -left-40 top-0 w-40 h-full bg-gradient-to-b from-white/40 to-transparent opacity-0 group-hover:opacity-100 animate-shine" />
+
+            {/* Text */}
             <div className="text-left">
               <p className="text-xl mb-6 italic leading-relaxed">
                 “{current.quote}”

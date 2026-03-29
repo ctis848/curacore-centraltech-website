@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/sendEmail";
 
 export async function GET() {
   try {
+    const supabase = supabaseServer();
+
     // Fetch licenses that have unpaid service fees
     const { data: licenses, error } = await supabase
       .from("licenses")
@@ -36,7 +38,6 @@ export async function GET() {
           .single();
 
         const email = userData?.email ?? "";
-
         if (!email) continue;
 
         await sendEmail({

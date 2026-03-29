@@ -1,69 +1,75 @@
+// FILE: app/auth/admin/login/page.tsx
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createSupabaseClient } from "@/lib/supabase/client";
 
 export default function AdminLoginPage() {
-  const router = useRouter();
-  const supabase = createSupabaseClient();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    setLoading(true);
     setErrorMsg("");
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const res = await fetch("/api/auth/admin-login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
     });
 
-    if (error) {
-      setErrorMsg("Invalid login credentials");
-      return;
+    setLoading(false);
+
+    if (res.ok) {
+      window.location.href = "/admin";
+    } else {
+      const data = await res.json();
+      setErrorMsg(data.error || "Login failed");
     }
-
-    const role = data.user?.user_metadata?.role;
-
-    if (role !== "ADMIN" && role !== "SUPERADMIN") {
-      setErrorMsg("You are not authorized to access admin panel");
-      return;
-    }
-
-    router.replace("/admin");
-  };
+  }
 
   return (
-    <div style={{ maxWidth: "400px", margin: "40px auto" }}>
-      <h1>Admin Login</h1>
+    <div className="min-h-screen flex items-center justify-center bg-slate-100">
+      <form
+        onSubmit={handleLogin}
+        className="bg-white p-6 rounded-lg shadow w-96 space-y-4"
+      >
+        <h1 className="text-xl font-bold text-center">Admin Login</h1>
 
-      {errorMsg && <p style={{ color: "red" }}>{errorMsg}</p>}
+        {errorMsg && (
+          <p className="text-red-600 text-sm text-center">{errorMsg}</p>
+        )}
 
-      <form onSubmit={handleLogin}>
         <div>
-          <label>Email</label>
+          <label className="block text-sm font-medium mb-1">Email</label>
           <input
             type="email"
-            required
+            className="w-full border p-2 rounded"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
           />
         </div>
 
         <div>
-          <label>Password</label>
+          <label className="block text-sm font-medium mb-1">Password</label>
           <input
             type="password"
-            required
+            className="w-full border p-2 rounded"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            required
           />
         </div>
 
-        <button type="submit">Login</button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+        >
+          {loading ? "Logging in..." : "Login"}
+        </button>
       </form>
     </div>
   );

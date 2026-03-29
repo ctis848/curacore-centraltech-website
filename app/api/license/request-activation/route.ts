@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/sendEmail";
 
 export async function POST(req: Request) {
+  const supabase = supabaseServer();
+
   const body = await req.json();
   const { license_id, message } = body;
 
@@ -13,6 +15,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Get authenticated user
   const {
     data: { user },
     error: userError,
@@ -22,6 +25,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Verify license belongs to user
   const { data: license, error: licenseError } = await supabase
     .from("licenses")
     .select("id, user_id")
@@ -36,6 +40,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Create activation request
   await supabase.from("activation_requests").insert({
     license_id,
     user_id: user.id,
@@ -43,6 +48,7 @@ export async function POST(req: Request) {
     status: "pending",
   });
 
+  // Notify admin
   await sendEmail({
     to: "admin@centralcore.com",
     subject: "New License Activation Request",

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createSupabaseClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+
+const supabase = createSupabaseClient();
 
 export default function UpdatePasswordPage() {
   const router = useRouter();

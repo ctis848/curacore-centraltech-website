@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
+  const supabase = supabaseServer();
+
   const body = await req.json();
   const { license_id, amount } = body;
 
@@ -12,6 +14,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Get authenticated user
   const {
     data: { user },
     error: userError,
@@ -21,6 +24,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Verify license belongs to user
   const { data: license, error: licenseError } = await supabase
     .from("licenses")
     .select("*")
@@ -35,21 +39,25 @@ export async function POST(req: Request) {
     );
   }
 
-  const paystackInit = await fetch("https://api.paystack.co/transaction/initialize", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      email: user.email,
-      amount: amount * 100,
-      metadata: {
-        license_id,
-        user_id: user.id,
+  // Initialize Paystack transaction
+  const paystackInit = await fetch(
+    "https://api.paystack.co/transaction/initialize",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        "Content-Type": "application/json",
       },
-    }),
-  });
+      body: JSON.stringify({
+        email: user.email,
+        amount: amount * 100, // Paystack expects amount in kobo
+        metadata: {
+          license_id,
+          user_id: user.id,
+        },
+      }),
+    }
+  );
 
   const response = await paystackInit.json();
 
