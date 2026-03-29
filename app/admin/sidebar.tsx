@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LogoutButton from "./LogoutButton";
+import { useState } from "react";
 
-// Icons (Heroicons)
+// Icons
 import {
   HomeIcon,
   KeyIcon,
@@ -30,6 +31,11 @@ const navItems = [
 
 export default function Sidebar({ collapsed = false }) {
   const pathname = usePathname();
+  const [search, setSearch] = useState("");
+
+  const filteredItems = navItems.filter((item) =>
+    item.label.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <aside
@@ -40,18 +46,24 @@ export default function Sidebar({ collapsed = false }) {
       `}
     >
       {/* Title */}
-      <h1
-        className={`
-          text-xl font-bold mb-6 whitespace-nowrap overflow-hidden transition-opacity duration-300
-          ${collapsed ? "opacity-0" : "opacity-100"}
-        `}
-      >
-        Admin Panel
-      </h1>
+      {!collapsed && (
+        <h1 className="text-xl font-bold mb-4">Admin Panel</h1>
+      )}
+
+      {/* Search Bar */}
+      {!collapsed && (
+        <input
+          type="text"
+          placeholder="Search..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full mb-4 px-3 py-2 rounded bg-slate-800 text-sm outline-none"
+        />
+      )}
 
       {/* Navigation */}
       <nav className="space-y-2 flex-1">
-        {navItems.map((item) => {
+        {filteredItems.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
 
@@ -59,20 +71,19 @@ export default function Sidebar({ collapsed = false }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2 rounded transition-colors
+              className={`
+                flex items-center gap-3 px-3 py-2 rounded transition-all
                 ${active ? "bg-slate-700" : "hover:bg-slate-800"}
               `}
             >
               <Icon className="w-5 h-5" />
-
-              {/* Hide labels when collapsed */}
               {!collapsed && <span>{item.label}</span>}
             </Link>
           );
         })}
       </nav>
 
-      {/* Logout Button */}
+      {/* Logout */}
       <div className="pt-4 border-t border-slate-700">
         <LogoutButton />
       </div>
