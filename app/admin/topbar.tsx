@@ -32,26 +32,28 @@ export default function Topbar({
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
-  const profileRef = useRef(null);
-  const notifRef = useRef(null);
+  // ✅ FIX: Add proper types without changing behavior
+  const profileRef = useRef<HTMLDivElement | null>(null);
+  const notifRef = useRef<HTMLDivElement | null>(null);
 
-  // Close dropdowns when clicking outside
   useEffect(() => {
-    function handleClick(e: any) {
-      if (profileRef.current && !profileRef.current.contains(e.target)) {
+    function handleClick(e: MouseEvent) {
+      const target = e.target as Node;
+
+      if (profileRef.current && !profileRef.current.contains(target)) {
         setProfileOpen(false);
       }
-      if (notifRef.current && !notifRef.current.contains(e.target)) {
+      if (notifRef.current && !notifRef.current.contains(target)) {
         setNotifOpen(false);
       }
     }
+
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
   return (
     <header className="w-full h-16 bg-white dark:bg-slate-800 shadow flex items-center justify-between px-4 transition-colors">
-
       {/* Left */}
       <div className="flex items-center gap-3">
         <button
@@ -75,7 +77,6 @@ export default function Topbar({
 
       {/* Right */}
       <div className="flex items-center gap-4">
-
         {/* Notifications */}
         <div className="relative" ref={notifRef}>
           <button
