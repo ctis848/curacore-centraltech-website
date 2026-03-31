@@ -1,22 +1,22 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { cookies } from "next/headers";
+import { sendMail } from "@/lib/mail";
 
 const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { reference, licenseKey } = body;
+    const { requestKey, productName, notes } = body;
 
-    if (!reference || !licenseKey) {
+    if (!requestKey) {
       return NextResponse.json(
-        { error: "Missing activation data" },
+        { error: "Missing machine/request key" },
         { status: 400 }
       );
     }
 
-    // Must await cookies() in Next.js 16+
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -27,7 +27,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate session
     const session = await prisma.session.findUnique({
       where: { token },
       include: { user: true },
@@ -42,34 +41,61 @@ export async function POST(req: Request) {
 
     const user = session.user;
 
-    // Prevent duplicate activation
-    const existing = await prisma.license.findFirst({
+    // Prevent duplicate pending requests for same key
+    const existing = await prisma.licenseRequest.findFirst({
       where: {
-        licenseKey,
         userId: user.id,
+        requestKey,
+        status: "PENDING",
       },
     });
 
     if (existing) {
       return NextResponse.json(
-        { error: "License already activated" },
+        { error: "You already submitted this request key. Await admin processing." },
         { status: 400 }
       );
     }
 
-    // Activate license using ONLY fields that exist in your schema
-    const activated = await prisma.license.create({
+    // Create license request record
+    const requestRecord = await prisma.licenseRequest.create({
       data: {
-        licenseKey,
         userId: user.id,
-        status: "ACTIVE",
-        activatedAt: new Date(), // this field exists
+        requestKey,
+        productName,
+        notes,
+        status: "PENDING",
       },
     });
 
-    return NextResponse.json({ license: activated });
+    // Notify admin by email
+    await sendMail({
+      to: "info@ctistech.com",
+      subject: "New License Request",
+      html: `
+        <h2>New License Request</h2>
+        <p><strong>User:</strong> ${user.email}</p>
+        <p><strong>Request Key (Machine Key):</strong> ${requestKey}</p>
+        ${
+          productName
+            ? `<p><strong>Product:</strong> ${productName}</p>`
+            : ""
+        }
+        ${
+          notes
+            ? `<p><strong>Notes:</strong> ${notes}</p>`
+            : ""
+        }
+        <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+      `,
+    });
+
+    return NextResponse.json({
+      message: "License request submitted. Admin will generate your license.",
+      request: requestRecord,
+    });
   } catch (err: any) {
-    console.error("License activation error:", err);
+    console.error("License request error:", err);
     return NextResponse.json(
       { error: "Server error", details: err.message },
       { status: 500 }

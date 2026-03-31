@@ -23,7 +23,6 @@ export default function NavbarClient({ user }: { user: any }) {
       ? "text-gray-700 hover:text-gray-900"
       : "text-gray-200 hover:text-white";
 
-  // TEMP logout handler (no server action yet)
   const handleLogout = () => {
     console.warn("Logout action not implemented yet");
     window.location.href = "/login";
@@ -67,9 +66,16 @@ export default function NavbarClient({ user }: { user: any }) {
 
           {!user && (
             <>
-              <Link href="/login" className="text-gray-700 hover:text-gray-900">
+              {/* UPDATED CLIENT PORTAL LOGIN */}
+              <a
+                href="https://www.ctistech.com/client/panel"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-700 hover:text-gray-900"
+              >
                 Login
-              </Link>
+              </a>
+
               <Link
                 href="/signup"
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-semibold"
@@ -124,7 +130,16 @@ export default function NavbarClient({ user }: { user: any }) {
 
           {!user && (
             <>
-              <Link href="/login" className="block">Login</Link>
+              {/* UPDATED CLIENT PORTAL LOGIN (MOBILE) */}
+              <a
+                href="https://www.ctistech.com/client/panel"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block"
+              >
+                Login
+              </a>
+
               <Link
                 href="/signup"
                 className="block bg-green-600 text-white px-4 py-2 rounded-md font-semibold"

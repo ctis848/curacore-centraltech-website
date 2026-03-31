@@ -10,10 +10,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mobileOpen, setMobileOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
 
+  // Persist theme
+  useEffect(() => {
+    const saved = localStorage.getItem("admin-theme");
+    if (saved) setDarkMode(saved === "dark");
+  }, []);
+
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
+    localStorage.setItem("admin-theme", darkMode ? "dark" : "light");
   }, [darkMode]);
 
+  // Prevent scroll when mobile sidebar is open
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
   }, [mobileOpen]);
@@ -30,14 +38,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div
         className={`
           fixed z-50 top-0 left-0 h-full md:hidden bg-slate-900
-          transition-transform duration-300
+          transition-transform duration-300 ease-in-out
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
         <Sidebar collapsed={false} />
       </div>
 
-      {/* Overlay */}
+      {/* Mobile Overlay */}
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 md:hidden"
@@ -48,8 +56,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main Content */}
       <div
         className={`
-          flex-1 flex flex-col transition-all duration-300
-          ${collapsed ? "ml-20" : "ml-64"}
+          flex-1 flex flex-col transition-all duration-300 ease-in-out
+          ${collapsed ? "md:ml-20" : "md:ml-64"}
         `}
       >
         <Topbar
@@ -61,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         <main className="p-8 text-gray-900 dark:text-gray-100">
           <Breadcrumbs />
-          {children}
+          <div className="mt-4">{children}</div>
         </main>
       </div>
     </div>

@@ -8,7 +8,7 @@ export default function PricingPage() {
     {
       id: "starter",
       title: "Starter",
-      price: "₦100,000 (One‑Time)",
+      price: "₦250,000 (One‑Time)",
       desc: "Full access to all CentralCore EMR features — perfect for small clinics.",
       features: [
         "Complete EMR Suite",
@@ -20,7 +20,7 @@ export default function PricingPage() {
     {
       id: "pro",
       title: "Pro",
-      price: "₦250,000 (One‑Time)",
+      price: "₦350,000 (One‑Time)",
       desc: "Ideal for growing hospitals with more staff and departments.",
       features: [
         "Complete EMR Suite",

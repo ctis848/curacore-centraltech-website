@@ -1,4 +1,3 @@
-// FILE: app/admin/NotificationBell.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,27 +5,50 @@ import { createClient } from "@supabase/supabase-js";
 
 export default function NotificationBell() {
   const [count, setCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  // Load unread count
   async function loadCount() {
-    const res = await fetch("/api/admin/notifications/unread-count");
-    const data = await res.json();
-    setCount(data.count || 0);
+    try {
+      const res = await fetch("/api/admin/notifications/unread-count");
+      const data = await res.json();
+      setCount(data.count || 0);
+    } catch (err) {
+      console.error("Failed to load notifications:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     loadCount();
 
-    // REALTIME LISTENER
+    // REALTIME LISTENERS FOR MULTIPLE TABLES
     const channel = supabase
       .channel("notifications-realtime")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications" },
+        () => loadCount()
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "license_validation_logs" },
+        () => loadCount()
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "payments" },
+        () => loadCount()
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "licenses" },
         () => loadCount()
       )
       .subscribe();
@@ -38,9 +60,10 @@ export default function NotificationBell() {
 
   return (
     <a href="/admin/notifications" className="relative">
+      {/* Bell Icon */}
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        className="h-6 w-6 text-slate-700 hover:text-slate-900 transition"
+        className="h-6 w-6 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white transition"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -56,8 +79,12 @@ export default function NotificationBell() {
         />
       </svg>
 
-      {count > 0 && (
-        <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+      {/* Notification Badge */}
+      {!loading && count > 0 && (
+        <span className="
+          absolute -top-1 -right-1 bg-red-600 text-white 
+          text-xs px-1.5 py-0.5 rounded-full shadow
+        ">
           {count}
         </span>
       )}

@@ -3,11 +3,11 @@
 import { useState, useRef, useEffect } from "react";
 import {
   Bars3Icon,
-  BellIcon,
   SunIcon,
   MoonIcon,
   UserCircleIcon,
 } from "@heroicons/react/24/outline";
+import NotificationBell from "./NotificationBell";
 
 type UserType = {
   name?: string | null;
@@ -30,21 +30,14 @@ export default function Topbar({
   darkMode,
 }: TopbarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
-
-  // ✅ FIX: Add proper types without changing behavior
   const profileRef = useRef<HTMLDivElement | null>(null);
-  const notifRef = useRef<HTMLDivElement | null>(null);
 
+  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       const target = e.target as Node;
-
       if (profileRef.current && !profileRef.current.contains(target)) {
         setProfileOpen(false);
-      }
-      if (notifRef.current && !notifRef.current.contains(target)) {
-        setNotifOpen(false);
       }
     }
 
@@ -53,9 +46,13 @@ export default function Topbar({
   }, []);
 
   return (
-    <header className="w-full h-16 bg-white dark:bg-slate-800 shadow flex items-center justify-between px-4 transition-colors">
-      {/* Left */}
+    <header className="
+      w-full h-16 bg-white dark:bg-slate-800 shadow 
+      flex items-center justify-between px-4 transition-colors
+    ">
+      {/* LEFT SIDE */}
       <div className="flex items-center gap-3">
+        {/* Mobile Sidebar Toggle */}
         <button
           className="md:hidden p-2 rounded hover:bg-gray-200 dark:hover:bg-slate-700"
           onClick={onToggleMobile}
@@ -63,6 +60,7 @@ export default function Topbar({
           <Bars3Icon className="w-6 h-6 text-gray-700 dark:text-gray-200" />
         </button>
 
+        {/* Desktop Sidebar Toggle */}
         <button
           className="hidden md:block p-2 rounded hover:bg-gray-200 dark:hover:bg-slate-700"
           onClick={onToggleSidebar}
@@ -75,25 +73,11 @@ export default function Topbar({
         </h2>
       </div>
 
-      {/* Right */}
+      {/* RIGHT SIDE */}
       <div className="flex items-center gap-4">
-        {/* Notifications */}
-        <div className="relative" ref={notifRef}>
-          <button
-            onClick={() => setNotifOpen(!notifOpen)}
-            className="p-2 rounded hover:bg-gray-200 dark:hover:bg-slate-700"
-          >
-            <BellIcon className="w-6 h-6 text-gray-700 dark:text-gray-200" />
-          </button>
 
-          {notifOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-700 shadow rounded p-3">
-              <p className="text-sm text-gray-700 dark:text-gray-200">
-                No new notifications
-              </p>
-            </div>
-          )}
-        </div>
+        {/* Notification Bell (REALTIME) */}
+        <NotificationBell />
 
         {/* Theme Toggle */}
         <button
@@ -117,24 +101,45 @@ export default function Topbar({
           </button>
 
           {profileOpen && (
-            <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-slate-700 shadow rounded">
-              <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 border-b dark:border-slate-600">
-                {user?.name ?? "Admin"}
-                <br />
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+            <div className="
+              absolute right-0 mt-2 w-48 bg-white dark:bg-slate-700 
+              shadow rounded overflow-hidden
+            ">
+              {/* User Info */}
+              <div className="
+                px-4 py-3 text-sm text-gray-700 dark:text-gray-200 
+                border-b dark:border-slate-600
+              ">
+                <p className="font-medium">{user?.name ?? "Admin"}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {user?.email ?? ""}
-                </span>
+                </p>
               </div>
 
-              <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-600 text-sm">
+              {/* Menu Items */}
+              <button className="
+                w-full text-left px-4 py-2 text-sm 
+                hover:bg-gray-100 dark:hover:bg-slate-600
+              ">
                 Profile
               </button>
-              <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-600 text-sm">
+
+              <button className="
+                w-full text-left px-4 py-2 text-sm 
+                hover:bg-gray-100 dark:hover:bg-slate-600
+              ">
                 Settings
               </button>
-              <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-600 text-sm">
+
+              <a
+                href="/logout"
+                className="
+                  block w-full text-left px-4 py-2 text-sm 
+                  hover:bg-gray-100 dark:hover:bg-slate-600
+                "
+              >
                 Logout
-              </button>
+              </a>
             </div>
           )}
         </div>

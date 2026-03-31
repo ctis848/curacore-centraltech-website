@@ -12,22 +12,27 @@ export default function ActivateLicensePage() {
     e.preventDefault();
     setLoading(true);
 
-    const res = await fetch("/api/client/licenses/activate-request", {
+    // Send to correct API route
+    const res = await fetch("/api/license-request", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ licenseKey, machineId, productName }),
+      body: JSON.stringify({
+        requestKey: licenseKey,   // API expects this
+        machineId: machineId,     // API now supports this
+        productName: productName, // API now supports this
+      }),
     });
 
     const data = await res.json();
     setLoading(false);
 
     if (!res.ok) {
-      alert(data.error || "Failed to send activation request");
+      alert(data.error || "Failed to send license request");
       return;
     }
 
-    alert("Activation request sent successfully.");
+    alert("License request sent successfully.");
     setLicenseKey("");
     setMachineId("");
     setProductName("");
@@ -35,7 +40,7 @@ export default function ActivateLicensePage() {
 
   return (
     <div className="p-6 space-y-6 max-w-xl">
-      <h1 className="text-2xl font-bold">Activate License</h1>
+      <h1 className="text-2xl font-bold">Request License</h1>
 
       <form onSubmit={submit} className="space-y-4">
         <div>
@@ -73,7 +78,7 @@ export default function ActivateLicensePage() {
           disabled={loading}
           className="px-4 py-2 bg-green-600 text-white rounded-lg"
         >
-          {loading ? "Sending..." : "Send Activation Request"}
+          {loading ? "Sending..." : "Send License Request"}
         </button>
       </form>
     </div>

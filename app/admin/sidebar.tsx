@@ -15,18 +15,42 @@ import {
   InboxIcon,
   ChartBarIcon,
   EnvelopeIcon,
+  GlobeAltIcon,
+  ShieldCheckIcon,
+  HeartIcon,
+  ChartPieIcon,
+  MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 
 const navItems = [
   { label: "Dashboard", href: "/admin", icon: HomeIcon },
+
+  // Licensing
   { label: "License Requests", href: "/admin/license-requests", icon: KeyIcon },
+  { label: "Generate License", href: "/admin/generate-license", icon: KeyIcon },
   { label: "Clients", href: "/admin/clients", icon: UsersIcon },
   { label: "Licenses", href: "/admin/licenses", icon: DocumentTextIcon },
+
+  // Payments
   { label: "Payments", href: "/admin/payments", icon: CreditCardIcon },
+
+  // Logs & Monitoring
+  { label: "Validation Logs", href: "/admin/validation-logs", icon: MagnifyingGlassIcon },
   { label: "Activity Logs", href: "/admin/activity", icon: InboxIcon },
   { label: "Audit Trails", href: "/admin/audit", icon: ChartBarIcon },
+
+  // Analytics
+  { label: "License Analytics", href: "/admin/license-analytics", icon: ChartPieIcon },
+  { label: "Revenue Insights", href: "/admin/revenue-insights", icon: ChartBarIcon },
+  { label: "Client Insights", href: "/admin/client-insights", icon: ChartBarIcon },
+
+  // Advanced Intelligence
+  { label: "Geo‑IP Map", href: "/admin/geo-map", icon: GlobeAltIcon },
+  { label: "Health Dashboard", href: "/admin/health", icon: HeartIcon },
+  { label: "Fraud Detection", href: "/admin/fraud-detection", icon: ShieldCheckIcon },
+
+  // Email
   { label: "Email Queue", href: "/admin/email", icon: EnvelopeIcon },
-  { label: "Insights", href: "/admin/client-insights", icon: ChartBarIcon },
 ];
 
 export default function Sidebar({ collapsed = false }) {
@@ -62,7 +86,7 @@ export default function Sidebar({ collapsed = false }) {
       )}
 
       {/* Navigation */}
-      <nav className="space-y-2 flex-1">
+      <nav className="space-y-2 flex-1 overflow-y-auto">
         {filteredItems.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;

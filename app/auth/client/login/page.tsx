@@ -17,12 +17,16 @@ export default function ClientLogin() {
     e.preventDefault();
     setErrorMsg("");
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
     if (error) {
       setErrorMsg("Invalid login credentials");
     } else {
-      router.replace("/client/panel");
+      // FIXED: GoDaddy-compatible redirect
+      router.replace("https://www.ctistech.com/Auth/client/panel");
     }
   };
 

@@ -1,30 +1,34 @@
-// FILE: app/api/client/licenses/route.ts
+import { prisma } from "@/lib/prisma";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
 
 export async function GET() {
-  const supabase = supabaseServer();
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!token) {
+    return NextResponse.json({ licenses: [] });
   }
 
-  const { data, error } = await supabase
-    .from("licenses")
-    .select("*")
-    .eq("client_id", user.id)
-    .order("activated_at", { ascending: false });
+  const session = await prisma.session.findUnique({
+    where: { token },
+    include: { user: true },
+  });
 
-  if (error) {
-    return NextResponse.json(
-      { error: "Failed to load licenses" },
-      { status: 500 }
-    );
+  if (!session?.user) {
+    return NextResponse.json({ licenses: [] });
   }
 
-  return NextResponse.json({ licenses: data });
+  const licenses = await prisma.license.findMany({
+    where: { userId: session.user.id },
+    select: {
+      licenseKey: true,
+      productName: true,
+      status: true,
+      expiresAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({ licenses });
 }

@@ -17,12 +17,26 @@ export default function AdminShell({ user, children }: AdminShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
 
+  // Load theme from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("admin-theme");
+    if (saved) setDarkMode(saved === "dark");
+  }, []);
+
+  // Apply theme + persist
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
+    localStorage.setItem("admin-theme", darkMode ? "dark" : "light");
   }, [darkMode]);
+
+  // Prevent scroll when mobile sidebar is open
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+  }, [mobileOpen]);
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-900">
+
       {/* Desktop Sidebar */}
       <div className="hidden md:block">
         <Sidebar collapsed={collapsed} />
@@ -42,7 +56,12 @@ export default function AdminShell({ user, children }: AdminShellProps) {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div
+        className={`
+          flex-1 flex flex-col transition-all duration-300 ease-in-out
+          ${collapsed ? "md:ml-20" : "md:ml-64"}
+        `}
+      >
         <Topbar
           user={user ?? undefined}
           onToggleSidebar={() => setCollapsed((prev) => !prev)}
@@ -51,7 +70,9 @@ export default function AdminShell({ user, children }: AdminShellProps) {
           darkMode={darkMode}
         />
 
-        <main className="p-6">{children}</main>
+        <main className="p-6 text-gray-900 dark:text-gray-100">
+          <div className="mt-2">{children}</div>
+        </main>
       </div>
     </div>
   );

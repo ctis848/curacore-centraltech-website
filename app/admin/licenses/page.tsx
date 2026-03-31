@@ -18,10 +18,24 @@ type LicenseRow = {
 export default async function LicensesListPage() {
   const supabase = supabaseServer();
 
-  const { data: licenses } = await supabase
+  const { data: licenses, error } = await supabase
     .from("licenses")
-    .select("id, license_key, status, activated_at, expires_at, clients(email, name)")
+    .select(`
+      id,
+      license_key,
+      status,
+      activated_at,
+      expires_at,
+      clients:client_id (
+        email,
+        name
+      )
+    `)
     .order("activated_at", { ascending: false });
+
+  if (error) {
+    console.error("Error loading licenses:", error);
+  }
 
   return (
     <div className="space-y-4">

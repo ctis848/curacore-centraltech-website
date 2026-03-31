@@ -1,27 +1,28 @@
-// FILE: app/admin/license-requests/page.tsx
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
-import ApproveLicenseModal from "./ApproveLicenseModal";
-
-type LicenseRequestRow = {
-  id: string;
-  request_key: string;
-  status: string;
-  created_at: string;
-  clients: {
-    email: string | null;
-    name: string | null;
-  }[] | null;
-};
 
 export default async function LicenseRequestsPage() {
   const supabase = supabaseServer();
 
-  const { data: requests } = await supabase
+  const { data: requests, error } = await supabase
     .from("license_requests")
-    .select("id, request_key, status, created_at, clients(email, name)")
+    .select(`
+      id,
+      request_key,
+      status,
+      created_at,
+      clients:user_id (
+        name,
+        email
+      )
+    `)
     .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error loading requests:", error);
+  }
 
   return (
     <div className="space-y-4">
@@ -34,44 +35,41 @@ export default async function LicenseRequestsPage() {
             <th className="p-2">Email</th>
             <th className="p-2">Request Key</th>
             <th className="p-2">Status</th>
-            <th className="p-2">Created</th>
             <th className="p-2">Actions</th>
           </tr>
         </thead>
 
         <tbody>
-          {(requests as LicenseRequestRow[])?.map((r) => (
+          {requests?.map((r: any) => (
             <tr key={r.id} className="border-t">
-              <td className="p-2">{r.clients?.[0]?.name ?? "—"}</td>
-              <td className="p-2">{r.clients?.[0]?.email ?? "—"}</td>
+              <td className="p-2">{r.clients?.name ?? "—"}</td>
+              <td className="p-2">{r.clients?.email ?? "—"}</td>
               <td className="p-2 font-mono text-xs">{r.request_key}</td>
               <td className="p-2 capitalize">{r.status}</td>
-              <td className="p-2">
-                {new Date(r.created_at).toLocaleString()}
-              </td>
 
-              <td className="p-2 flex items-center gap-2">
-                <button
-                  className="px-2 py-1 text-xs bg-slate-200 rounded"
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(r.request_key);
-                  }}
-                >
-                  Copy Key
-                </button>
-
+              <td className="p-2 space-x-2">
                 {r.status === "pending" && (
-                  <button
-                    onClick={async () => {
-                      await fetch(`/api/admin/license-requests/${r.id}/approve`, {
-                        method: "POST",
-                      });
-                      location.reload();
-                    }}
-                    className="px-3 py-1 bg-green-600 text-white rounded text-xs"
-                  >
-                    Approve
-                  </button>
+                  <>
+                    <Link
+                      href={`/admin/generate-license?request=${r.id}`}
+                      className="px-3 py-1 bg-teal-600 text-white rounded"
+                    >
+                      Generate
+                    </Link>
+
+                    <form
+                      action={`/admin/license-requests/${r.id}/reject`}
+                      method="post"
+                      className="inline"
+                    >
+                      <button
+                        type="submit"
+                        className="px-3 py-1 bg-red-600 text-white rounded"
+                      >
+                        Reject
+                      </button>
+                    </form>
+                  </>
                 )}
               </td>
             </tr>

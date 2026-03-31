@@ -19,7 +19,19 @@ export default function LicensesPage() {
   useEffect(() => {
     fetch("/api/client/licenses")
       .then((r) => r.json())
-      .then((data) => setLicenses(data))
+      .then((data) => {
+        const normalized = data.map((lic: any) => ({
+          id: lic.id,
+          key: lic.license_key,
+          productName: lic.product_name ?? "Product",
+          status: computeStatus(lic),
+          activatedAt: lic.activated_at,
+          expiresAt: lic.expires_at,
+          createdAt: lic.created_at,
+        }));
+
+        setLicenses(normalized);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -52,10 +64,14 @@ export default function LicensesPage() {
                     <StatusBadge status={lic.status} />
                   </td>
                   <td className="px-4 py-2">
-                    {lic.activatedAt ? new Date(lic.activatedAt).toLocaleString() : "-"}
+                    {lic.activatedAt
+                      ? new Date(lic.activatedAt).toLocaleString()
+                      : "-"}
                   </td>
                   <td className="px-4 py-2">
-                    {lic.expiresAt ? new Date(lic.expiresAt).toLocaleDateString() : "-"}
+                    {lic.expiresAt
+                      ? new Date(lic.expiresAt).toLocaleDateString()
+                      : "-"}
                   </td>
                 </tr>
               ))}
@@ -67,6 +83,16 @@ export default function LicensesPage() {
   );
 }
 
+function computeStatus(lic: any): "PENDING" | "ACTIVE" | "EXPIRED" {
+  if (lic.expires_at && new Date(lic.expires_at) < new Date()) {
+    return "EXPIRED";
+  }
+  if (lic.activated_at) {
+    return "ACTIVE";
+  }
+  return "PENDING";
+}
+
 function StatusBadge({ status }: { status: License["status"] }) {
   const map: Record<string, string> = {
     ACTIVE: "bg-emerald-100 text-emerald-700",
@@ -75,7 +101,9 @@ function StatusBadge({ status }: { status: License["status"] }) {
   };
 
   return (
-    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${map[status]}`}>
+    <span
+      className={`px-2 py-1 rounded-full text-xs font-semibold ${map[status]}`}
+    >
       {status}
     </span>
   );

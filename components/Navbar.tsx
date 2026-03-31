@@ -29,9 +29,14 @@ export default function Navbar() {
           <Link href="/buy" className="text-yellow-600 font-semibold">Buy</Link>
 
           {/* AUTH ROUTES */}
-          <Link href="/auth/client/login" className="text-blue-600">
+          <a
+            href="https://www.ctistech.com/client/panel"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600"
+          >
             Login
-          </Link>
+          </a>
 
           <Link
             href="/auth/client/signup"
@@ -65,13 +70,15 @@ export default function Navbar() {
           </Link>
 
           {/* AUTH ROUTES */}
-          <Link
-            href="/auth/client/login"
+          <a
+            href="https://www.ctistech.com/auth/client/panel"
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={toggleMenu}
             className="text-blue-600"
           >
             Login
-          </Link>
+          </a>
 
           <Link
             href="/auth/client/signup"
