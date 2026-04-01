@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-import { cookies } from "next/headers";
+import { supabaseServer } from "@/lib/supabase/server";
 import { sendMail } from "@/lib/mail";
-
-const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { requestKey, productName, notes } = body;
+    const { requestKey, productName, notes } = await req.json();
 
     if (!requestKey) {
       return NextResponse.json(
@@ -18,32 +14,23 @@ export async function POST(req: Request) {
     }
 
     // AUTH CHECK
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
+    const supabase = supabaseServer();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!token) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const session = await prisma.session.findUnique({
-      where: { token },
-      include: { user: true },
-    });
-
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = session.user;
 
     // PREVENT DUPLICATE PENDING REQUESTS
-    const existing = await prisma.licenseRequest.findFirst({
-      where: {
-        userId: user.id,
-        requestKey,
-        status: "PENDING",
-      },
-    });
+    const { data: existing } = await supabase
+      .from("license_requests")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("request_key", requestKey)
+      .eq("status", "pending")
+      .maybeSingle();
 
     if (existing) {
       return NextResponse.json(
@@ -55,17 +42,26 @@ export async function POST(req: Request) {
       );
     }
 
-    // CREATE LICENSE REQUEST RECORD
-    const requestRecord = await prisma.licenseRequest.create({
-      data: {
-        userId: user.id,
-        requestKey,
-        productName: productName || "Unknown Product",
+    // CREATE LICENSE REQUEST
+    const { data: requestRecord, error: insertError } = await supabase
+      .from("license_requests")
+      .insert({
+        user_id: user.id,
+        request_key: requestKey,
+        product_name: productName || "Unknown Product",
         notes: notes || null,
-        status: "PENDING",
-        createdAt: new Date(),
-      },
-    });
+        status: "pending",
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("Insert error:", insertError);
+      return NextResponse.json(
+        { error: "Failed to create request" },
+        { status: 500 }
+      );
+    }
 
     // SEND EMAIL TO ADMIN
     await sendMail({
@@ -75,8 +71,11 @@ export async function POST(req: Request) {
         <h2>New License Activation Request</h2>
 
         <p><strong>User:</strong> ${user.email}</p>
+
         <p><strong>Request Key:</strong></p>
-        <pre style="padding:10px;background:#f4f4f4;border-radius:6px;">${requestKey}</pre>
+        <pre style="padding:10px;background:#f4f4f4;border-radius:6px;">
+${requestKey}
+        </pre>
 
         ${
           productName

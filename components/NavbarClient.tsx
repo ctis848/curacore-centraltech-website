@@ -66,15 +66,13 @@ export default function NavbarClient({ user }: { user: any }) {
 
           {!user && (
             <>
-              {/* UPDATED CLIENT PORTAL LOGIN */}
-              <a
-                href="https://www.ctistech.com/client/panel"
-                target="_blank"
-                rel="noopener noreferrer"
+              {/* FIXED CLIENT PORTAL LOGIN */}
+              <Link
+                href="/auth/client/login"
                 className="text-gray-700 hover:text-gray-900"
               >
                 Login
-              </a>
+              </Link>
 
               <Link
                 href="/signup"
@@ -130,15 +128,13 @@ export default function NavbarClient({ user }: { user: any }) {
 
           {!user && (
             <>
-              {/* UPDATED CLIENT PORTAL LOGIN (MOBILE) */}
-              <a
-                href="https://www.ctistech.com/client/panel"
-                target="_blank"
-                rel="noopener noreferrer"
+              {/* FIXED CLIENT PORTAL LOGIN (MOBILE) */}
+              <Link
+                href="/auth/client/login"
                 className="block"
               >
                 Login
-              </a>
+              </Link>
 
               <Link
                 href="/signup"

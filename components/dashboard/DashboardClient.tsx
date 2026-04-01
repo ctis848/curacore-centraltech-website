@@ -10,13 +10,13 @@ import {
   FiCpu,
   FiHelpCircle,
   FiSettings,
-  FiMoon,
-  FiSun,
   FiBell,
   FiKey,
   FiLogOut,
   FiLayers,
   FiArchive,
+  FiMenu,
+  FiX,
 } from "react-icons/fi";
 import { createSupabaseClient } from "@/lib/supabase/client";
 import NotificationsPanel from "@/components/dashboard/NotificationsPanel";
@@ -26,57 +26,38 @@ export default function DashboardClient({ children }: { children?: React.ReactNo
   const router = useRouter();
   const pathname = usePathname();
 
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // AUTH CHECK
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
 
-      if (!session) {
-        router.replace("/auth/client/login");
-      }
+      if (!session) router.replace("/auth/client/login");
     });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-
-      if (!session && event !== "INITIAL_SESSION") {
-        router.replace("/auth/client/login");
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null);
+        if (!session && event !== "INITIAL_SESSION") {
+          router.replace("/auth/client/login");
+        }
       }
-    });
+    );
 
     return () => subscription.unsubscribe();
   }, [router, supabase]);
 
+  // LOCK SCROLL WHEN SIDEBAR OPEN
   useEffect(() => {
-    const saved = localStorage.getItem("theme");
-    if (saved === "dark") {
-      setDarkMode(true);
-      document.documentElement.classList.add("dark");
-    }
-  }, []);
-
-  const toggleDarkMode = () => {
-    const newMode = !darkMode;
-    setDarkMode(newMode);
-
-    if (newMode) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-  };
+    document.body.style.overflow = sidebarOpen ? "hidden" : "";
+  }, [sidebarOpen]);
 
   const handleLogout = async () => {
     setLoading(true);
@@ -120,8 +101,8 @@ export default function DashboardClient({ children }: { children?: React.ReactNo
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-600 dark:text-gray-300">
-        Loading dashboard...
+      <div className="min-h-screen flex items-center justify-center text-gray-600">
+        Loading dashboard…
       </div>
     );
   }
@@ -129,56 +110,57 @@ export default function DashboardClient({ children }: { children?: React.ReactNo
   if (!user) return null;
 
   return (
-    <div className="min-h-screen flex bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
+    <div className="min-h-screen flex bg-gray-100 transition-colors duration-300">
 
-      {/* MOBILE TOPBAR */}
-      <div className="md:hidden fixed top-0 left-0 right-0 bg-white dark:bg-gray-800 shadow p-4 flex justify-between items-center z-50">
-        <h1 className="text-xl font-black text-teal-700 dark:text-teal-300">Dashboard</h1>
+      {/* TOPBAR */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow px-6 py-4 flex justify-between items-center md:hidden">
+        <h1 className="text-xl font-black text-teal-700">Dashboard</h1>
 
-        <div className="flex items-center gap-4">
-          <button onClick={toggleDarkMode} className="text-gray-700 dark:text-gray-200 text-2xl">
-            {darkMode ? <FiSun /> : <FiMoon />}
-          </button>
+        <button
+          className="text-3xl text-gray-700"
+          onClick={() => setSidebarOpen(true)}
+        >
+          <FiMenu />
+        </button>
+      </header>
 
-          <button
-            className="text-gray-700 dark:text-gray-200 text-3xl"
-            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-          >
-            ☰
-          </button>
-        </div>
-      </div>
+      {/* MOBILE SIDEBAR OVERLAY */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* SIDEBAR */}
       <aside
-        onMouseEnter={() => setSidebarExpanded(true)}
-        onMouseLeave={() => setSidebarExpanded(false)}
         className={`
-          fixed md:static inset-y-0 left-0 z-40
-          bg-white dark:bg-gray-800 shadow-lg border-r dark:border-gray-700
+          fixed md:static inset-y-0 left-0 z-50
+          bg-white shadow-lg border-r
           transition-all duration-300 ease-in-out
           ${sidebarExpanded ? "w-64" : "w-20"}
-          ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
         `}
       >
+        {/* LOGO */}
         <Link
           href="/client/panel"
-          className="p-6 border-b dark:border-gray-700 flex items-center gap-3 hover:opacity-80 transition"
+          className="p-6 border-b flex items-center gap-3 hover:opacity-80 transition"
         >
-          <span className="text-2xl text-teal-700 dark:text-teal-300 font-black">CC</span>
-
+          <span className="text-2xl text-teal-700 font-black">CC</span>
           {sidebarExpanded && (
-            <span className="text-xl font-bold text-gray-800 dark:text-gray-200">
+            <span className="text-xl font-bold text-gray-800">
               CentralCore
             </span>
           )}
         </Link>
 
+        {/* NAVIGATION */}
         <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
           {menuGroups.map((group) => (
             <div key={group.label}>
               {sidebarExpanded && (
-                <p className="text-xs uppercase text-gray-500 dark:text-gray-400 mb-2 px-2">
+                <p className="text-xs uppercase text-gray-500 mb-2 px-2">
                   {group.label}
                 </p>
               )}
@@ -188,47 +170,38 @@ export default function DashboardClient({ children }: { children?: React.ReactNo
                   const isActive = pathname.startsWith(item.href);
 
                   return (
-                    <div key={item.title} className="relative group">
-                      {!sidebarExpanded && (
-                        <span
-                          className="
-                            absolute left-20 top-1/2 -translate-y-1/2
-                            bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0
-                            group-hover:opacity-100 transition-opacity whitespace-nowrap
-                          "
-                        >
-                          {item.title}
-                        </span>
-                      )}
-
-                      <button
-                        onClick={() => router.push(item.href)}
-                        className={`
-                          w-full flex items-center gap-3 px-4 py-2 rounded-lg font-medium
-                          transition-all duration-200 text-left
-                          ${
-                            isActive
-                              ? "bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300 border-l-4 border-teal-600"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-teal-50 dark:hover:bg-gray-700"
-                          }
-                        `}
-                      >
-                        <span className="text-xl">{item.icon}</span>
-                        {sidebarExpanded && <span>{item.title}</span>}
-                      </button>
-                    </div>
+                    <button
+                      key={item.title}
+                      onClick={() => {
+                        router.push(item.href);
+                        setSidebarOpen(false);
+                      }}
+                      className={`
+                        w-full flex items-center gap-3 px-4 py-2 rounded-lg font-medium
+                        transition-all duration-200 text-left
+                        ${
+                          isActive
+                            ? "bg-teal-100 text-teal-700 border-l-4 border-teal-600"
+                            : "text-gray-700 hover:bg-teal-50"
+                        }
+                      `}
+                    >
+                      <span className="text-xl">{item.icon}</span>
+                      {sidebarExpanded && <span>{item.title}</span>}
+                    </button>
                   );
                 })}
               </div>
             </div>
           ))}
 
-          <div className="pt-6 border-t dark:border-gray-700">
+          {/* LOGOUT */}
+          <div className="pt-6 border-t">
             <button
               onClick={handleLogout}
               className="
                 w-full flex items-center gap-3 px-4 py-2 rounded-lg font-medium
-                text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900
+                text-red-600 hover:bg-red-50
               "
             >
               <FiLogOut className="text-xl" />
@@ -238,19 +211,21 @@ export default function DashboardClient({ children }: { children?: React.ReactNo
         </nav>
       </aside>
 
+      {/* MAIN CONTENT */}
       <main className="flex-1 p-8 mt-24 md:mt-0">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow border dark:border-gray-700 mb-8">
-          <h2 className="text-3xl font-bold text-teal-800 dark:text-teal-300">
+        <div className="bg-white p-6 rounded-xl shadow border mb-8">
+          <h2 className="text-3xl font-bold text-teal-800">
             Welcome back
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            {user ? `Logged in as ${user.email}` : "Loading user..."}
+          <p className="text-gray-600 mt-1">
+            Logged in as {user.email}
           </p>
         </div>
 
         {children}
       </main>
 
-      <NotificationsPanel open={notificationsOpen} />    </div>
+      <NotificationsPanel open={notificationsOpen} />
+    </div>
   );
 }

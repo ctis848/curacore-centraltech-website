@@ -1,7 +1,11 @@
-// FILE: app/api/contact/route.ts
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
+import { rateLimit } from "@/lib/rateLimit";
+import {
+  contactNotificationTemplate,
+  autoReplyTemplate,
+} from "@/lib/emailTemplates";
 
 export async function POST(req: Request) {
   try {
@@ -10,11 +14,20 @@ export async function POST(req: Request) {
       req.headers.get("x-real-ip") ||
       "unknown";
 
-    const { name, email, message, honeypot } = await req.json();
+    const body = await req.json();
+    const { name, email, message, honeypot, timestamp } = body;
 
     // 🛑 Honeypot spam trap
     if (honeypot && honeypot.trim() !== "") {
       return NextResponse.json({ success: true });
+    }
+
+    // 🛑 Timestamp spam protection (must take at least 1.5 seconds)
+    if (!timestamp || Date.now() - timestamp < 1500) {
+      return NextResponse.json(
+        { error: "Form submitted too quickly" },
+        { status: 400 }
+      );
     }
 
     // 🛑 Basic validation
@@ -25,87 +38,63 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🛑 Rate limit: 1 message per minute per IP
-    const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
-
-    const { data: recent } = await supabaseAdmin
-      .from("contact_messages")
-      .select("id")
-      .gte("created_at", oneMinuteAgo)
-      .limit(1);
-
-    if (recent && recent.length > 0) {
+    // 🛑 Rate limit: 5 messages per minute per IP
+    if (!rateLimit(ip as string, 5, 60_000)) {
       return NextResponse.json(
-        { error: "Please wait a moment before sending another message." },
+        { error: "Too many requests. Please try again later." },
         { status: 429 }
       );
     }
 
-    // ✅ Store message in DB
-    const { error: insertError } = await supabaseAdmin
-      .from("contact_messages")
-      .insert({
-        name,
-        email,
-        message,
-        ip_address: ip,
-      });
+    // 📝 Log to console
+    console.log("New contact submission:", {
+      name,
+      email,
+      ip,
+      time: new Date().toISOString(),
+    });
 
-    if (insertError) {
-      console.error("DB insert error (contact_messages):", insertError);
-    }
+    // 📝 Store message in DB
+    await supabaseAdmin.from("contact_messages").insert({
+      name,
+      email,
+      message,
+      ip_address: ip,
+    });
 
-    // 📧 GoDaddy cPanel SMTP transporter (SSL required)
+    // 📧 Brevo SMTP Transporter
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST, // smtp.secureserver.net
-      port: Number(process.env.SMTP_PORT), // 465
-      secure: true, // SSL required for GoDaddy cPanel
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: false,
       auth: {
-        user: process.env.SMTP_USER, // info@ctistech.com
-        pass: process.env.SMTP_PASS, // email password
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
       },
     });
 
-    // 📧 Send to CTIS team
+    // 📧 Email to CTIS team
     await transporter.sendMail({
-      from: process.env.SMTP_FROM, // CTIS <info@ctistech.com>
+      from: process.env.SMTP_FROM,
       replyTo: email,
       to: ["info@ctistech.com", "support@ctistech.com"],
       subject: "New Contact Message",
-      html: `
-        <h2>New Contact Message</h2>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>IP:</strong> ${ip}</p>
-        <p><strong>Message:</strong></p>
-        <p>${message}</p>
-      `,
+      html: contactNotificationTemplate({ name, email, message, ip }),
     });
 
-    // 📧 Confirmation email to sender
+    // 📧 Auto‑reply to sender
     await transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: email,
       subject: "We received your message",
-      html: `
-        <h2>Thank you for contacting CTIS</h2>
-        <p>Hello ${name},</p>
-        <p>We have received your message and our team will get back to you shortly.</p>
-        <hr />
-        <p><strong>Your message:</strong></p>
-        <p>${message}</p>
-      `,
+      html: autoReplyTemplate(name, message),
     });
 
-    // 📝 Admin notification log
+    // 📝 Log activity
     await supabaseAdmin.from("activity_logs").insert({
       admin_id: null,
       action: "contact_message_received",
-      details: {
-        name,
-        email,
-        ip,
-      },
+      details: { name, email, ip },
     });
 
     return NextResponse.json({ success: true });

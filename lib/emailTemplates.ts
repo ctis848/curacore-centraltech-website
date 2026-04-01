@@ -1,19 +1,36 @@
-import { PrismaClient } from "@prisma/client";
+export function contactNotificationTemplate({
+  name,
+  email,
+  message,
+  ip,
+}: {
+  name: string;
+  email: string;
+  message: string;
+  ip: string;
+}) {
+  return `
+    <div style="font-family: Arial; padding: 20px;">
+      <h2>New Contact Form Message</h2>
+      <p><strong>Name:</strong> ${name}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>IP:</strong> ${ip}</p>
+      <p><strong>Message:</strong></p>
+      <p>${message.replace(/\n/g, "<br/>")}</p>
+    </div>
+  `;
+}
 
-const prisma = new PrismaClient();
-
-export async function renderTemplate(name: string, vars: Record<string, string>) {
-  const tpl = await prisma.emailTemplate.findUnique({ where: { name } });
-  if (!tpl) return null;
-
-  let subject = tpl.subject;
-  let body = tpl.body;
-
-  for (const [key, value] of Object.entries(vars)) {
-    const token = `{{${key}}}`;
-    subject = subject.replaceAll(token, value);
-    body = body.replaceAll(token, value);
-  }
-
-  return { subject, body };
+export function autoReplyTemplate(name: string, message: string) {
+  return `
+    <div style="font-family: Arial; padding: 20px;">
+      <h2>Thank you for contacting CTIS</h2>
+      <p>Hello ${name},</p>
+      <p>We have received your message and our team will get back to you shortly.</p>
+      <hr />
+      <p><strong>Your message:</strong></p>
+      <p>${message.replace(/\n/g, "<br/>")}</p>
+      <p style="margin-top: 20px;">Best regards,<br/>CTIS Support Team</p>
+    </div>
+  `;
 }

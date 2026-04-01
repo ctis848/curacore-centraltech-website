@@ -13,21 +13,29 @@ export default function ClientLogin() {
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleLogin = async (e: any) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMsg("");
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
       setErrorMsg("Invalid login credentials");
-    } else {
-      // FIXED: GoDaddy-compatible redirect
-      router.replace("https://www.ctistech.com/Auth/client/panel");
+      return;
     }
+
+    const role = data.user?.user_metadata?.role;
+
+    // 🚫 Block Admins & Superadmins
+    if (role !== "CLIENT") {
+      setErrorMsg("This login page is for Clients only");
+      return;
+    }
+
+    router.replace("/client/panel");
   };
 
   return (

@@ -14,8 +14,14 @@ const PAGE_SIZE = 20;
 export default function ClientLicensesPage() {
   const [licenses, setLicenses] = useState<License[]>([]);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "EXPIRED" | "PENDING">("ALL");
-  const [sortBy, setSortBy] = useState<"product" | "status" | "expires">("product");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const [statusFilter, setStatusFilter] =
+    useState<"ALL" | "ACTIVE" | "EXPIRED" | "PENDING">("ALL");
+
+  const [sortBy, setSortBy] =
+    useState<"product" | "status" | "expires">("product");
+
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
 
@@ -27,35 +33,49 @@ export default function ClientLicensesPage() {
     actions: true,
   });
 
+  // Fetch licenses
   useEffect(() => {
     fetch("/api/client/licenses", { credentials: "include" })
       .then((res) => res.json())
       .then((d) => setLicenses(d.licenses || []));
   }, []);
 
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search.toLowerCase());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // FILTERING (null-safe)
   const filtered = useMemo(() => {
     return licenses.filter((lic) => {
       if (statusFilter !== "ALL" && lic.status !== statusFilter) return false;
-      const q = search.toLowerCase();
-      return (
-        lic.licenseKey.toLowerCase().includes(q) ||
-        lic.productName.toLowerCase().includes(q)
-      );
-    });
-  }, [licenses, search, statusFilter]);
 
+      const q = debouncedSearch;
+      const key = lic.licenseKey?.toLowerCase() || "";
+      const product = lic.productName?.toLowerCase() || "";
+
+      return key.includes(q) || product.includes(q);
+    });
+  }, [licenses, debouncedSearch, statusFilter]);
+
+  // SORTING
   const sorted = useMemo(() => {
     const copy = [...filtered];
+
     copy.sort((a, b) => {
       let av: string | number = "";
       let bv: string | number = "";
 
       if (sortBy === "product") {
-        av = a.productName.toLowerCase();
-        bv = b.productName.toLowerCase();
+        av = a.productName?.toLowerCase() || "";
+        bv = b.productName?.toLowerCase() || "";
       } else if (sortBy === "status") {
-        av = a.status.toLowerCase();
-        bv = b.status.toLowerCase();
+        av = a.status?.toLowerCase() || "";
+        bv = b.status?.toLowerCase() || "";
       } else if (sortBy === "expires") {
         av = a.expiresAt ? new Date(a.expiresAt).getTime() : 0;
         bv = b.expiresAt ? new Date(b.expiresAt).getTime() : 0;
@@ -65,14 +85,13 @@ export default function ClientLicensesPage() {
       if (av > bv) return sortDir === "asc" ? 1 : -1;
       return 0;
     });
+
     return copy;
   }, [filtered, sortBy, sortDir]);
 
+  // PAGINATION
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const paged = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return sorted.slice(start, start + PAGE_SIZE);
-  }, [sorted, page]);
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const changeSort = (field: typeof sortBy) => {
     if (sortBy === field) {
@@ -87,6 +106,7 @@ export default function ClientLicensesPage() {
     setVisibleCols((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // CSV EXPORT
   const exportCSV = () => {
     const rows = [
       ["Product", "License Key", "Status", "Expires"],
@@ -100,7 +120,10 @@ export default function ClientLicensesPage() {
       ]),
     ];
 
-    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = rows
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
 
@@ -111,9 +134,29 @@ export default function ClientLicensesPage() {
     URL.revokeObjectURL(url);
   };
 
+  const statusBadge = (status: string) => {
+    const s = status.toUpperCase();
+
+    const colors: Record<string, string> = {
+      ACTIVE: "bg-green-100 text-green-700",
+      EXPIRED: "bg-red-100 text-red-700",
+      PENDING: "bg-yellow-100 text-yellow-700",
+    };
+
+    return (
+      <span
+        className={`px-2 py-1 rounded text-xs font-semibold ${
+          colors[s] || "bg-gray-200 text-gray-700"
+        }`}
+      >
+        {s}
+      </span>
+    );
+  };
+
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">My Licenses</h1>
+      <h1 className="text-2xl font-bold text-teal-700">My Licenses</h1>
 
       {/* Controls row */}
       <div className="flex flex-wrap gap-4 items-center">
@@ -122,10 +165,7 @@ export default function ClientLicensesPage() {
           type="text"
           placeholder="Search licenses..."
           value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
+          onChange={(e) => setSearch(e.target.value)}
           className="w-full sm:w-64 px-4 py-2 border rounded-lg bg-white shadow-sm"
         />
 
@@ -176,43 +216,46 @@ export default function ClientLicensesPage() {
         </button>
       </div>
 
-      {/* No Licenses */}
+      {/* Empty state */}
       {sorted.length === 0 && (
-        <p className="text-gray-600">No licenses found.</p>
+        <div className="bg-white p-10 rounded-xl shadow text-center text-gray-500">
+          <p className="text-lg font-semibold">No licenses found</p>
+          <p className="text-sm mt-1">Try adjusting your search or filters</p>
+        </div>
       )}
 
       {/* Table */}
       {sorted.length > 0 && (
-        <div className="overflow-x-auto border rounded-lg shadow">
-          <table className="min-w-full bg-white">
+        <div className="overflow-x-auto border rounded-lg shadow bg-white">
+          <table className="min-w-full">
             <thead className="bg-gray-100 border-b">
               <tr>
                 {visibleCols.product && (
-                  <th
-                    className="px-4 py-2 text-left cursor-pointer"
+                  <Th
+                    label="Product"
+                    active={sortBy === "product"}
+                    dir={sortDir}
                     onClick={() => changeSort("product")}
-                  >
-                    Product {sortBy === "product" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-                  </th>
+                  />
                 )}
                 {visibleCols.licenseKey && (
                   <th className="px-4 py-2 text-left">License Key</th>
                 )}
                 {visibleCols.status && (
-                  <th
-                    className="px-4 py-2 text-left cursor-pointer"
+                  <Th
+                    label="Status"
+                    active={sortBy === "status"}
+                    dir={sortDir}
                     onClick={() => changeSort("status")}
-                  >
-                    Status {sortBy === "status" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-                  </th>
+                  />
                 )}
                 {visibleCols.expires && (
-                  <th
-                    className="px-4 py-2 text-left cursor-pointer"
+                  <Th
+                    label="Expires"
+                    active={sortBy === "expires"}
+                    dir={sortDir}
                     onClick={() => changeSort("expires")}
-                  >
-                    Expires {sortBy === "expires" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-                  </th>
+                  />
                 )}
                 {visibleCols.actions && (
                   <th className="px-4 py-2 text-left">Actions</th>
@@ -230,7 +273,7 @@ export default function ClientLicensesPage() {
                     <td className="px-4 py-2 font-mono">{lic.licenseKey}</td>
                   )}
                   {visibleCols.status && (
-                    <td className="px-4 py-2">{lic.status}</td>
+                    <td className="px-4 py-2">{statusBadge(lic.status)}</td>
                   )}
                   {visibleCols.expires && (
                     <td className="px-4 py-2">
@@ -282,5 +325,26 @@ export default function ClientLicensesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function Th({
+  label,
+  active,
+  dir,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  dir: "asc" | "desc";
+  onClick: () => void;
+}) {
+  return (
+    <th
+      className="px-4 py-2 text-left cursor-pointer select-none hover:text-teal-700"
+      onClick={onClick}
+    >
+      {label} {active && (dir === "asc" ? "▲" : "▼")}
+    </th>
   );
 }

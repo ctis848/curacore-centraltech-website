@@ -9,33 +9,59 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
 
-  // Persist theme
+  // Avoid hydration mismatch
   useEffect(() => {
-    const saved = localStorage.getItem("admin-theme");
-    if (saved) setDarkMode(saved === "dark");
+    setHydrated(true);
   }, []);
 
+  // Load theme from localStorage
   useEffect(() => {
+    if (!hydrated) return;
+
+    const saved = localStorage.getItem("admin-theme");
+    const isDark = saved ? saved === "dark" : true;
+
+    setDarkMode(isDark);
+    document.documentElement.classList.toggle("dark", isDark);
+  }, [hydrated]);
+
+  // Persist theme + apply class
+  useEffect(() => {
+    if (!hydrated) return;
+
     document.documentElement.classList.toggle("dark", darkMode);
     localStorage.setItem("admin-theme", darkMode ? "dark" : "light");
-  }, [darkMode]);
+  }, [darkMode, hydrated]);
 
   // Prevent scroll when mobile sidebar is open
   useEffect(() => {
+    if (!hydrated) return;
+
     document.body.style.overflow = mobileOpen ? "hidden" : "";
-  }, [mobileOpen]);
+  }, [mobileOpen, hydrated]);
+
+  if (!hydrated) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="animate-pulse text-gray-600 dark:text-gray-300">
+          Loading admin panel…
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900">
 
       {/* Desktop Sidebar */}
-      <div className="hidden md:block">
+      <aside className="hidden md:block">
         <Sidebar collapsed={collapsed} />
-      </div>
+      </aside>
 
       {/* Mobile Sidebar */}
-      <div
+      <aside
         className={`
           fixed z-50 top-0 left-0 h-full md:hidden bg-slate-900
           transition-transform duration-300 ease-in-out
@@ -43,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         `}
       >
         <Sidebar collapsed={false} />
-      </div>
+      </aside>
 
       {/* Mobile Overlay */}
       {mobileOpen && (
