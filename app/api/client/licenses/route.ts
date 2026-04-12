@@ -1,34 +1,96 @@
-import { prisma } from "@/lib/prisma";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
+import { supabase } from "@/lib/supabase/supabaseClient";
 
-export async function GET() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
+export async function GET(req: Request) {
+  try {
+    const accessToken = req.headers.get("Authorization")?.replace("Bearer ", "");
 
-  if (!token) {
-    return NextResponse.json({ licenses: [] });
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: "Unauthorized", licenses: [] },
+        { status: 401 }
+      );
+    }
+
+    const {
+      data: { user },
+      error: userErr,
+    } = await supabase.auth.getUser(accessToken);
+
+    if (userErr || !user) {
+      return NextResponse.json(
+        { error: "Invalid session", licenses: [] },
+        { status: 401 }
+      );
+    }
+
+    // Resolve client from auth user
+    const { data: client, error: clientErr } = await supabaseAdmin
+      .from("clients")
+      .select("id")
+      .eq("auth_id", user.id)
+      .single();
+
+    if (clientErr || !client) {
+      return NextResponse.json({ licenses: [] });
+    }
+
+    const clientId = client.id;
+
+    // Auto‑expire licenses for this client
+    await supabaseAdmin
+      .from("licenses")
+      .update({ status: "EXPIRED" })
+      .lte("expires_at", new Date().toISOString())
+      .eq("status", "ACTIVE")
+      .eq("client_id", clientId);
+
+    // Fetch all licenses via client_licenses
+    const { data, error } = await supabaseAdmin
+      .from("client_licenses")
+      .select(
+        `
+        id,
+        product_name,
+        status,
+        expires_at,
+        created_at,
+        licenses (
+          license_key,
+          activation_count,
+          max_activations
+        )
+      `
+      )
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Failed to load licenses", details: error.message },
+        { status: 500 }
+      );
+    }
+
+    const licenses =
+      data?.map((row: any) => ({
+        id: row.id,
+        productName: row.product_name,
+        status: row.status,
+        expiresAt: row.expires_at,
+        createdAt: row.created_at,
+        licenseKey: row.licenses?.license_key ?? "",
+        activationCount: row.licenses?.activation_count ?? 0,
+        maxActivations: row.licenses?.max_activations ?? null,
+      })) ?? [];
+
+    return NextResponse.json({ licenses });
+  } catch (err: any) {
+    console.error("CLIENT LICENSE VIEW ERROR:", err);
+    return NextResponse.json(
+      { error: "Server error", details: err.message },
+      { status: 500 }
+    );
   }
-
-  const session = await prisma.session.findUnique({
-    where: { token },
-    include: { user: true },
-  });
-
-  if (!session?.user) {
-    return NextResponse.json({ licenses: [] });
-  }
-
-  const licenses = await prisma.license.findMany({
-    where: { userId: session.user.id },
-    select: {
-      licenseKey: true,
-      productName: true,
-      status: true,
-      expiresAt: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return NextResponse.json({ licenses });
 }

@@ -5,20 +5,24 @@ import { supabaseServer } from "@/lib/supabase/server";
 type ValidateBody = {
   licenseKey: string;
   deviceId?: string;
+  appVersion?: string;
+  os?: string;
 };
 
 export async function POST(req: Request) {
-  const { licenseKey, deviceId }: ValidateBody = await req.json();
+  const { licenseKey, deviceId, appVersion, os }: ValidateBody = await req.json();
   const ip = req.headers.get("x-forwarded-for") || null;
 
   const supabase = supabaseServer();
 
-  // Helper: log validation
+  // Helper: log validation attempts
   async function log(result: string, licenseId: string | null = null) {
     await supabase.from("license_validation_logs").insert({
       license_id: licenseId,
       device_id: deviceId || null,
       ip_address: ip,
+      app_version: appVersion || null,
+      os: os || null,
       result,
     });
   }
@@ -32,7 +36,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // 2) Find license
+  // 2) Fetch license
   const { data: license, error } = await supabase
     .from("licenses")
     .select("*")
@@ -56,9 +60,9 @@ export async function POST(req: Request) {
     );
   }
 
-  // 4) Expired
   const now = new Date();
 
+  // 4) Expired
   if (license.expires_at && new Date(license.expires_at) < now) {
     if (license.status !== "expired") {
       await supabase
@@ -91,13 +95,15 @@ export async function POST(req: Request) {
     );
   }
 
-  // 6) Activation tracking + limit
+  // 6) Device activation tracking
   if (deviceId) {
+    // Count activations
     const { count } = await supabase
       .from("license_activations")
       .select("id", { count: "exact", head: true })
       .eq("license_id", license.id);
 
+    // Enforce activation limit
     if (
       typeof count === "number" &&
       license.max_activations &&
@@ -110,6 +116,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // Check if this device is already activated
     const { data: existingActivation } = await supabase
       .from("license_activations")
       .select("id")
@@ -117,28 +124,21 @@ export async function POST(req: Request) {
       .eq("device_id", deviceId)
       .maybeSingle();
 
+    // Register new activation
     if (!existingActivation) {
       await supabase.from("license_activations").insert({
         license_id: license.id,
         device_id: deviceId,
       });
 
-      if (!license.activated_at) {
-        await supabase
-          .from("licenses")
-          .update({
-            activated_at: new Date().toISOString(),
-            activation_count: (license.activation_count || 0) + 1,
-          })
-          .eq("id", license.id);
-      } else {
-        await supabase
-          .from("licenses")
-          .update({
-            activation_count: (license.activation_count || 0) + 1,
-          })
-          .eq("id", license.id);
-      }
+      // Update activation count
+      await supabase
+        .from("licenses")
+        .update({
+          activated_at: license.activated_at || new Date().toISOString(),
+          activation_count: (license.activation_count || 0) + 1,
+        })
+        .eq("id", license.id);
     }
   }
 
@@ -151,5 +151,7 @@ export async function POST(req: Request) {
     status: license.status,
     expires_at: license.expires_at,
     annual_fee_paid_until: license.annual_fee_paid_until,
+    activation_count: license.activation_count,
+    max_activations: license.max_activations,
   });
 }

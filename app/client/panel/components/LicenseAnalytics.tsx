@@ -2,7 +2,15 @@
 
 import DashboardCard from "./DashboardCard";
 
-export default function LicenseAnalytics({ stats }: any) {
+interface LicenseAnalyticsProps {
+  stats: {
+    totalLicenses: number;
+    expiredLicenses: number;
+    renewalsDue: number;
+  };
+}
+
+export default function LicenseAnalytics({ stats }: LicenseAnalyticsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <DashboardCard
@@ -10,11 +18,13 @@ export default function LicenseAnalytics({ stats }: any) {
         value={stats.totalLicenses}
         color="text-teal-700"
       />
+
       <DashboardCard
         title="Expired Licenses"
         value={stats.expiredLicenses}
         color="text-red-600"
       />
+
       <DashboardCard
         title="Renewals Due"
         value={stats.renewalsDue}

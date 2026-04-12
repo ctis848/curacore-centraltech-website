@@ -1,203 +1,288 @@
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+"use client";
 
-import { supabaseServer } from "@/lib/supabase/server";
-import ApproveForm from "./ApproveForm";
+import { useEffect, useState } from "react";
 
-type GenerateLicensePageProps = {
-  searchParams?: {
-    request?: string;
-  };
-};
+export default function GenerateLicensePage() {
+  const [clients, setClients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function GenerateLicensePage({ searchParams }: GenerateLicensePageProps) {
-  const supabase = supabaseServer();
-  const requestId =
-    typeof searchParams?.request === "string" ? searchParams.request : undefined;
+  const [clientId, setClientId] = useState("");
+  const [productName, setProductName] = useState("");
+  const [licenseKey, setLicenseKey] = useState("");
+  const [maxActivations, setMaxActivations] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
 
-  if (!requestId) {
-    return (
-      <PageShell>
-        <ErrorBox
-          title="Missing Request ID"
-          message="No license request was specified. Please return to the admin panel."
-        />
-      </PageShell>
-    );
+  const [submitting, setSubmitting] = useState(false);
+  const [successModal, setSuccessModal] = useState(false);
+  const [error, setError] = useState("");
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Load clients
+  useEffect(() => {
+    async function loadClients() {
+      try {
+        const res = await fetch("/api/admin/clients", { cache: "no-store" });
+        const data = await res.json();
+
+        if (res.ok) {
+          setClients(data.clients || []);
+        } else {
+          setError("Failed to load clients");
+        }
+      } catch {
+        setError("Network error loading clients");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadClients();
+  }, []);
+
+  /* -------------------------
+     SEND LICENSE FUNCTION
+  ------------------------- */
+  async function sendLicense() {
+    setError("");
+    setSubmitting(true);
+
+    if (!clientId.trim()) {
+      setSubmitting(false);
+      return setError("Please select a client");
+    }
+    if (!productName.trim()) {
+      setSubmitting(false);
+      return setError("Product name is required");
+    }
+    if (!licenseKey.trim()) {
+      setSubmitting(false);
+      return setError("License key cannot be empty");
+    }
+    if (maxActivations && Number(maxActivations) < 0) {
+      setSubmitting(false);
+      return setError("Max activations cannot be negative");
+    }
+
+    const payload = {
+      clientId,
+      productName,
+      licenseKey,
+      maxActivations: maxActivations ? Number(maxActivations) : null,
+      expiresAt: expiresAt || null,
+    };
+
+    const res = await fetch("/api/admin/licenses/send-to-client", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    setSubmitting(false);
+
+    if (!res.ok) {
+      setError(data.error || "Failed to send license");
+      return;
+    }
+
+    setSuccessModal(true);
+
+    // Reset form
+    setClientId("");
+    setProductName("");
+    setLicenseKey("");
+    setMaxActivations("");
+    setExpiresAt("");
   }
 
-  // Fetch request + client
-  const { data: request, error } = await supabase
-    .from("license_requests")
-    .select(
-      `
-      id,
-      request_key,
-      product_name,
-      notes,
-      status,
-      created_at,
-      generated_license,
-      clients:user_id (
-        id,
-        name,
-        email
-      )
-    `
-    )
-    .eq("id", requestId)
-    .maybeSingle();
+  if (loading) return <p className="p-6">Loading clients...</p>;
 
-  if (error || !request) {
-    return (
-      <PageShell>
-        <ErrorBox
-          title="Request Not Found"
-          message="This license request does not exist or may have been removed."
-        />
-      </PageShell>
-    );
-  }
-
-  // Supabase returns relational data as an array
-  const client = Array.isArray(request.clients) ? request.clients[0] : null;
-
-  const createdAt = request.created_at
-    ? new Date(request.created_at).toLocaleString()
-    : "Unknown";
-
-  const statusClass = statusBadgeClass(request.status);
+  const selectedClient = clients.find((c) => c.id === clientId);
 
   return (
-    <PageShell>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-teal-700">Generate License</h1>
-        <a
-          href="/admin/license-requests"
-          className="text-sm text-teal-700 hover:underline"
+    <div className="p-6 space-y-6 max-w-2xl">
+      <h1 className="text-3xl font-semibold">Send License</h1>
+
+      {error && (
+        <div className="bg-red-100 text-red-700 p-3 rounded border border-red-300">
+          {error}
+        </div>
+      )}
+
+      {/* Client Selection */}
+      <div className="space-y-1">
+        <label className="font-medium">Select Client</label>
+        <select
+          value={clientId}
+          onChange={(e) => setClientId(e.target.value)}
+          className="w-full border rounded p-2"
         >
-          ← Back to Requests
-        </a>
-      </div>
+          <option value="">-- Select Client --</option>
+          {clients.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.email} ({c.company || "No Company"})
+            </option>
+          ))}
+        </select>
 
-      {/* Request Summary */}
-      <div className="bg-white p-5 rounded-lg shadow space-y-4 border border-gray-200">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Request Details</h2>
-          <span className="text-xs text-gray-500">Created: {createdAt}</span>
-        </div>
+        {selectedClient && (
+          <div className="text-sm text-gray-600 mt-1">
+            <p>Email: {selectedClient.email}</p>
+            <p>Company: {selectedClient.company || "N/A"}</p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <InfoBlock label="Client Name" value={client?.name ?? "Unknown"} />
-          <InfoBlock label="Client Email" value={client?.email ?? "Unknown"} />
-          <InfoBlock label="Product" value={request.product_name ?? "N/A"} />
-
-          <div>
-            <p className="text-sm text-gray-500">Status</p>
-            <span className={statusClass}>{request.status.toUpperCase()}</span>
-          </div>
-        </div>
-
-        <div>
-          <p className="text-sm text-gray-500 mb-1">Request Key</p>
-          <pre className="bg-gray-100 p-3 rounded text-sm border overflow-x-auto">
-            {request.request_key}
-          </pre>
-        </div>
-
-        {request.notes && (
-          <div>
-            <p className="text-sm text-gray-500 mb-1">Notes</p>
-            <p className="bg-gray-50 p-3 rounded text-sm border whitespace-pre-wrap">
-              {request.notes}
-            </p>
+            <button
+              onClick={() =>
+                window.location.assign(`/admin/license-history/${selectedClient.id}`)
+              }
+              className="mt-2 text-blue-600 underline text-xs"
+            >
+              View License History →
+            </button>
           </div>
         )}
       </div>
 
-      {/* Already Approved */}
-      {request.status !== "pending" && (
-        <div className="bg-green-50 p-4 rounded border border-green-200 text-green-800 space-y-3">
-          <p className="font-semibold">This request has already been approved.</p>
+      {/* Product Name */}
+      <div className="space-y-1">
+        <label className="font-medium">Product Name</label>
+        <input
+          type="text"
+          value={productName}
+          onChange={(e) => setProductName(e.target.value)}
+          className="w-full border rounded p-2"
+          placeholder="e.g. CentralTech ERP"
+        />
+      </div>
 
-          {request.generated_license && (
-            <div>
-              <p className="text-sm text-gray-600">Generated License</p>
-              <pre className="bg-gray-100 p-3 rounded text-sm border overflow-x-auto">
-                {request.generated_license}
-              </pre>
-            </div>
-          )}
+      {/* License Key */}
+      <div className="space-y-1">
+        <label className="font-medium">License Key</label>
+        <textarea
+          value={licenseKey}
+          onChange={(e) => setLicenseKey(e.target.value)}
+          className="w-full border rounded p-2 h-32"
+          placeholder="Paste generated license key here..."
+        />
+      </div>
 
-          <a
-            href="/admin/licenses"
-            className="inline-block px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700"
-          >
-            View License in Admin Panel
-          </a>
-        </div>
+      {/* Max Activations */}
+      <div className="space-y-1">
+        <label className="font-medium">Max Activations (optional)</label>
+        <input
+          type="number"
+          value={maxActivations}
+          onChange={(e) => setMaxActivations(e.target.value)}
+          className="w-full border rounded p-2"
+          placeholder="e.g. 3"
+        />
+      </div>
+
+      {/* Expiry Date */}
+      <div className="space-y-1">
+        <label className="font-medium">Expiry Date (optional)</label>
+        <input
+          type="date"
+          value={expiresAt}
+          onChange={(e) => setExpiresAt(e.target.value)}
+          className="w-full border rounded p-2"
+        />
+      </div>
+
+      {/* Buttons */}
+      <div className="flex gap-3">
+        <button
+          onClick={() => setPreviewOpen(true)}
+          className="px-6 py-3 bg-gray-600 text-white rounded hover:bg-gray-500"
+        >
+          Preview License
+        </button>
+
+        <button
+          onClick={sendLicense}
+          disabled={submitting}
+          className="px-6 py-3 bg-green-600 text-white rounded hover:bg-green-500 disabled:opacity-50"
+        >
+          {submitting ? "Sending..." : "Send License"}
+        </button>
+      </div>
+
+      {/* Preview Modal */}
+      {previewOpen && (
+        <LicensePreviewModal
+          onClose={() => setPreviewOpen(false)}
+          client={selectedClient}
+          productName={productName}
+          licenseKey={licenseKey}
+          maxActivations={maxActivations}
+          expiresAt={expiresAt}
+        />
       )}
 
-      {/* Approve Form */}
-      {request.status === "pending" && (
-        <div className="bg-white p-5 rounded-lg shadow border border-gray-200">
-          <h2 className="text-lg font-semibold mb-3">Paste & Send License</h2>
-
-          <p className="text-sm text-gray-600 mb-3">
-            Paste the license generated from your external generator.  
-            Once approved, it will:
-          </p>
-
-          <ul className="text-sm text-gray-600 list-disc ml-6 space-y-1">
-            <li>Appear in the client’s Active Licenses</li>
-            <li>Be added to License History</li>
-            <li>Increase the client’s active license count</li>
-            <li>Be available for machine activation</li>
-            <li>Send a notification/email to the client</li>
-          </ul>
-
-          <ApproveForm requestId={request.id} />
-        </div>
-      )}
-    </PageShell>
-  );
-}
-
-function PageShell({ children }: { children: React.ReactNode }) {
-  return <div className="p-6 space-y-6 max-w-3xl mx-auto">{children}</div>;
-}
-
-function ErrorBox({ title, message }: { title: string; message: string }) {
-  return (
-    <div className="p-4 bg-red-50 text-red-800 border border-red-200 rounded space-y-1">
-      <p className="font-semibold">{title}</p>
-      <p className="text-sm">{message}</p>
+      {/* Success Modal */}
+      {successModal && <SuccessModal onClose={() => setSuccessModal(false)} />}
     </div>
   );
 }
 
-function InfoBlock({ label, value }: { label: string; value: string }) {
+/* -------------------------
+   LICENSE PREVIEW MODAL
+------------------------- */
+function LicensePreviewModal({
+  onClose,
+  client,
+  productName,
+  licenseKey,
+  maxActivations,
+  expiresAt,
+}: any) {
   return (
-    <div>
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="font-medium text-gray-900">{value}</p>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-xl space-y-4">
+        <h2 className="text-xl font-semibold">License Preview</h2>
+
+        <div className="space-y-2 text-sm">
+          <p><strong>Client:</strong> {client?.email}</p>
+          <p><strong>Product:</strong> {productName}</p>
+          <p><strong>Max Activations:</strong> {maxActivations || "Unlimited"}</p>
+          <p><strong>Expires At:</strong> {expiresAt || "No Expiry"}</p>
+
+          <div>
+            <strong>License Key:</strong>
+            <pre className="bg-gray-100 p-3 rounded mt-1 whitespace-pre-wrap">
+              {licenseKey}
+            </pre>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded">
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
-function statusBadgeClass(status: string) {
-  const s = status.toLowerCase();
-  const base =
-    "inline-flex items-center px-2 py-1 rounded text-xs font-semibold border";
+/* -------------------------
+   SUCCESS MODAL
+------------------------- */
+function SuccessModal({ onClose }: any) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md space-y-4 text-center">
+        <h2 className="text-xl font-semibold text-green-700">
+          License Sent Successfully
+        </h2>
 
-  switch (s) {
-    case "pending":
-      return `${base} bg-yellow-50 text-yellow-800 border-yellow-200`;
-    case "approved":
-      return `${base} bg-green-50 text-green-800 border-green-200`;
-    case "rejected":
-      return `${base} bg-red-50 text-red-800 border-red-200`;
-    default:
-      return `${base} bg-gray-50 text-gray-700 border-gray-200`;
-  }
+        <button
+          onClick={onClose}
+          className="px-6 py-2 bg-blue-600 text-white rounded"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
 }

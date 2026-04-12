@@ -8,6 +8,7 @@ async function main() {
 
   const passwordHash = await bcrypt.hash("password123", 10);
 
+  // USERS
   const client = await prisma.user.create({
     data: {
       id: "test-user-1",
@@ -28,15 +29,17 @@ async function main() {
     },
   });
 
+  // SESSION
   await prisma.session.create({
     data: {
       id: "session-1",
       userId: client.id,
       token: "test-session-token-123",
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 7 * 86400000),
     },
   });
 
+  // LICENSES
   const lic1 = await prisma.license.create({
     data: {
       id: "lic-1",
@@ -47,7 +50,6 @@ async function main() {
       activatedAt: new Date(Date.now() - 29 * 86400000),
       expiresAt: new Date(Date.now() + 330 * 86400000),
       status: "ACTIVE",
-      updatedAt: new Date(),
     },
   });
 
@@ -61,10 +63,10 @@ async function main() {
       activatedAt: new Date(Date.now() - 399 * 86400000),
       expiresAt: new Date(Date.now() - 35 * 86400000),
       status: "EXPIRED",
-      updatedAt: new Date(),
     },
   });
 
+  // MACHINE ACTIVATIONS
   await prisma.machineActivation.createMany({
     data: [
       {
@@ -86,6 +88,7 @@ async function main() {
     ],
   });
 
+  // LICENSE HISTORY
   await prisma.licenseHistory.createMany({
     data: [
       {
@@ -109,6 +112,7 @@ async function main() {
     ],
   });
 
+  // INVOICES
   await prisma.invoice.createMany({
     data: [
       {
@@ -133,6 +137,7 @@ async function main() {
     ],
   });
 
+  // SUPPORT TICKETS
   await prisma.supportTicket.createMany({
     data: [
       {
@@ -154,6 +159,7 @@ async function main() {
     ],
   });
 
+  // TEAMS
   const team = await prisma.team.create({
     data: {
       id: "team-1",
@@ -179,6 +185,7 @@ async function main() {
     ],
   });
 
+  // EMAIL TEMPLATES
   await prisma.emailTemplate.createMany({
     data: [
       {

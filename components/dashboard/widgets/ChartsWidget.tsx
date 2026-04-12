@@ -22,13 +22,18 @@ ChartJS.register(
   Legend
 );
 
-export default function ChartsWidget() {
-  const data = {
-    labels: ["Jan", "Feb", "Mar", "Apr", "May"],
+interface ChartsWidgetProps {
+  data: any[]; // Dashboard passes an array (chartData)
+}
+
+export default function ChartsWidget({ data }: ChartsWidgetProps) {
+  // Fallback if no data is provided
+  const chartData = {
+    labels: data?.map((d) => d.label) ?? ["Jan", "Feb", "Mar", "Apr", "May"],
     datasets: [
       {
         label: "Revenue",
-        data: [1200, 1800, 2400, 3000, 4820],
+        data: data?.map((d) => d.value) ?? [1200, 1800, 2400, 3000, 4820],
         borderColor: "#0d9488",
         backgroundColor: "rgba(13, 148, 136, 0.2)",
       },
@@ -38,7 +43,7 @@ export default function ChartsWidget() {
   return (
     <div className="p-6 bg-white border rounded-lg shadow">
       <h2 className="text-xl font-semibold mb-4">Revenue Growth</h2>
-      <Line data={data} />
+      <Line data={chartData} />
     </div>
   );
 }

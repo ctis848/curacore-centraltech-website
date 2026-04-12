@@ -7,7 +7,6 @@ import RevenueChart from "./RevenueChart";
 export default async function AdminDashboard() {
   const supabase = supabaseServer();
 
-  // Fetch counts in parallel
   const [
     clientsRes,
     licensesRes,
@@ -20,7 +19,7 @@ export default async function AdminDashboard() {
     supabase
       .from("license_requests")
       .select("*", { count: "exact", head: true })
-      .eq("status", "pending"),
+      .eq("status", "PENDING"),
     supabase
       .from("license_validation_logs")
       .select("*", { count: "exact", head: true }),
@@ -35,31 +34,26 @@ export default async function AdminDashboard() {
   const validations = validationsRes.count ?? 0;
   const activations = activationsRes.count ?? 0;
 
-  // Fetch payments safely
   const paymentsRes = await supabase
     .from("payments")
     .select("amount, type, created_at, paid_at")
     .eq("status", "paid");
 
-  const payments = Array.isArray(paymentsRes.data)
-    ? paymentsRes.data
-    : [];
+  const payments = Array.isArray(paymentsRes.data) ? paymentsRes.data : [];
 
-  // Revenue totals (safe)
   const totalRevenue = payments.reduce(
-    (sum, p) => sum + Number(p?.amount ?? 0),
+    (sum, p: any) => sum + Number(p?.amount ?? 0),
     0
   );
 
   const annualFeeRevenue = payments
-    .filter((p) => p?.type === "annual_fee")
-    .reduce((sum, p) => sum + Number(p?.amount ?? 0), 0);
+    .filter((p: any) => p?.type === "annual_fee")
+    .reduce((sum, p: any) => sum + Number(p?.amount ?? 0), 0);
 
   const licenseSalesRevenue = payments
-    .filter((p) => p?.type === "license_purchase")
-    .reduce((sum, p) => sum + Number(p?.amount ?? 0), 0);
+    .filter((p: any) => p?.type === "license_purchase")
+    .reduce((sum, p: any) => sum + Number(p?.amount ?? 0), 0);
 
-  // License health score
   const licenseHealthRes = await supabase
     .from("licenses")
     .select("status, expires_at, max_activations, activation_count");
@@ -97,7 +91,7 @@ export default async function AdminDashboard() {
     licenseHealthData.length > 0
       ? Math.round(
           licenseHealthData.reduce(
-            (sum, l) => sum + computeHealth(l),
+            (sum: number, l: any) => sum + computeHealth(l),
             0
           ) / licenseHealthData.length
         )

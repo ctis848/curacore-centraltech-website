@@ -10,32 +10,65 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  const validateForm = () => {
+    if (!name.trim()) return "Name is required.";
+    if (!email.includes("@")) return "Enter a valid email address.";
+    if (password.length < 6)
+      return "Password must be at least 6 characters long.";
+    if (password !== confirmPassword)
+      return "Passwords do not match.";
+    return null;
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.error || "Signup failed");
-      setLoading(false);
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
-    setSuccess(true);
-    setLoading(false);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.error?.includes("already registered")) {
+          setError("This email is already registered. Try logging in.");
+        } else {
+          setError(data.error || "Signup failed. Please try again.");
+        }
+        setLoading(false);
+        return;
+      }
+
+      setSuccess(true);
+      setLoading(false);
+
+      // Optional: Auto redirect after 3 seconds
+      setTimeout(() => {
+        router.push("/auth/login");
+      }, 3000);
+
+    } catch (err) {
+      setError("Network error. Please try again.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -51,8 +84,9 @@ export default function SignupPage() {
         </div>
       ) : (
         <form onSubmit={handleSignup} className="space-y-4">
+
           <div>
-            <label className="text-sm font-medium text-gray-700">Name</label>
+            <label className="text-sm font-medium text-gray-700">Full Name</label>
             <input
               type="text"
               required
@@ -80,6 +114,17 @@ export default function SignupPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-700">Confirm Password</label>
+            <input
+              type="password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               className="mt-1 w-full px-3 py-2 border rounded-lg"
             />
           </div>

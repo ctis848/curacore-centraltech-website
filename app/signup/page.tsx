@@ -9,15 +9,34 @@ export default function SignupPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
     setMessage(null);
+
+    // Basic validation
+    if (!email.includes("@")) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -30,11 +49,16 @@ export default function SignupPage() {
     setLoading(false);
 
     if (error) {
-      setError(error.message);
+      // Friendly error messages
+      if (error.message.includes("already registered")) {
+        setError("This email is already registered. Try logging in instead.");
+      } else {
+        setError(error.message);
+      }
       return;
     }
 
-    setMessage("Check your email to confirm your account.");
+    setMessage("Account created! Check your email to confirm your account.");
   }
 
   return (
@@ -42,6 +66,8 @@ export default function SignupPage() {
       <AuthNavbar />
 
       <div className="max-w-md mx-auto p-6 bg-white dark:bg-gray-900 rounded-lg shadow">
+        <h1 className="text-2xl font-bold mb-4 dark:text-white">Create Account</h1>
+
         <form onSubmit={handleSignup} className="space-y-4">
           <input
             type="email"
@@ -59,6 +85,15 @@ export default function SignupPage() {
             className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:text-white"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+          />
+
+          <input
+            type="password"
+            required
+            placeholder="Confirm Password"
+            className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:text-white"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
           />
 
           <button

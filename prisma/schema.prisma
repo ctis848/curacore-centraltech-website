@@ -64,30 +64,57 @@ model Account {
 }
 
 model License {
-  id                  String        @id @default(uuid())
-  userId              String
-  licenseRequestId    String?       @unique
-  productName         String?
-  licenseKey          String?       @unique
-  machineId           String?
-  purchasedAt         DateTime?
-  activatedAt         DateTime?
-  expiresAt           DateTime?
-  annualFeePercent    Int           @default(20)
-  lastAnnualFeePaidAt DateTime?
-  status              LicenseStatus @default(PENDING)
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  id                 String        @id @default(uuid())
+  userId             String
+  licenseRequestId   String?       @unique
+  productName        String?
+  licenseKey         String?       @unique
 
-  licenseRequest     LicenseRequest? @relation(fields: [licenseRequestId], references: [id])
-  user               User            @relation(fields: [userId], references: [id])
+  // Purchase & activation tracking
+  purchasedAt        DateTime?     // ⭐ Added to match seed.ts
+  activatedAt        DateTime?
+  activationCount    Int           @default(0)
+  maxActivations     Int?
+
+  // Expiration
+  expiresAt          DateTime?
+
+  // Annual fee logic
+  annualFeePercent   Int           @default(20)
+  annualFeePaidUntil DateTime?
+
+  // Status
+  status             LicenseStatus @default(PENDING)
+
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  // Relations
+  licenseRequest     LicenseRequest?      @relation(fields: [licenseRequestId], references: [id])
+  user               User                 @relation(fields: [userId], references: [id])
   licenseHistory     LicenseHistory[]
   machineActivations MachineActivation[]
+  validationLogs     LicenseValidationLog[]
   invoices           Invoice[]
   supportTickets     SupportTicket[]
 
   @@index([status])
   @@index([userId])
+}
+
+model LicenseValidationLog {
+  id         String   @id @default(uuid())
+  licenseId  String?
+  deviceId   String?
+  ipAddress  String?
+  appVersion String?
+  os         String?
+  result     String
+  createdAt  DateTime @default(now())
+
+  license License? @relation(fields: [licenseId], references: [id])
+
+  @@index([licenseId])
 }
 
 model AuditLog {
@@ -282,7 +309,7 @@ model ExportHistory {
   id        String   @id @default(uuid())
   userId    String?
   fileName  String?
-  dataset   String?   // <— add this
+  dataset   String?
   createdAt DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id])
@@ -318,6 +345,7 @@ enum LicenseStatus {
   EXPIRED
   DEACTIVATED
   INACTIVE
+  REVOKED
 }
 
 enum TeamRole {

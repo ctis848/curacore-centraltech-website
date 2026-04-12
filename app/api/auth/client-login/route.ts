@@ -1,60 +1,43 @@
-// FILE: app/api/auth/client-login/route.ts
-
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
+  const supabase = supabaseServer();
   const { email, password } = await req.json();
 
-  // Find user
-  const user = await prisma.user.findUnique({
-    where: { email },
+  // 1. Authenticate with Supabase
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
   });
 
-  // Validate user exists
-  if (!user) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-  }
-
-  // Validate password
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-  }
-
-  // Ensure this is a client account
-  if (user.role !== "CLIENT") {
+  if (error) {
     return NextResponse.json(
-      { error: "Not a client account" },
+      { error: "Invalid email or password" },
+      { status: 401 }
+    );
+  }
+
+  const user = data.user;
+
+  // 2. Check if this user is a client
+  const { data: client, error: clientError } = await supabase
+    .from("clients")
+    .select("*")
+    .eq("auth_id", user.id)
+    .single();
+
+  if (clientError || !client) {
+    return NextResponse.json(
+      { error: "This login page is for Clients only." },
       { status: 403 }
     );
   }
 
-  // Create session token
-  const token = crypto.randomUUID();
-
-  // Store session
-  await prisma.session.create({
-    data: {
-      token,
-      userId: user.id,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24 hours
-    },
-  });
-
-  // Prepare response
+  // 3. Create response
   const res = NextResponse.json({ success: true });
 
-  // Set cookies
-  res.cookies.set("token", token, {
-    httpOnly: true,
-    secure: true,
-    path: "/",
-  });
-
+  // 4. Set cookies (role + session)
   res.cookies.set("role", "CLIENT", {
     httpOnly: true,
     secure: true,

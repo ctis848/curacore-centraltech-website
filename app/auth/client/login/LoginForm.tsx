@@ -9,25 +9,33 @@ export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const res = await fetch("/api/auth/client-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.error || "Login failed");
-      return;
+      if (!res.ok) {
+        setError(data.error || "Login failed");
+        setLoading(false);
+        return;
+      }
+
+      router.push("/client/panel");
+    } catch (err) {
+      setError("Network error. Please try again.");
+      setLoading(false);
     }
-
-    router.push("/client/panel");
   }
 
   return (
@@ -43,6 +51,7 @@ export default function LoginForm() {
           className="w-full p-3 border rounded"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          required
         />
 
         <input
@@ -51,10 +60,14 @@ export default function LoginForm() {
           className="w-full p-3 border rounded"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          required
         />
 
-        <button className="w-full bg-blue-600 text-white p-3 rounded">
-          Login
+        <button
+          disabled={loading}
+          className="w-full bg-blue-600 text-white p-3 rounded disabled:opacity-50"
+        >
+          {loading ? "Logging in..." : "Login"}
         </button>
       </form>
     </div>

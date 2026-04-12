@@ -25,7 +25,7 @@ export default function PricingPage() {
       features: [
         "Complete EMR Suite",
         "All modules included",
-        "Up to 8 users",
+        "Up to 10 users",
         "20% annual support fee included",
       ],
       highlight: true,

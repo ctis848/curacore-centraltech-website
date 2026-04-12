@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 type License = {
-  id: string;
+  id?: string;            // client_licenses.id
+  license_id?: string;    // licenses.id
   license_key: string;
   product_name: string;
   expires_at: string;
@@ -44,7 +46,7 @@ export default function ExpiredLicensesPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // SEARCH FILTER (null-safe)
+  // SEARCH FILTER
   const filtered = useMemo(() => {
     const q = debouncedSearch;
 
@@ -204,14 +206,17 @@ export default function ExpiredLicensesPage() {
                   />
                 )}
                 {visibleCols.actions && (
-                  <th className="px-4 py-2 text-left">Status</th>
+                  <th className="px-4 py-2 text-left">Actions</th>
                 )}
               </tr>
             </thead>
 
             <tbody>
               {paged.map((l) => (
-                <tr key={l.id} className="border-b hover:bg-gray-50">
+                <tr
+                  key={l.id || l.license_id}
+                  className="border-b hover:bg-gray-50"
+                >
                   {visibleCols.product_name && (
                     <td className="px-4 py-2">{l.product_name}</td>
                   )}
@@ -224,7 +229,14 @@ export default function ExpiredLicensesPage() {
                     </td>
                   )}
                   {visibleCols.actions && (
-                    <td className="px-4 py-2">{badge()}</td>
+                    <td className="px-4 py-2">
+                      <Link
+                        href={`/client/panel/licenses/${l.license_key}`}
+                        className="text-blue-600 underline text-sm"
+                      >
+                        View Details
+                      </Link>
+                    </td>
                   )}
                 </tr>
               ))}

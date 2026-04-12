@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 
 type License = {
-  id: string;
-  licenseKey: string;
-  productName: string;
-  machineId: string;
-  status: string;
+  id: string;             // client_licenses.id
+  licenseKey: string;     // licenses.license_key
+  productName: string;    // client_licenses.product_name
+  machineId: string;      // licenses.machine_id
+  status: string;         // ACTIVE
   expiresAt?: string | null;
 };
 
@@ -27,12 +27,14 @@ export default function ActiveLicensesPage() {
     actions: true,
   });
 
+  // Fetch active licenses from new API
   useEffect(() => {
     fetch("/api/client/licenses/active", { credentials: "include" })
       .then((res) => res.json())
       .then((d) => setLicenses(d.licenses || []));
   }, []);
 
+  // SEARCH
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return licenses.filter(
@@ -43,6 +45,7 @@ export default function ActiveLicensesPage() {
     );
   }, [licenses, search]);
 
+  // SORTING
   const sorted = useMemo(() => {
     const copy = [...filtered];
     copy.sort((a, b) => {
@@ -65,6 +68,7 @@ export default function ActiveLicensesPage() {
     return copy;
   }, [filtered, sortBy, sortDir]);
 
+  // PAGINATION
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -204,7 +208,10 @@ export default function ActiveLicensesPage() {
 
             <tbody>
               {paged.map((lic) => (
-                <tr key={lic.id} className="border-b hover:bg-gray-50">
+                <tr
+                  key={lic.id}
+                  className="border-b hover:bg-gray-50"
+                >
                   {visibleCols.product && (
                     <td className="px-4 py-2">{lic.productName}</td>
                   )}

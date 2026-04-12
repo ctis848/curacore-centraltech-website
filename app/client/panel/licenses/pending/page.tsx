@@ -2,20 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type License = {
+type PendingLicense = {
   licenseKey: string;
   productName: string;
-  status: string;
+  status: "PENDING";
   requestedAt: string;
 };
 
 const PAGE_SIZE = 20;
 
 export default function PendingLicensesPage() {
-  const [licenses, setLicenses] = useState<License[]>([]);
+  const [licenses, setLicenses] = useState<PendingLicense[]>([]);
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-
   const [sortBy, setSortBy] = useState<"product" | "requested">("requested");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
@@ -23,36 +21,26 @@ export default function PendingLicensesPage() {
   const [visibleCols, setVisibleCols] = useState({
     product: true,
     licenseKey: true,
-    requestedAt: true,
+    requested: true,
     actions: true,
   });
 
   // Fetch pending licenses
   useEffect(() => {
     fetch("/api/client/licenses/pending", { credentials: "include" })
-      .then((r) => r.json())
+      .then((res) => res.json())
       .then((d) => setLicenses(d.licenses || []));
   }, []);
 
-  // Debounce search
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setDebouncedSearch(search.toLowerCase());
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(t);
-  }, [search]);
-
-  // SEARCH FILTER (null-safe)
+  // SEARCH
   const filtered = useMemo(() => {
-    const q = debouncedSearch;
-
-    return licenses.filter((l) => {
-      const key = l.licenseKey?.toLowerCase() || "";
-      const product = l.productName?.toLowerCase() || "";
-      return key.includes(q) || product.includes(q);
-    });
-  }, [licenses, debouncedSearch]);
+    const q = search.toLowerCase();
+    return licenses.filter(
+      (l) =>
+        l.licenseKey.toLowerCase().includes(q) ||
+        l.productName.toLowerCase().includes(q)
+    );
+  }, [licenses, search]);
 
   // SORTING
   const sorted = useMemo(() => {
@@ -63,8 +51,8 @@ export default function PendingLicensesPage() {
       let bv: string | number = "";
 
       if (sortBy === "product") {
-        av = a.productName?.toLowerCase() || "";
-        bv = b.productName?.toLowerCase() || "";
+        av = a.productName.toLowerCase();
+        bv = b.productName.toLowerCase();
       } else {
         av = new Date(a.requestedAt).getTime();
         bv = new Date(b.requestedAt).getTime();
@@ -95,10 +83,9 @@ export default function PendingLicensesPage() {
     setVisibleCols((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // CSV EXPORT
   const exportCSV = () => {
     const rows = [
-      ["Product", "License Key", "Requested"],
+      ["Product", "License Key", "Requested At"],
       ...sorted.map((l) => [
         l.productName,
         l.licenseKey,
@@ -125,7 +112,7 @@ export default function PendingLicensesPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-teal-700">Pending Licenses</h1>
+      <h1 className="text-2xl font-bold text-yellow-700">Pending Licenses</h1>
 
       {/* Controls */}
       <div className="flex flex-wrap gap-4 items-center">
@@ -133,7 +120,10 @@ export default function PendingLicensesPage() {
           type="text"
           placeholder="Search pending licenses..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           className="w-full sm:w-64 px-4 py-2 border rounded-lg bg-white shadow-sm"
         />
 
@@ -143,7 +133,7 @@ export default function PendingLicensesPage() {
             [
               ["product", "Product"],
               ["licenseKey", "License Key"],
-              ["requestedAt", "Requested"],
+              ["requested", "Requested"],
               ["actions", "Actions"],
             ] as const
           ).map(([key, label]) => (
@@ -170,7 +160,7 @@ export default function PendingLicensesPage() {
       {sorted.length === 0 && (
         <div className="bg-white p-10 rounded-xl shadow text-center text-gray-500">
           <p className="text-lg font-semibold">No pending licenses found</p>
-          <p className="text-sm mt-1">Try adjusting your search or filters</p>
+          <p className="text-sm mt-1">You have no pending license requests</p>
         </div>
       )}
 
@@ -181,23 +171,33 @@ export default function PendingLicensesPage() {
             <thead className="bg-gray-100 border-b">
               <tr>
                 {visibleCols.product && (
-                  <Th
-                    label="Product"
-                    active={sortBy === "product"}
-                    dir={sortDir}
+                  <th
+                    className="px-4 py-2 text-left cursor-pointer"
                     onClick={() => changeSort("product")}
-                  />
+                  >
+                    Product{" "}
+                    {sortBy === "product"
+                      ? sortDir === "asc"
+                        ? "▲"
+                        : "▼"
+                      : ""}
+                  </th>
                 )}
                 {visibleCols.licenseKey && (
                   <th className="px-4 py-2 text-left">License Key</th>
                 )}
-                {visibleCols.requestedAt && (
-                  <Th
-                    label="Requested"
-                    active={sortBy === "requested"}
-                    dir={sortDir}
+                {visibleCols.requested && (
+                  <th
+                    className="px-4 py-2 text-left cursor-pointer"
                     onClick={() => changeSort("requested")}
-                  />
+                  >
+                    Requested{" "}
+                    {sortBy === "requested"
+                      ? sortDir === "asc"
+                        ? "▲"
+                        : "▼"
+                      : ""}
+                  </th>
                 )}
                 {visibleCols.actions && (
                   <th className="px-4 py-2 text-left">Status</th>
@@ -206,15 +206,18 @@ export default function PendingLicensesPage() {
             </thead>
 
             <tbody>
-              {paged.map((l) => (
-                <tr key={l.licenseKey} className="border-b hover:bg-gray-50">
+              {paged.map((l, idx) => (
+                <tr
+                  key={idx}
+                  className="border-b hover:bg-gray-50"
+                >
                   {visibleCols.product && (
                     <td className="px-4 py-2">{l.productName}</td>
                   )}
                   {visibleCols.licenseKey && (
                     <td className="px-4 py-2 font-mono">{l.licenseKey}</td>
                   )}
-                  {visibleCols.requestedAt && (
+                  {visibleCols.requested && (
                     <td className="px-4 py-2">
                       {new Date(l.requestedAt).toLocaleString()}
                     </td>
@@ -255,26 +258,5 @@ export default function PendingLicensesPage() {
         </div>
       )}
     </div>
-  );
-}
-
-function Th({
-  label,
-  active,
-  dir,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  dir: "asc" | "desc";
-  onClick: () => void;
-}) {
-  return (
-    <th
-      className="px-4 py-2 text-left cursor-pointer select-none hover:text-teal-700"
-      onClick={onClick}
-    >
-      {label} {active && (dir === "asc" ? "▲" : "▼")}
-    </th>
   );
 }

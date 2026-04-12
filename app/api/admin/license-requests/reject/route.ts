@@ -1,90 +1,113 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
-import { sendMail } from "@/lib/mail";
+import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
+import nodemailer from "nodemailer";
 
 export async function POST(req: Request) {
   try {
-    const supabase = supabaseServer();
-    const { request_id, reason } = await req.json();
+    const body = await req.json();
+    const { requestId, reason } = body || {};
 
-    if (!request_id) {
+    if (!requestId || typeof requestId !== "string") {
       return NextResponse.json(
-        { error: "request_id is required" },
+        { error: "Invalid or missing requestId" },
         { status: 400 }
       );
     }
 
-    // AUTH CHECK
-    const {
-      data: { user: admin },
-    } = await supabase.auth.getUser();
-
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!reason || typeof reason !== "string" || !reason.trim()) {
+      return NextResponse.json(
+        { error: "Rejection reason is required" },
+        { status: 400 }
+      );
     }
 
-    // FETCH REQUEST
-    const { data: request } = await supabase
+    // Load request
+    const { data: request, error: reqError } = await supabaseAdmin
       .from("license_requests")
-      .select("id, user_id, request_key, status")
-      .eq("id", request_id)
+      .select("id, user_id, status, product_name")
+      .eq("id", requestId)
       .single();
 
-    if (!request) {
-      return NextResponse.json({ error: "Request not found" }, { status: 404 });
+    if (reqError || !request) {
+      return NextResponse.json(
+        { error: "License request not found" },
+        { status: 404 }
+      );
     }
 
-    if (request.status !== "pending") {
+    if (request.status !== "PENDING") {
       return NextResponse.json(
         { error: "Only pending requests can be rejected" },
         { status: 400 }
       );
     }
 
-    // UPDATE STATUS
-    await supabase
+    // Update request status
+    const { error: updateError } = await supabaseAdmin
       .from("license_requests")
-      .update({ status: "rejected", rejection_reason: reason || null })
-      .eq("id", request.id);
+      .update({
+        status: "REJECTED",
+        rejection_reason: reason,
+        processed_at: new Date().toISOString(),
+        processed_by: "ADMIN",
+      })
+      .eq("id", requestId);
 
-    // FETCH CLIENT
-    const { data: client } = await supabase
-      .from("clients")
-      .select("email, name")
-      .eq("id", request.user_id)
-      .single();
-
-    if (client?.email) {
-      await sendMail({
-        to: client.email,
-        subject: "Your License Request Was Rejected",
-        html: `
-          <h2>Hello ${client.name ?? "Client"},</h2>
-          <p>Your license request was rejected.</p>
-          <p><strong>Reason:</strong> ${reason || "No reason provided"}</p>
-          <p>Request Key:</p>
-          <pre>${request.request_key}</pre>
-        `,
-      });
+    if (updateError) {
+      return NextResponse.json(
+        { error: "Failed to update request" },
+        { status: 500 }
+      );
     }
 
-    // NOTIFICATION
-    await supabase.from("notifications").insert({
-      user_id: request.user_id,
-      title: "License Request Rejected",
-      message: reason
-        ? `Your request was rejected: ${reason}`
-        : "Your request was rejected.",
+    // Notify user by email
+    try {
+      const { data: userData } = await supabaseAdmin.auth.admin.getUserById(
+        request.user_id
+      );
+
+      const email = userData?.user?.email;
+
+      if (email && process.env.MAIL_HOST) {
+        const transporter = nodemailer.createTransport({
+          host: process.env.MAIL_HOST,
+          port: Number(process.env.MAIL_PORT),
+          secure: false,
+          auth: {
+            user: process.env.MAIL_USER,
+            pass: process.env.MAIL_PASS,
+          },
+        });
+
+        await transporter.sendMail({
+          from: `"CentralTech Licensing" <${process.env.MAIL_USER}>`,
+          to: email,
+          subject: "License Request Rejected",
+          html: `
+            <h2>Your License Request Was Rejected</h2>
+            <p><strong>Reason:</strong></p>
+            <p>${reason}</p>
+          `,
+        });
+      }
+    } catch (emailErr) {
+      console.error("EMAIL SEND ERROR:", emailErr);
+    }
+
+    // Audit log
+    await supabaseAdmin.from("audit_logs").insert({
+      action: "LICENSE_REJECTED",
+      details: `Rejected license request #${requestId}`,
+      created_at: new Date().toISOString(),
     });
 
     return NextResponse.json({
       success: true,
-      message: "Request rejected successfully",
+      message: "License request rejected successfully",
     });
-  } catch (error: any) {
-    console.error("Reject error:", error);
+  } catch (err: any) {
     return NextResponse.json(
-      { error: "Server error", details: error.message },
+      { error: "Server error", details: err.message },
       { status: 500 }
     );
   }

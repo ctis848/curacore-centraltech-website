@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 type License = {
   licenseKey: string;
@@ -15,16 +16,12 @@ export default function ClientLicensesPage() {
   const [licenses, setLicenses] = useState<License[]>([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-
   const [statusFilter, setStatusFilter] =
-    useState<"ALL" | "ACTIVE" | "EXPIRED" | "PENDING">("ALL");
-
+    useState<"ALL" | "ACTIVE" | "EXPIRED" | "PENDING" | "GRACE">("ALL");
   const [sortBy, setSortBy] =
     useState<"product" | "status" | "expires">("product");
-
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
-
   const [visibleCols, setVisibleCols] = useState({
     product: true,
     licenseKey: true,
@@ -32,15 +29,62 @@ export default function ClientLicensesPage() {
     expires: true,
     actions: true,
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch licenses
+  /* -----------------------------------------
+     FETCH LICENSES FROM API
+  ----------------------------------------- */
   useEffect(() => {
-    fetch("/api/client/licenses", { credentials: "include" })
-      .then((res) => res.json())
-      .then((d) => setLicenses(d.licenses || []));
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem("client_access_token");
+        if (!token) {
+          setError("Missing client access token. Please log in again.");
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch("/api/client/licenses", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setError(data.error || "Failed to load licenses");
+          setLoading(false);
+          return;
+        }
+
+        const data = await res.json();
+
+        // Expecting: { licenses: [{ product_name, license_key, status, expires_at }] }
+        const mapped: License[] = (data.licenses || []).map((lic: any) => ({
+          productName: lic.product_name ?? lic.productName ?? "",
+          licenseKey: lic.license_key ?? lic.licenseKey ?? "",
+          status: lic.status ?? "UNKNOWN",
+          expiresAt: lic.expires_at ?? lic.expiresAt ?? null,
+        }));
+
+        setLicenses(mapped);
+        setLoading(false);
+      } catch (err: any) {
+        setError(err.message || "Unexpected error");
+        setLoading(false);
+      }
+    }
+
+    load();
   }, []);
 
-  // Debounce search
+  /* -----------------------------------------
+     DEBOUNCE SEARCH
+  ----------------------------------------- */
   useEffect(() => {
     const t = setTimeout(() => {
       setDebouncedSearch(search.toLowerCase());
@@ -49,10 +93,13 @@ export default function ClientLicensesPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // FILTERING (null-safe)
+  /* -----------------------------------------
+     FILTERING
+  ----------------------------------------- */
   const filtered = useMemo(() => {
     return licenses.filter((lic) => {
-      if (statusFilter !== "ALL" && lic.status !== statusFilter) return false;
+      if (statusFilter !== "ALL" && lic.status.toUpperCase() !== statusFilter)
+        return false;
 
       const q = debouncedSearch;
       const key = lic.licenseKey?.toLowerCase() || "";
@@ -62,7 +109,9 @@ export default function ClientLicensesPage() {
     });
   }, [licenses, debouncedSearch, statusFilter]);
 
-  // SORTING
+  /* -----------------------------------------
+     SORTING
+  ----------------------------------------- */
   const sorted = useMemo(() => {
     const copy = [...filtered];
 
@@ -89,7 +138,9 @@ export default function ClientLicensesPage() {
     return copy;
   }, [filtered, sortBy, sortDir]);
 
-  // PAGINATION
+  /* -----------------------------------------
+     PAGINATION
+  ----------------------------------------- */
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -106,7 +157,9 @@ export default function ClientLicensesPage() {
     setVisibleCols((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // CSV EXPORT
+  /* -----------------------------------------
+     CSV EXPORT
+  ----------------------------------------- */
   const exportCSV = () => {
     const rows = [
       ["Product", "License Key", "Status", "Expires"],
@@ -134,6 +187,9 @@ export default function ClientLicensesPage() {
     URL.revokeObjectURL(url);
   };
 
+  /* -----------------------------------------
+     STATUS BADGE
+  ----------------------------------------- */
   const statusBadge = (status: string) => {
     const s = status.toUpperCase();
 
@@ -141,6 +197,7 @@ export default function ClientLicensesPage() {
       ACTIVE: "bg-green-100 text-green-700",
       EXPIRED: "bg-red-100 text-red-700",
       PENDING: "bg-yellow-100 text-yellow-700",
+      GRACE: "bg-blue-100 text-blue-700",
     };
 
     return (
@@ -154,6 +211,9 @@ export default function ClientLicensesPage() {
     );
   };
 
+  /* -----------------------------------------
+     RENDER
+  ----------------------------------------- */
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold text-teal-700">My Licenses</h1>
@@ -180,6 +240,7 @@ export default function ClientLicensesPage() {
         >
           <option value="ALL">All statuses</option>
           <option value="ACTIVE">Active</option>
+          <option value="GRACE">Grace</option>
           <option value="EXPIRED">Expired</option>
           <option value="PENDING">Pending</option>
         </select>
@@ -216,8 +277,21 @@ export default function ClientLicensesPage() {
         </button>
       </div>
 
+      {/* Loading / Error */}
+      {loading && (
+        <div className="bg-white p-6 rounded-xl shadow text-gray-500">
+          Loading licenses...
+        </div>
+      )}
+
+      {error && !loading && (
+        <div className="bg-red-50 border border-red-200 p-4 rounded-xl text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {/* Empty state */}
-      {sorted.length === 0 && (
+      {!loading && !error && sorted.length === 0 && (
         <div className="bg-white p-10 rounded-xl shadow text-center text-gray-500">
           <p className="text-lg font-semibold">No licenses found</p>
           <p className="text-sm mt-1">Try adjusting your search or filters</p>
@@ -225,7 +299,7 @@ export default function ClientLicensesPage() {
       )}
 
       {/* Table */}
-      {sorted.length > 0 && (
+      {!loading && !error && sorted.length > 0 && (
         <div className="overflow-x-auto border rounded-lg shadow bg-white">
           <table className="min-w-full">
             <thead className="bg-gray-100 border-b">
@@ -262,7 +336,6 @@ export default function ClientLicensesPage() {
                 )}
               </tr>
             </thead>
-
             <tbody>
               {paged.map((lic) => (
                 <tr key={lic.licenseKey} className="border-b hover:bg-gray-50">
@@ -284,12 +357,12 @@ export default function ClientLicensesPage() {
                   )}
                   {visibleCols.actions && (
                     <td className="px-4 py-2">
-                      <a
+                      <Link
                         href={`/client/panel/licenses/${lic.licenseKey}`}
                         className="text-blue-600 underline text-sm"
                       >
                         View Details
-                      </a>
+                      </Link>
                     </td>
                   )}
                 </tr>
@@ -300,7 +373,7 @@ export default function ClientLicensesPage() {
       )}
 
       {/* Pagination */}
-      {sorted.length > 0 && (
+      {!loading && !error && sorted.length > 0 && (
         <div className="flex items-center justify-between pt-2 text-sm">
           <span>
             Page {page} of {totalPages} — {sorted.length} licenses

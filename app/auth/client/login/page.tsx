@@ -12,30 +12,48 @@ export default function ClientLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMsg("");
+    setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      // Authenticate with Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setErrorMsg("Invalid login credentials");
-      return;
+      if (error) {
+        setErrorMsg("Invalid login credentials");
+        setLoading(false);
+        return;
+      }
+
+      const user = data.user;
+
+      // Extract role from metadata
+      const role =
+        user?.user_metadata?.role ||
+        user?.app_metadata?.role ||
+        null;
+
+      // Block non-client accounts
+      if (role !== "CLIENT") {
+        setErrorMsg("This login page is for Clients only");
+        setLoading(false);
+        return;
+      }
+
+      // Redirect to client dashboard
+      router.replace("/client/panel");
+    } catch (err) {
+      setErrorMsg("Network error. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    const role = data.user?.user_metadata?.role;
-
-    // 🚫 Block Admins & Superadmins
-    if (role !== "CLIENT") {
-      setErrorMsg("This login page is for Clients only");
-      return;
-    }
-
-    router.replace("/client/panel");
   };
 
   return (
@@ -75,9 +93,10 @@ export default function ClientLogin() {
 
           <button
             type="submit"
-            className="w-full bg-teal-600 text-white p-3 rounded hover:bg-teal-700"
+            disabled={loading}
+            className="w-full bg-teal-600 text-white p-3 rounded hover:bg-teal-700 disabled:opacity-50"
           >
-            Login
+            {loading ? "Logging in..." : "Login"}
           </button>
 
           <div className="flex justify-between mt-4 text-sm">

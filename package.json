@@ -11,7 +11,8 @@
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",
     "prisma:migrate": "prisma migrate dev",
-    "seed": "ts-node prisma/seed.ts",
+    "db:seed": "node --loader ts-node/esm prisma/seed.ts",
+    "db:reset": "prisma migrate reset --force && node --loader ts-node/esm prisma/seed.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -28,7 +29,7 @@
     "@stripe/stripe-js": "^5.5.0",
     "@supabase/auth-helpers-nextjs": "^0.15.0",
     "@supabase/ssr": "^0.9.0",
-    "@supabase/supabase-js": "^2.99.3",
+    "@supabase/supabase-js": "^2.101.1",
     "@tanstack/react-table": "^8.21.3",
     "@tremor/react": "^3.18.7",
     "@types/pdfkit": "^0.17.5",
@@ -47,6 +48,7 @@
     "node-fetch": "^2.7.0",
     "nodemailer": "^8.0.1",
     "openai": "^6.32.0",
+    "pdf-lib": "^1.17.1",
     "pdfkit": "^0.17.2",
     "pg": "^8.20.0",
     "prisma": "^5.22.0",
@@ -83,7 +85,8 @@
     "typescript": "^5.9.3"
   },
   "prisma": {
-    "schema": "prisma/schema.prisma"
+    "schema": "prisma/schema.prisma",
+    "seed": "node --loader ts-node/esm prisma/seed.ts"
   },
   "engines": {
     "node": ">=20.0.0"
