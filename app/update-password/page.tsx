@@ -1,34 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createSupabaseClient } from "@/lib/supabase/client";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
-const supabase = createSupabaseClient();
-
 export default function UpdatePasswordPage() {
+  const supabase = supabaseBrowser();
   const router = useRouter();
+
   const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(false);
   const [sessionUser, setSessionUser] = useState<any>(null);
 
   useEffect(() => {
     async function load() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data } = await supabase.auth.getUser();
 
-      if (!user) {
+      if (!data.user) {
         router.replace("/login");
         return;
       }
 
-      setSessionUser(user);
+      setSessionUser(data.user);
       setChecking(false);
     }
 
     load();
-  }, [router]);
+  }, [router, supabase]);
 
   async function handleUpdate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,9 +37,10 @@ export default function UpdatePasswordPage() {
 
     const { error } = await supabase.auth.updateUser({ password });
 
+    setLoading(false);
+
     if (error) {
       alert(error.message);
-      setLoading(false);
       return;
     }
 

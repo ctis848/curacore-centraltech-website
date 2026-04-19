@@ -1,102 +1,140 @@
+// FILE: app/admin/layout.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import Sidebar from "./sidebar";
-import Topbar from "./topbar";
-import Breadcrumbs from "./components/Breadcrumbs";
+import type { ReactNode } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import {
+  HomeIcon,
+  KeyIcon,
+  ClipboardDocumentListIcon,
+  CreditCardIcon,
+  CurrencyDollarIcon,
+  ChatBubbleLeftRightIcon,
+  ChartBarIcon,
+  ClockIcon,
+  UserGroupIcon,
+  BuildingOfficeIcon,
+} from "@heroicons/react/24/outline";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
-  const [hydrated, setHydrated] = useState(false);
+const navItems = [
+  { label: "Dashboard", href: "/admin", icon: HomeIcon },
+  { label: "Licenses", href: "/admin/licenses", icon: KeyIcon },
+  { label: "License Requests", href: "/admin/license-requests", icon: ClipboardDocumentListIcon },
+  { label: "Payments", href: "/admin/payments", icon: CreditCardIcon },
+  { label: "Annual Fees", href: "/admin/annual-fees", icon: CurrencyDollarIcon },
+  { label: "Renewals", href: "/admin/renewals", icon: ClockIcon },
+  { label: "Renewal Analytics", href: "/admin/renewals/analytics", icon: ChartBarIcon },
+  { label: "Tenants", href: "/admin/tenants", icon: BuildingOfficeIcon },
+  { label: "Users", href: "/admin/users", icon: UserGroupIcon },
+  { label: "Support", href: "/admin/support", icon: ChatBubbleLeftRightIcon },
+];
 
-  // Avoid hydration mismatch
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
-
-  // Load theme from localStorage
-  useEffect(() => {
-    if (!hydrated) return;
-
-    const saved = localStorage.getItem("admin-theme");
-    const isDark = saved ? saved === "dark" : true;
-
-    setDarkMode(isDark);
-    document.documentElement.classList.toggle("dark", isDark);
-  }, [hydrated]);
-
-  // Persist theme + apply class
-  useEffect(() => {
-    if (!hydrated) return;
-
-    document.documentElement.classList.toggle("dark", darkMode);
-    localStorage.setItem("admin-theme", darkMode ? "dark" : "light");
-  }, [darkMode, hydrated]);
-
-  // Prevent scroll when mobile sidebar is open
-  useEffect(() => {
-    if (!hydrated) return;
-
-    document.body.style.overflow = mobileOpen ? "hidden" : "";
-  }, [mobileOpen, hydrated]);
-
-  if (!hydrated) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="animate-pulse text-gray-600 dark:text-gray-300">
-          Loading admin panel…
-        </div>
-      </div>
-    );
-  }
+export default function AdminLayout({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen flex bg-slate-100">
+      {/* SIDEBAR (Desktop) */}
+      <aside className="w-64 bg-white border-r hidden md:flex flex-col">
+        <div className="px-6 py-4 border-b">
+          <h1 className="text-xl font-bold text-slate-900">CentralCore Admin</h1>
+          <p className="text-xs text-slate-500">Management Console</p>
+        </div>
 
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:block">
-        <Sidebar collapsed={collapsed} />
+        <nav className="flex-1 px-4 py-4 space-y-1">
+          {navItems.map((item) => {
+            const active = pathname.startsWith(item.href);
+            const Icon = item.icon;
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition
+                  ${active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}
+                `}
+              >
+                <Icon className="w-5 h-5" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <form
+          action="/api/auth/admin-logout"
+          method="post"
+          className="px-4 py-4 border-t"
+        >
+          <button className="w-full text-left px-3 py-2 rounded text-sm font-medium text-red-600 hover:bg-red-50">
+            Logout
+          </button>
+        </form>
       </aside>
 
-      {/* Mobile Sidebar */}
-      <aside
-        className={`
-          fixed z-50 top-0 left-0 h-full md:hidden bg-slate-900
-          transition-transform duration-300 ease-in-out
-          ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
-        `}
-      >
-        <Sidebar collapsed={false} />
-      </aside>
+      {/* MOBILE SIDEBAR */}
+      <div className="md:hidden">
+        <button
+          onClick={() => setOpen(!open)}
+          className="absolute top-3 left-3 z-50 bg-white border rounded px-3 py-1 shadow"
+        >
+          ☰
+        </button>
 
-      {/* Mobile Overlay */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
+        {open && (
+          <aside className="fixed inset-y-0 left-0 w-64 bg-white border-r shadow-lg z-40 flex flex-col">
+            <div className="px-6 py-4 border-b flex justify-between items-center">
+              <h1 className="text-lg font-bold text-slate-900">Admin Menu</h1>
+              <button onClick={() => setOpen(false)}>✕</button>
+            </div>
 
-      {/* Main Content */}
-      <div
-        className={`
-          flex-1 flex flex-col transition-all duration-300 ease-in-out
-          ${collapsed ? "md:ml-20" : "md:ml-64"}
-        `}
-      >
-        <Topbar
-          onToggleSidebar={() => setCollapsed(!collapsed)}
-          onToggleMobile={() => setMobileOpen(true)}
-          onToggleTheme={() => setDarkMode(!darkMode)}
-          darkMode={darkMode}
-        />
+            <nav className="flex-1 px-4 py-4 space-y-1">
+              {navItems.map((item) => {
+                const active = pathname.startsWith(item.href);
+                const Icon = item.icon;
 
-        <main className="p-8 text-gray-900 dark:text-gray-100">
-          <Breadcrumbs />
-          <div className="mt-4">{children}</div>
-        </main>
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition
+                      ${active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}
+                    `}
+                  >
+                    <Icon className="w-5 h-5" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <form
+              action="/api/auth/admin-logout"
+              method="post"
+              className="px-4 py-4 border-t"
+            >
+              <button className="w-full text-left px-3 py-2 rounded text-sm font-medium text-red-600 hover:bg-red-50">
+                Logout
+              </button>
+            </form>
+          </aside>
+        )}
+      </div>
+
+      {/* MAIN CONTENT */}
+      <div className="flex-1 flex flex-col">
+        <header className="bg-white border-b px-4 py-3 flex items-center justify-between md:hidden">
+          <h1 className="text-lg font-semibold text-slate-900">CentralCore Admin</h1>
+          <form action="/api/auth/admin-logout" method="post">
+            <button className="text-red-600 text-sm font-medium">Logout</button>
+          </form>
+        </header>
+
+        <main className="p-6">{children}</main>
       </div>
     </div>
   );

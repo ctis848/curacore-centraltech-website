@@ -1,53 +1,33 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
+import { admin } from "@/lib/supabase/admin";
 
 export async function GET() {
-  try {
-    const { data: requests, error: reqErr } = await supabaseAdmin
-      .from("license_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
+  const { data, error } = await admin
+    .from("LicenseRequest")
+    .select("*")
+    .order("createdAt", { ascending: false });
 
-    if (reqErr) {
-      console.error("LICENSE REQUESTS ERROR:", reqErr);
-      return NextResponse.json(
-        { error: "Failed to load license requests", details: reqErr.message },
-        { status: 500 }
-      );
-    }
-
-    const { data: usersData, error: usersErr } =
-      await supabaseAdmin.auth.admin.listUsers();
-
-    if (usersErr) {
-      console.error("AUTH USERS ERROR:", usersErr);
-      return NextResponse.json(
-        { error: "Failed to load users", details: usersErr.message },
-        { status: 500 }
-      );
-    }
-
-    const users = usersData?.users || [];
-    const userMap = new Map();
-    users.forEach((u: any) => userMap.set(u.id, u.email));
-
-    const final = requests.map((r: any) => ({
-      id: r.id,
-      user_email: userMap.get(r.user_id) || "Unknown",
-      product_name: r.product_name,
-      machine_id: r.machine_id,
-      request_key: r.request_key,
-      status: r.status,
-      created_at: r.created_at,
-      notes: r.notes,
-    }));
-
-    return NextResponse.json({ requests: final });
-  } catch (err: any) {
-    console.error("SERVER ERROR:", err);
-    return NextResponse.json(
-      { error: "Server error", details: err.message },
-      { status: 500 }
-    );
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  return NextResponse.json({ data });
+}
+
+export async function PATCH(req: Request) {
+  const body = await req.json();
+  const { id, status } = body as { id: string; status: string };
+
+  const { data, error } = await admin
+    .from("LicenseRequest")
+    .update({ status })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ data });
 }

@@ -2,18 +2,18 @@
 
 import { useState } from "react";
 import PublicNavbar from "@/components/layout/PublicNavbar";
-import { createSupabaseClient } from "@/lib/supabase/client";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function ForgotPasswordPage() {
-  const supabase = createSupabaseClient();
+  const supabase = supabaseBrowser();
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
 
-  const handleReset = async (e: any) => {
+  const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${location.origin}/auth/client/reset-password`,
+      redirectTo: `${window.location.origin}/auth/client/reset-password`,
     });
 
     if (error) {

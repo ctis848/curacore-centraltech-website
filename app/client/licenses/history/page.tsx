@@ -1,43 +1,73 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
-type HistoryItem = {
+type ActivationRow = {
   id: string;
-  action: string;
-  details: string | null;
-  createdAt: string;
-  license: { key: string; productName: string };
+  licenseId: string;
+  machineId: string;
+  created_at: string;
 };
 
 export default function LicenseHistoryPage() {
-  const [items, setItems] = useState<HistoryItem[]>([]);
+  const supabase = supabaseBrowser();
+
+  const [rows, setRows] = useState<ActivationRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/client/licenses/history")
-      .then((r) => r.json())
-      .then(setItems);
-  }, []);
+    const load = async () => {
+      const { data } = await supabase.auth.getUser();
+      const user = data.user;
+
+      if (!user) {
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data: activations, error } = await supabase
+        .from("LicenseActivation")
+        .select("id, licenseId, machineId, created_at")
+        .eq("userId", user.id)
+        .order("created_at", { ascending: false });
+
+      if (!error && activations) {
+        setRows(activations as ActivationRow[]);
+      }
+
+      setLoading(false);
+    };
+
+    load();
+  }, [supabase]);
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">License History</h1>
+      <h1 className="text-xl font-semibold mb-4 text-slate-900">
+        Activation History
+      </h1>
 
-      {items.length === 0 ? (
-        <p className="text-slate-500">No history yet.</p>
+      {loading ? (
+        <p className="text-slate-500">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="text-slate-500">No activation history found.</p>
       ) : (
         <div className="space-y-3">
-          {items.map((item) => (
-            <div key={item.id} className="border rounded-lg px-4 py-3 text-sm">
-              <p className="font-semibold">
-                {item.action} — {item.license.productName}
+          {rows.map((row) => (
+            <div
+              key={row.id}
+              className="rounded-lg border bg-white p-4 shadow-sm"
+            >
+              <p className="font-medium">
+                License: <span className="font-mono">{row.licenseId}</span>
               </p>
-              <p className="font-mono text-xs text-slate-500">{item.license.key}</p>
-              {item.details && (
-                <p className="text-slate-500 mt-1">{item.details}</p>
-              )}
-              <p className="text-xs text-slate-400 mt-1">
-                {new Date(item.createdAt).toLocaleString()}
+              <p className="text-sm text-slate-600">
+                Machine: <span className="font-mono">{row.machineId}</span>
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {new Date(row.created_at).toLocaleString()}
               </p>
             </div>
           ))}

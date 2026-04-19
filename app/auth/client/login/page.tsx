@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import PublicNavbar from "@/components/layout/PublicNavbar";
-import { createSupabaseClient } from "@/lib/supabase/client";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function ClientLogin() {
   const router = useRouter();
-  const supabase = createSupabaseClient();
+  const supabase = supabaseBrowser();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,36 +20,39 @@ export default function ClientLogin() {
     setLoading(true);
 
     try {
-      // Authenticate with Supabase
+      const normalizedEmail = email.trim().toLowerCase();
+
+      // 1️⃣ Authenticate only — no role check here
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password,
       });
 
       if (error) {
-        setErrorMsg("Invalid login credentials");
+        setErrorMsg("Invalid email or password");
         setLoading(false);
         return;
       }
 
       const user = data.user;
 
-      // Extract role from metadata
-      const role =
-        user?.user_metadata?.role ||
-        user?.app_metadata?.role ||
-        null;
-
-      // Block non-client accounts
-      if (role !== "CLIENT") {
-        setErrorMsg("This login page is for Clients only");
+      if (!user) {
+        setErrorMsg("Authentication failed");
         setLoading(false);
         return;
       }
 
-      // Redirect to client dashboard
-      router.replace("/client/panel");
+      // 2️⃣ Block unverified accounts
+      if (!user.email_confirmed_at) {
+        setErrorMsg("Please verify your email before logging in.");
+        setLoading(false);
+        return;
+      }
+
+      // 3️⃣ Redirect — server will validate role
+      router.replace("/client/dashboard");
     } catch (err) {
+      console.error("Login error:", err);
       setErrorMsg("Network error. Please try again.");
     } finally {
       setLoading(false);
@@ -72,6 +75,7 @@ export default function ClientLogin() {
           <input
             type="email"
             placeholder="Email"
+            disabled={loading}
             className="w-full p-3 rounded border dark:bg-gray-700 dark:text-white mb-4"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -81,6 +85,7 @@ export default function ClientLogin() {
           <input
             type="password"
             placeholder="Password"
+            disabled={loading}
             className="w-full p-3 rounded border dark:bg-gray-700 dark:text-white mb-4"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

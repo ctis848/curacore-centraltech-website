@@ -1,209 +1,137 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
-type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+export default function NewTicketPage() {
+  const supabase = supabaseBrowser();
 
-type Ticket = {
-  id: string;
-  subject: string;
-  message: string;
-  status: TicketStatus;
-  createdAt: string;
-  updatedAt: string;
-  License: {
-    productName: string | null;
-    licenseKey: string | null;
-  } | null;
-};
-
-export default function SupportPage() {
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
-  const [licenseId, setLicenseId] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [priority, setPriority] = useState("MEDIUM");
+
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  async function loadTickets() {
-    setLoading(true);
-    const res = await fetch("/api/client/support");
-    const data = await res.json();
-    setTickets(data);
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    loadTickets();
-  }, []);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
+  const submitTicket = async () => {
+    setSaving(true);
     setError(null);
+    setSuccess(false);
 
-    const res = await fetch("/api/client/support", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subject,
-        message,
-        licenseId: licenseId || null,
-      }),
-    });
+    try {
+      if (!subject.trim() || !message.trim()) {
+        setError("Subject and message are required.");
+        setSaving(false);
+        return;
+      }
 
-    const data = await res.json();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!res.ok) {
-      setError(data.error || "Failed to create ticket");
-    } else {
-      setSubject("");
-      setMessage("");
-      setLicenseId("");
-      await loadTickets();
+      if (!user) {
+        setError("You must be logged in to submit a ticket.");
+        setSaving(false);
+        return;
+      }
+
+      const { error: insertError } = await supabase
+        .from("SupportTicket")
+        .insert({
+          id: crypto.randomUUID(),
+          userId: user.id,
+          subject: subject.trim(),
+          message: message.trim(),
+          priority,
+          status: "OPEN",
+          createdAt: new Date().toISOString(),
+        });
+
+      if (insertError) {
+        console.error("Insert error:", insertError);
+        setError("Failed to submit ticket. Please try again.");
+      } else {
+        setSuccess(true);
+        setSubject("");
+        setMessage("");
+
+        // Auto-hide success message after 2 seconds
+        setTimeout(() => setSuccess(false), 2000);
+      }
+    } catch (err) {
+      console.error("Unexpected ticket error:", err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setSaving(false);
     }
-
-    setSubmitting(false);
-  }
-
-  return (
-    <div className="space-y-8">
-      <section className="max-w-xl">
-        <h1 className="text-2xl font-bold mb-2">Support</h1>
-        <p className="text-slate-500 mb-4">
-          Create a support ticket and we&apos;ll get back to you.
-        </p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Subject</label>
-            <input
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900"
-              placeholder="Describe your issue briefly"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Message
-            </label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900 min-h-[120px]"
-              placeholder="Provide as much detail as possible..."
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              License ID (optional)
-            </label>
-            <input
-              type="text"
-              value={licenseId}
-              onChange={(e) => setLicenseId(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900"
-              placeholder="Link this ticket to a license"
-            />
-          </div>
-
-          {error && <p className="text-sm text-rose-600">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 disabled:opacity-60"
-          >
-            {submitting ? "Submitting..." : "Submit Ticket"}
-          </button>
-        </form>
-      </section>
-
-      <section>
-        <h2 className="text-lg font-semibold mb-3">My Tickets</h2>
-
-        {loading ? (
-          <p className="text-slate-500">Loading...</p>
-        ) : tickets.length === 0 ? (
-          <p className="text-slate-500">No tickets yet.</p>
-        ) : (
-          <div className="overflow-x-auto border rounded-lg">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-100 dark:bg-slate-900/40">
-                <tr>
-                  <th className="px-4 py-2 text-left">Subject</th>
-                  <th className="px-4 py-2 text-left">Status</th>
-                  <th className="px-4 py-2 text-left">License</th>
-                  <th className="px-4 py-2 text-left">Created</th>
-                  <th className="px-4 py-2 text-left"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {tickets.map((t) => (
-                  <tr key={t.id} className="border-t">
-                    <td className="px-4 py-2 max-w-xs">
-                      <div className="truncate">{t.subject}</div>
-                    </td>
-                    <td className="px-4 py-2">
-                      <StatusBadge status={t.status} />
-                    </td>
-                    <td className="px-4 py-2">
-                      {t.License ? (
-                        <div className="flex flex-col">
-                          <span>{t.License.productName || "License"}</span>
-                          <span className="font-mono text-xs text-slate-500">
-                            {t.License.licenseKey}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 text-xs">
-                          Not linked
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      {new Date(t.createdAt).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      <Link
-                        href={`/client/support/${t.id}`}
-                        className="text-xs text-teal-600 hover:underline"
-                      >
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: TicketStatus }) {
-  const map: Record<TicketStatus, string> = {
-    OPEN: "bg-amber-100 text-amber-700",
-    IN_PROGRESS: "bg-sky-100 text-sky-700",
-    RESOLVED: "bg-emerald-100 text-emerald-700",
-    CLOSED: "bg-slate-200 text-slate-700",
   };
 
   return (
-    <span
-      className={`px-2 py-1 rounded-full text-xs font-semibold ${map[status]}`}
-    >
-      {status.replace("_", " ")}
-    </span>
+    <div className="space-y-6 max-w-xl">
+      <h1 className="text-2xl font-semibold text-slate-900">
+        Create Support Ticket
+      </h1>
+
+      {error && (
+        <p className="text-red-600 text-sm bg-red-50 border border-red-200 p-2 rounded">
+          {error}
+        </p>
+      )}
+
+      {success && (
+        <p className="text-green-700 text-sm bg-green-50 border border-green-200 p-2 rounded">
+          Ticket submitted successfully.
+        </p>
+      )}
+
+      <div className="space-y-4 bg-white p-4 rounded shadow">
+        <div>
+          <label className="block text-sm font-medium mb-1">Subject</label>
+          <input
+            className="w-full rounded border p-2"
+            placeholder="Short title for your issue"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            disabled={saving}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Priority</label>
+          <select
+            className="w-full rounded border p-2"
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+            disabled={saving}
+          >
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+            <option value="CRITICAL">Critical</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Message</label>
+          <textarea
+            className="w-full rounded border p-2"
+            placeholder="Describe your issue in detail"
+            rows={6}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            disabled={saving}
+          />
+        </div>
+
+        <button
+          onClick={submitTicket}
+          disabled={saving}
+          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {saving ? "Submitting…" : "Submit Ticket"}
+        </button>
+      </div>
+    </div>
   );
 }

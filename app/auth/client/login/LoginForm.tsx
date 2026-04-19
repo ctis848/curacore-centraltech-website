@@ -16,6 +16,19 @@ export default function LoginForm() {
     setError("");
     setLoading(true);
 
+    // Basic validation
+    if (!email.includes("@")) {
+      setError("Enter a valid email address");
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/auth/client-login", {
         method: "POST",
@@ -23,24 +36,36 @@ export default function LoginForm() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        setError(data.error || "Login failed");
+        setError(data?.error || "Login failed. Please try again.");
         setLoading(false);
         return;
       }
 
-      router.push("/client/panel");
+      // Validate server response
+      if (!data || !data.success) {
+        setError("Unexpected server response. Try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Redirect to client dashboard
+      router.replace("/client/panel");
     } catch (err) {
-      setError("Network error. Please try again.");
+      console.error("Login error:", err);
+      setError("Network error. Please check your connection.");
+    } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="max-w-md mx-auto mt-20 p-6 bg-white rounded shadow">
-      <h1 className="text-2xl font-bold mb-6">Client Login</h1>
+    <div className="max-w-md mx-auto mt-20 p-6 bg-white dark:bg-gray-800 rounded-xl shadow">
+      <h1 className="text-2xl font-bold mb-6 text-teal-700 dark:text-teal-300">
+        Client Login
+      </h1>
 
       {error && <p className="text-red-600 mb-4">{error}</p>}
 
@@ -48,7 +73,8 @@ export default function LoginForm() {
         <input
           type="email"
           placeholder="Email"
-          className="w-full p-3 border rounded"
+          disabled={loading}
+          className="w-full p-3 border rounded dark:bg-gray-700 dark:text-white"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -57,7 +83,8 @@ export default function LoginForm() {
         <input
           type="password"
           placeholder="Password"
-          className="w-full p-3 border rounded"
+          disabled={loading}
+          className="w-full p-3 border rounded dark:bg-gray-700 dark:text-white"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -65,11 +92,31 @@ export default function LoginForm() {
 
         <button
           disabled={loading}
-          className="w-full bg-blue-600 text-white p-3 rounded disabled:opacity-50"
+          className="w-full bg-teal-600 text-white p-3 rounded hover:bg-teal-700 disabled:opacity-50"
         >
           {loading ? "Logging in..." : "Login"}
         </button>
       </form>
+
+      <div className="flex justify-between mt-4 text-sm">
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => router.push("/auth/client/forgot-password")}
+          className="text-teal-600 hover:underline"
+        >
+          Forgot password
+        </button>
+
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => router.push("/auth/client/signup")}
+          className="text-gray-600 dark:text-gray-300 hover:underline"
+        >
+          Create account
+        </button>
+      </div>
     </div>
   );
 }

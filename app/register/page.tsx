@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createSupabaseClient } from "@/lib/supabase/client";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const supabase = createSupabaseClient();
-
 export default function RegisterPage() {
+  const supabase = supabaseBrowser();
   const router = useRouter();
 
   const [checking, setChecking] = useState(true);
@@ -16,11 +15,9 @@ export default function RegisterPage() {
 
   useEffect(() => {
     async function checkUser() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data } = await supabase.auth.getUser();
 
-      if (user) {
+      if (data.user) {
         router.replace("/dashboard");
         return;
       }
@@ -29,7 +26,7 @@ export default function RegisterPage() {
     }
 
     checkUser();
-  }, [router]);
+  }, [router, supabase]);
 
   async function handleRegister(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -44,9 +41,10 @@ export default function RegisterPage() {
       password,
     });
 
+    setLoading(false);
+
     if (error) {
       alert(error.message);
-      setLoading(false);
       return;
     }
 
@@ -71,7 +69,7 @@ export default function RegisterPage() {
           <Input name="email" type="email" placeholder="Email" required />
           <Input name="password" type="password" placeholder="Password" required />
 
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading} className="w-full">
             {loading ? "Creating..." : "Register"}
           </Button>
         </form>

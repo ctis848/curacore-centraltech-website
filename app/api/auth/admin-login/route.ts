@@ -1,33 +1,51 @@
 // FILE: app/api/auth/admin-login/route.ts
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
 
 export async function POST(req: Request) {
-  const supabase = supabaseServer();
   const { email, password } = await req.json();
 
+  const res = NextResponse.json({ success: true });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return req.headers.get("cookie") ?? undefined;
+        },
+        set(name: string, value: string, options: any) {
+          res.cookies.set(name, value, options);
+        },
+        remove(name: string, options: any) {
+          res.cookies.set(name, "", { ...options, maxAge: 0 });
+        },
+      },
+    }
+  );
+
+  // Login using Supabase Auth
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error || !data.user) {
+    return NextResponse.json(
+      { error: "Invalid credentials" },
+      { status: 401 }
+    );
   }
 
-  // Check if user is admin
-  const { data: admin } = await supabase
-    .from("admin_users")
-    .select("role")
-    .eq("id", data.user.id)
-    .single();
-
-  if (!admin) {
+  // Check admin role
+  const role = data.user.user_metadata?.role;
+  if (role !== "ADMIN" && role !== "SUPERADMIN") {
     return NextResponse.json(
-      { error: "Not authorized as admin" },
+      { error: "Not authorized" },
       { status: 403 }
     );
   }
 
-  return NextResponse.json({ success: true });
+  return res;
 }

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { sendEmail } from "@/lib/email/brevo";
+import { welcomeEmailTemplate } from "@/lib/email/templates";
 
 export async function POST(req: Request) {
   try {
@@ -39,7 +41,8 @@ export async function POST(req: Request) {
       options: {
         emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
         data: {
-          name, // stored in user_metadata
+          name,
+          role: "CLIENT", // Assign role
         },
       },
     });
@@ -57,13 +60,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: friendly }, { status: 400 });
     }
 
+    const user = data.user;
+
     // -----------------------------
-    // 4. Success response
+    // 4. Optional: Create profile row
+    // -----------------------------
+    if (user) {
+      await supabase.from("ClientProfile").insert({
+        userId: user.id,
+        name,
+        email,
+      });
+    }
+
+    // -----------------------------
+    // 5. Send Welcome Email (non-blocking)
+    // -----------------------------
+    if (email) {
+      sendEmail({
+        to: email,
+        subject: "Welcome to CentralTech",
+        html: welcomeEmailTemplate(name),
+      }).catch((err) => {
+        console.error("Welcome email failed:", err);
+      });
+    }
+
+    // -----------------------------
+    // 6. Success response
     // -----------------------------
     return NextResponse.json({
       success: true,
       message: "Signup successful. Check your email to verify your account.",
-      user: data.user,
+      user,
     });
   } catch (err) {
     console.error("Signup API error:", err);

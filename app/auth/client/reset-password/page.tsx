@@ -3,17 +3,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import PublicNavbar from "@/components/layout/PublicNavbar";
-import { createSupabaseClient } from "@/lib/supabase/client";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
-  const supabase = createSupabaseClient();
+  const supabase = supabaseBrowser();
   const router = useRouter();
 
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  const handleUpdate = async (e: any) => {
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Supabase requires a valid session from the reset link
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      setMessage("Invalid or expired reset link");
+      return;
+    }
 
     const { error } = await supabase.auth.updateUser({ password });
 

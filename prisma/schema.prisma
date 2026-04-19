@@ -30,6 +30,7 @@ model User {
   teamMemberships         TeamMember[]
   invoices                Invoice[]
   supportTickets          SupportTicket[]
+  ticketReplies           TicketReply[]
   notifications           Notification[]
   auditLogs               AuditLog[]      @relation("UserAuditLogs")
   exportHistory           ExportHistory[]
@@ -244,6 +245,7 @@ model Invoice {
   amount      Float
   currency    String        @default("USD")
   status      InvoiceStatus @default(PENDING)
+  transactionId String? @db.VarChar(255)
   createdAt   DateTime      @default(now())
   paidAt      DateTime?
   description String?
@@ -267,9 +269,25 @@ model SupportTicket {
 
   user    User     @relation(fields: [userId], references: [id])
   license License? @relation(fields: [licenseId], references: [id])
+  replies TicketReply[]   // ⭐ add this
 
   @@index([userId])
   @@index([licenseId])
+}
+
+model TicketReply {
+  id        String   @id @default(uuid())
+  ticketId  String
+  userId    String?
+  message   String
+  fromAdmin Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id])
+  user   User?         @relation(fields: [userId], references: [id])
+
+  @@index([ticketId])
+  @@index([userId])
 }
 
 model EmailTemplate {

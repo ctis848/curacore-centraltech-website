@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { createSupabaseClient } from "@/lib/supabase/client";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import AuthNavbar from "@/components/AuthNavbar";
 
 export default function SignupPage() {
-  const supabase = createSupabaseClient();
+  const supabase = supabaseBrowser();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,14 +42,13 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/client/verify-email`,
       },
     });
 
     setLoading(false);
 
     if (error) {
-      // Friendly error messages
       if (error.message.includes("already registered")) {
         setError("This email is already registered. Try logging in instead.");
       } else {

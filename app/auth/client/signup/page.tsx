@@ -3,34 +3,56 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import PublicNavbar from "@/components/layout/PublicNavbar";
-import { createSupabaseClient } from "@/lib/supabase/client";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function ClientSignup() {
   const router = useRouter();
-  const supabase = createSupabaseClient();
+  const supabase = supabaseBrowser();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSignup = async (e: any) => {
     e.preventDefault();
     setMessage("");
+    setLoading(true);
 
     if (password !== confirm) {
       setMessage("Passwords do not match");
+      setLoading(false);
       return;
     }
 
-    const { error } = await supabase.auth.signUp({ email, password });
+    if (password.length < 6) {
+      setMessage("Password must be at least 6 characters long");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/client/verify-email`,
+      },
+    });
 
     if (error) {
-      setMessage("Signup failed");
-    } else {
-      setMessage("Account created. Check your email to verify.");
-      setTimeout(() => router.replace("/auth/client/login"), 2000);
+      if (error.message.includes("already registered")) {
+        setMessage("This email is already registered. Try logging in.");
+      } else {
+        setMessage(error.message || "Signup failed");
+      }
+      setLoading(false);
+      return;
     }
+
+    setMessage("Account created. Check your email to verify your account.");
+    setTimeout(() => router.replace("/auth/client/login"), 2000);
+    setLoading(false);
   };
 
   return (
@@ -48,6 +70,7 @@ export default function ClientSignup() {
 
           <input
             type="email"
+            disabled={loading}
             placeholder="Email"
             className="w-full p-3 rounded border dark:bg-gray-700 dark:text-white mb-4"
             value={email}
@@ -57,6 +80,7 @@ export default function ClientSignup() {
 
           <input
             type="password"
+            disabled={loading}
             placeholder="Password"
             className="w-full p-3 rounded border dark:bg-gray-700 dark:text-white mb-4"
             value={password}
@@ -66,6 +90,7 @@ export default function ClientSignup() {
 
           <input
             type="password"
+            disabled={loading}
             placeholder="Confirm Password"
             className="w-full p-3 rounded border dark:bg-gray-700 dark:text-white mb-4"
             value={confirm}
@@ -81,13 +106,14 @@ export default function ClientSignup() {
 
           <button
             type="submit"
-            className="w-full bg-teal-600 text-white p-3 rounded hover:bg-teal-700"
+            disabled={loading}
+            className="w-full bg-teal-600 text-white p-3 rounded hover:bg-teal-700 disabled:opacity-50"
           >
-            Sign Up
+            {loading ? "Creating account..." : "Sign Up"}
           </button>
 
           <p className="mt-4 text-sm text-center">
-            Already have an account?{" "}
+            Already have an account{" "}
             <button
               type="button"
               onClick={() => router.push("/auth/client/login")}

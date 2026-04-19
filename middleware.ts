@@ -1,11 +1,22 @@
+// FILE: middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient } from "@supabase/ssr";
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
 
-  // Create Supabase client with updated cookie handling
+  // Allow CORS preflight + static assets
+  if (req.method === "OPTIONS") return res;
+  if (
+    req.nextUrl.pathname.startsWith("/_next") ||
+    req.nextUrl.pathname.startsWith("/favicon") ||
+    req.nextUrl.pathname.startsWith("/assets")
+  ) {
+    return res;
+  }
+
+  // Supabase SSR client
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -16,26 +27,11 @@ export function middleware(req: NextRequest) {
           res.cookies.set(name, value, options);
         },
         remove: (name: string) => {
-          res.cookies.delete(name); // Next.js 16 requires only 1 argument
+          res.cookies.delete(name);
         },
       },
     }
   );
-
-  const { pathname } = req.nextUrl;
-
-  // Public routes (no authentication required)
-  const publicPaths = [
-    "/auth/client/login",
-    "/client/signup",
-    "/superadmin/login",
-    "/auth/admin/login",
-    "/unauthorized",
-  ];
-
-  if (publicPaths.includes(pathname)) {
-    return res;
-  }
 
   return handleAuth(req, res, supabase);
 }
@@ -47,7 +43,21 @@ async function handleAuth(
 ) {
   const { pathname } = req.nextUrl;
 
-  // Fetch authenticated user
+  // PUBLIC ROUTES
+  const publicExact = ["/unauthorized"];
+  const publicPrefixes = [
+    "/auth/client/login",
+    "/auth/client/signup",
+    "/auth/client/forgot-password",
+    "/auth/admin/login",
+    "/superadmin/login",
+  ];
+
+  const isPublic =
+    publicExact.includes(pathname) ||
+    publicPrefixes.some((p) => pathname.startsWith(p));
+
+  // Get user
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -58,7 +68,25 @@ async function handleAuth(
     return NextResponse.redirect(url);
   };
 
-  // SUPERADMIN PROTECTED ROUTES
+  // If logged in and visiting an auth page → redirect to dashboard
+  if (isPublic && user) {
+    const role = user.user_metadata?.role;
+
+    if (pathname.startsWith("/auth/admin")) {
+      if (role === "ADMIN" || role === "SUPERADMIN") {
+        return redirectTo("/admin");
+      }
+    }
+
+    if (pathname.startsWith("/superadmin/login") && role === "SUPERADMIN") {
+      return redirectTo("/superadmin");
+    }
+  }
+
+  // Public routes allowed
+  if (isPublic) return res;
+
+  // SUPERADMIN PROTECTED
   if (pathname.startsWith("/superadmin")) {
     if (!user) return redirectTo("/superadmin/login");
 
@@ -68,7 +96,7 @@ async function handleAuth(
     return res;
   }
 
-  // ADMIN PROTECTED ROUTES
+  // ADMIN PROTECTED (pages + APIs)
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     if (!user) return redirectTo("/auth/admin/login");
 
@@ -80,7 +108,7 @@ async function handleAuth(
     return res;
   }
 
-  // Default allow
+  // Everything else is allowed (client portal)
   return res;
 }
 
@@ -89,5 +117,7 @@ export const config = {
     "/superadmin/:path*",
     "/admin/:path*",
     "/api/admin/:path*",
+    "/auth/:path*",
+    "/unauthorized",
   ],
 };

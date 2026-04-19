@@ -14,18 +14,25 @@ export default function AdminLoginPage() {
     setLoading(true);
     setErrorMsg("");
 
-    const res = await fetch("/api/auth/admin-login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const res = await fetch("/api/auth/admin-login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-    setLoading(false);
-
-    if (res.ok) {
-      window.location.href = "/admin";
-    } else {
-      const data = await res.json();
-      setErrorMsg(data.error || "Login failed");
+      if (res.ok) {
+        window.location.href = "/admin";
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setErrorMsg(data.error || "Invalid credentials");
+      }
+    } catch {
+      setErrorMsg("Unable to reach server. Try again.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -48,6 +55,7 @@ export default function AdminLoginPage() {
             className="w-full border p-2 rounded"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
             required
           />
         </div>
@@ -59,6 +67,7 @@ export default function AdminLoginPage() {
             className="w-full border p-2 rounded"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
             required
           />
         </div>
@@ -66,7 +75,7 @@ export default function AdminLoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-60"
         >
           {loading ? "Logging in..." : "Login"}
         </button>

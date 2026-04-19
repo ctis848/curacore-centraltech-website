@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { createSupabaseClient } from "@/lib/supabase/client";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import AuthNavbar from "@/components/AuthNavbar";
 
 export default function ResetPasswordPage() {
-  const supabase = createSupabaseClient();
+  const supabase = supabaseBrowser();
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -21,6 +21,14 @@ export default function ResetPasswordPage() {
 
     if (password !== confirm) {
       setError("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
+
+    // Supabase requires a valid session from the reset link
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      setError("Invalid or expired reset link.");
       setLoading(false);
       return;
     }

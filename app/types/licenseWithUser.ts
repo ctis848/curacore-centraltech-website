@@ -1,8 +1,14 @@
 export interface LicenseWithUser {
   id: string;
-  renewal_due_date: string | null;
-  service_name: string;
+  userId: string;
+  licenseKey: string;
+  expiryDate: string | null;
+  status: string;
+  renewal_due_date?: string | null;
+
   user: {
-    email: string | null;
-  } | null;
+    id: string;
+    email: string;
+    fullName?: string;
+  };
 }

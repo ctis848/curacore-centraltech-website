@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
-function PaymentFailedContent() {
+function FailedContent() {
   const params = useSearchParams();
   const reference = params.get("reference");
 
@@ -12,18 +12,16 @@ function PaymentFailedContent() {
       <h1 className="text-2xl font-bold mb-4 text-red-600">Payment Failed</h1>
 
       <p className="text-gray-700 mb-4">
-        Unfortunately, your payment could not be completed.
+        We could not verify your payment.
       </p>
 
       {reference && (
-        <p className="text-sm text-gray-500 mb-4">
-          Reference: {reference}
-        </p>
+        <p className="text-sm text-gray-500 mb-4">Reference: {reference}</p>
       )}
 
       <a
-        href="/dashboard/billing"
-        className="inline-block bg-teal-600 text-white px-4 py-2 rounded font-semibold"
+        href="/client/renew-annual"
+        className="inline-block bg-red-600 text-white px-4 py-2 rounded font-semibold"
       >
         Try Again
       </a>
@@ -34,7 +32,7 @@ function PaymentFailedContent() {
 export default function PaymentFailedPage() {
   return (
     <Suspense fallback={<div className="p-6 text-center">Loading…</div>}>
-      <PaymentFailedContent />
+      <FailedContent />
     </Suspense>
   );
 }
