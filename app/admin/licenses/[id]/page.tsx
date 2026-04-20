@@ -1,22 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import type { LicenseRow } from "@/types/admin";
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default function LicenseDetails({ params }: PageProps) {
   const supabase = supabaseBrowser();
+
+  // ⭐ Next.js 16: unwrap params using React.use()
+  const { id } = React.use(params);
+
   const [license, setLicense] = useState<LicenseRow | null>(null);
   const [loading, setLoading] = useState(true);
-  const id = params.id;
 
   useEffect(() => {
     loadLicense();
-  }, []);
+  }, [id]);
 
   async function loadLicense() {
     const { data } = await supabase

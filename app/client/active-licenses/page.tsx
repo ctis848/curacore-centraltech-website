@@ -1,18 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import Link from "next/link";
-
-interface LicenseRow {
-  id: string;
-  productName: string | null;
-  licenseKey: string;
-  status: string;
-  userId: string | null;
-  createdAt: string;
-  licenseRequestId: string | null;
-}
+import type { LicenseRow } from "@/types/admin";
 
 export default function ClientActiveLicensesPage() {
   const supabase = supabaseBrowser();
@@ -29,22 +19,23 @@ export default function ClientActiveLicensesPage() {
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  // Load user safely
+  // Load user
   useEffect(() => {
     async function loadUser() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      setUser(session?.user || null);
+      const { data, error } = await supabase.auth.getUser();
+      if (error) console.error("Auth load error:", error);
+      setUser(data?.user || null);
     }
     loadUser();
-  }, []);
+  }, [supabase]);
 
-  // Load licenses
-  const loadLicenses = useCallback(async () => {
-    if (!user) return;
+  // Load licenses after user is available
+  useEffect(() => {
+    if (!user?.id) return;
+    loadLicenses();
+  }, [user]);
 
+  async function loadLicenses() {
     setLoading(true);
 
     const { data, error } = await supabase
@@ -56,14 +47,20 @@ export default function ClientActiveLicensesPage() {
         status,
         userId,
         createdAt,
-        licenseRequestId
+        expiresAt,
+        annualFeePercent,
+        annualFeePaidUntil
       `)
       .eq("userId", user.id)
-      .eq("status", "ACTIVE")
+      .in("status", ["ACTIVE", "PAID", "NOT_DUE"])
       .order("createdAt", { ascending: false });
 
     if (error) {
-      console.error("Client License fetch error:", error);
+      console.error("Client License fetch error RAW:", error);
+      console.error(
+        "Client License fetch error JSON:",
+        JSON.stringify(error, null, 2)
+      );
       setLoading(false);
       return;
     }
@@ -71,17 +68,13 @@ export default function ClientActiveLicensesPage() {
     setLicenses(data || []);
     setFiltered(data || []);
     setLoading(false);
-  }, [user, supabase]);
-
-  useEffect(() => {
-    loadLicenses();
-  }, [loadLicenses]);
+  }
 
   // Sorting
   useEffect(() => {
     const sorted = [...licenses].sort((a, b) => {
-      const A = (a[sortField] || "").toString().toLowerCase();
-      const B = (b[sortField] || "").toString().toLowerCase();
+      const A = (a[sortField] ?? "").toString().toLowerCase();
+      const B = (b[sortField] ?? "").toString().toLowerCase();
 
       if (A < B) return sortDir === "asc" ? -1 : 1;
       if (A > B) return sortDir === "asc" ? 1 : -1;
@@ -91,15 +84,15 @@ export default function ClientActiveLicensesPage() {
     setFiltered(sorted);
   }, [sortField, sortDir, licenses]);
 
-  // Search (request key removed)
+  // Search
   useEffect(() => {
     const s = search.toLowerCase();
 
     const results = licenses.filter((l) => {
       return (
-        l.productName?.toLowerCase().includes(s) ||
-        l.licenseKey.toLowerCase().includes(s) ||
-        l.status.toLowerCase().includes(s)
+        (l.productName ?? "").toLowerCase().includes(s) ||
+        (l.licenseKey ?? "").toLowerCase().includes(s) ||
+        (l.status ?? "").toLowerCase().includes(s)
       );
     });
 
@@ -111,37 +104,26 @@ export default function ClientActiveLicensesPage() {
   const totalPages = Math.ceil(filtered.length / pageSize);
 
   // Copy license key
-  function copyLicenseKey(key: string) {
-    navigator.clipboard.writeText(key);
+  function copyLicenseKey(key: string | null) {
+    navigator.clipboard.writeText(key ?? "");
     alert("License key copied");
   }
 
-  // Download license file (request key removed)
+  // Download license file
   function downloadLicense(lic: LicenseRow) {
-    const content = `PRODUCT=${lic.productName}
-LICENSE_KEY=${lic.licenseKey}
-USER=${lic.userId}`;
+    const content = `PRODUCT=${lic.productName ?? ""}
+LICENSE_KEY=${lic.licenseKey ?? ""}
+USER=${lic.userId ?? ""}`;
 
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${lic.productName}-license.txt`;
+    a.download = `${lic.productName ?? "license"}-license.txt`;
     a.click();
 
     URL.revokeObjectURL(url);
-  }
-
-  // Renew license
-  async function renewLicense(id: string) {
-    const res = await fetch("/api/client/renew-license", {
-      method: "POST",
-      body: JSON.stringify({ id }),
-    });
-
-    const json = await res.json();
-    if (json.success) loadLicenses();
   }
 
   return (
@@ -194,10 +176,10 @@ USER=${lic.userId}`;
           <tbody>
             {paginated.map((lic) => (
               <tr key={lic.id} className="border-t hover:bg-slate-50">
-                <td className="px-4 py-2">{lic.productName}</td>
+                <td className="px-4 py-2">{lic.productName ?? "N/A"}</td>
 
                 <td className="px-4 py-2 font-mono break-all">
-                  {lic.licenseKey}
+                  {lic.licenseKey ?? "N/A"}
                 </td>
 
                 <td className="px-4 py-2">
@@ -217,12 +199,12 @@ USER=${lic.userId}`;
                 </td>
 
                 <td className="px-4 py-2 space-x-3">
-                  <Link
+                  <a
                     href={`/client/licenses/${lic.id}`}
                     className="text-blue-600 hover:underline"
                   >
                     View
-                  </Link>
+                  </a>
 
                   <button
                     onClick={() => copyLicenseKey(lic.licenseKey)}
@@ -236,13 +218,6 @@ USER=${lic.userId}`;
                     className="text-green-600 hover:underline"
                   >
                     Download
-                  </button>
-
-                  <button
-                    onClick={() => renewLicense(lic.id)}
-                    className="text-purple-600 hover:underline"
-                  >
-                    Renew
                   </button>
                 </td>
               </tr>

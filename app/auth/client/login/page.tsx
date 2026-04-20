@@ -50,7 +50,7 @@ export default function ClientLogin() {
       }
 
       // 3️⃣ Redirect — server will validate role
-      router.replace("/client/dashboard");
+      window.location.href = "/client/dashboard";
     } catch (err) {
       console.error("Login error:", err);
       setErrorMsg("Network error. Please try again.");

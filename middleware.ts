@@ -4,7 +4,11 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
+  const res = NextResponse.next({
+    request: {
+      headers: req.headers,
+    },
+  });
 
   // Allow CORS preflight + static assets
   if (req.method === "OPTIONS") return res;
@@ -118,6 +122,9 @@ export const config = {
     "/admin/:path*",
     "/api/admin/:path*",
     "/auth/:path*",
+    "/client",
+    "/client/",
+    "/client/:path*",
     "/unauthorized",
   ],
 };
