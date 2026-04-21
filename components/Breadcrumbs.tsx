@@ -5,7 +5,9 @@ import { usePathname } from 'next/navigation';
 
 export default function Breadcrumbs() {
   const pathname = usePathname();
-  const parts = pathname.split('/').filter(Boolean);
+
+  // ⭐ FIX: Safe fallback for TypeScript
+  const parts = (pathname ?? "").split('/').filter(Boolean);
 
   const crumbs = parts.map((part, index) => {
     const href = '/' + parts.slice(0, index + 1).join('/');
