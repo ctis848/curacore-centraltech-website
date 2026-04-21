@@ -9,7 +9,9 @@ export default function PaystackRenewalPage() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const amount = Number(params.get("amount")) || 0;
+  // ⭐ FIX: Safe access
+  const amount = Number(params?.get("amount") ?? 0);
+
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -37,7 +39,7 @@ export default function PaystackRenewalPage() {
     const handler = (window as any).PaystackPop.setup({
       key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
       email,
-      amount: amount * 100, // Paystack uses kobo
+      amount: amount * 100,
       currency: "NGN",
       callback: async (response: any) => {
         await router.push(
