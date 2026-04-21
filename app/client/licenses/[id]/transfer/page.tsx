@@ -6,7 +6,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function TransferLicensePage() {
   const params = useParams();
-  const id = params.id as string;
+  const id = (params?.id as string) ?? "";
 
   const supabase = supabaseBrowser();
   const [email, setEmail] = useState("");
