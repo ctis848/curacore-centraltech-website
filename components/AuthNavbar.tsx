@@ -14,9 +14,10 @@ export default function AuthNavbar() {
     "/reset-password": "Reset Password",
   };
 
-  const title = titleMap[pathname] ?? "Account";
+  // ⭐ FIX: Narrow pathname BEFORE indexing
+  const safePath = pathname ?? "";
+  const title = titleMap[safePath] ?? "Account";
 
-  // Dark mode toggle
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -29,7 +30,6 @@ export default function AuthNavbar() {
 
   return (
     <div className="mb-8 flex items-center justify-between">
-      {/* Back Button */}
       <button
         onClick={() => router.back()}
         className="text-sm text-blue-600 hover:underline"
@@ -37,7 +37,6 @@ export default function AuthNavbar() {
         Back
       </button>
 
-      {/* Logo + Title */}
       <div className="text-center flex-1">
         <div className="flex flex-col items-center">
           <img
@@ -51,7 +50,6 @@ export default function AuthNavbar() {
         </div>
       </div>
 
-      {/* Dark Mode Toggle */}
       <button
         onClick={() => setDark(!dark)}
         className="text-sm text-gray-700 dark:text-gray-300"
