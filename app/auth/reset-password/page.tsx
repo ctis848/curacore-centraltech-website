@@ -1,64 +1,63 @@
 "use client";
 
+import { useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const token = params.get("token");
+
+  // ⭐ FIX: Safe access
+  const token = params?.get("token") ?? null;
 
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: any) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setMsg("");
+
+    if (!token) {
+      setMsg("Invalid or missing reset token");
+      return;
+    }
 
     const res = await fetch("/api/auth/reset-password", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token, password }),
     });
 
     const data = await res.json();
 
-    if (data.error) {
-      setMsg(data.error);
-    } else {
-      setMsg("Password updated successfully.");
-      setTimeout(() => router.push("/auth/client-login"), 2000);
+    if (!data.success) {
+      setMsg(data.error || "Failed to reset password");
+      return;
     }
 
-    setLoading(false);
-  };
+    setMsg("Password reset successful");
+    router.push("/auth/client/login");
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow w-full max-w-md"
-      >
-        <h1 className="text-2xl font-bold mb-4">Reset Password</h1>
+    <div className="p-6 max-w-md mx-auto">
+      <h1 className="text-xl font-semibold mb-4">Reset Password</h1>
 
+      {msg && <p className="mb-3 text-red-600">{msg}</p>}
+
+      <form onSubmit={handleSubmit} className="space-y-3">
         <input
           type="password"
-          placeholder="New Password"
-          className="w-full p-3 rounded border mb-4 dark:bg-gray-700 dark:text-white"
+          className="w-full border p-2 rounded"
+          placeholder="New password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          required
         />
-
-        {msg && <p className="text-sm text-teal-600 mb-3">{msg}</p>}
 
         <button
           type="submit"
-          disabled={loading}
-          className="w-full bg-teal-600 text-white p-3 rounded hover:bg-teal-700 disabled:opacity-50"
+          className="w-full bg-blue-600 text-white py-2 rounded"
         >
-          {loading ? "Updating..." : "Update Password"}
+          Reset Password
         </button>
       </form>
     </div>
