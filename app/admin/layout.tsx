@@ -30,8 +30,6 @@ const navItems = [
   { label: "Tenants", href: "/admin/tenants", icon: BuildingOfficeIcon },
   { label: "Users", href: "/admin/users", icon: UserGroupIcon },
   { label: "Support", href: "/admin/support", icon: ChatBubbleLeftRightIcon },
-
-  // Correct Coupons root
   { label: "Coupons", href: "/admin/coupons", icon: TagIcon },
 ];
 
@@ -39,7 +37,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  // ⭐ FIXED: Safe null-check so Netlify build passes
   const isActive = (href: string) => {
+    if (!pathname) return false; // pathname can be null during SSR
     if (href === "/admin") return pathname === "/admin";
     return pathname.startsWith(href);
   };
