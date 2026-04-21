@@ -33,47 +33,33 @@ export default function Footer() {
         }}
       />
 
-      <footer className="bg-gray-950 text-gray-300 pt-16 pb-10 mt-20 border-t border-gray-800">
+      <footer className="bg-[#0f1a2b] text-gray-300 pt-20 pb-10 mt-20 border-t border-gray-800">
         <div className="max-w-7xl mx-auto px-6">
 
-          {/* Top CTA */}
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-white">
-              Empowering Modern Healthcare
-            </h2>
-            <p className="text-gray-400 mt-3 max-w-xl mx-auto">
-              CentralCore EMR delivers secure, intelligent, and scalable medical record
-              management for clinics, hospitals, and enterprise health networks.
-            </p>
-            <a
-              href="/contact"
-              className="inline-block mt-6 px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-semibold transition"
-            >
-              Contact Sales
-            </a>
-          </div>
-
-          {/* Main Grid */}
+          {/* 4‑Column Footer */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
 
-            {/* Brand */}
+            {/* Column 1: About + CTA */}
             <div>
-              <h2 className="text-2xl font-bold text-white">CentralCore EMR</h2>
-              <p className="mt-4 text-gray-400 leading-relaxed">
-                Enterprise‑grade electronic medical record software designed for
-                performance, security, and seamless clinical workflows.
+              <h3 className="text-2xl font-bold text-white leading-snug">
+                Empowering Modern Healthcare
+              </h3>
+
+              <p className="text-gray-400 mt-4 leading-relaxed">
+                CentralCore EMR delivers secure, intelligent, and scalable medical
+                record management for clinics, hospitals, and enterprise health networks.
               </p>
 
-              {/* Social Icons */}
-              <div className="flex gap-4 mt-6 text-xl">
-                <a href="https://www.ctistech.com" target="_blank" className="hover:text-white transition">🌐</a>
-                <a href="https://twitter.com/ctistech" target="_blank" className="hover:text-white transition">🐦</a>
-                <a href="https://linkedin.com/company/ctistech" target="_blank" className="hover:text-white transition">💼</a>
-                <a href="https://facebook.com/ctistech" target="_blank" className="hover:text-white transition">📘</a>
-              </div>
+              <a
+                href="/contact"
+                className="inline-block mt-6 px-6 py-3 bg-teal-600 hover:bg-teal-500 
+                           text-white rounded-lg font-semibold transition"
+              >
+                Contact Sales
+              </a>
             </div>
 
-            {/* Product */}
+            {/* Column 2: Product */}
             <div>
               <h3 className="text-lg font-semibold text-white">Product</h3>
               <ul className="mt-4 space-y-2">
@@ -85,24 +71,10 @@ export default function Footer() {
               </ul>
             </div>
 
-            {/* Resources */}
-            <div>
-              <h3 className="text-lg font-semibold text-white">Resources</h3>
-              <ul className="mt-4 space-y-2">
-                <li><a href="/docs" className="hover:text-white transition">Documentation</a></li>
-                <li><a href="/api" className="hover:text-white transition">API Reference</a></li>
-                <li><a href="/support" className="hover:text-white transition">Support Center</a></li>
-                <li><a href="/support/ticket" className="hover:text-white transition">Submit Support Ticket</a></li>
-                <li><a href="/blog" className="hover:text-white transition">Blog</a></li>
-              </ul>
-            </div>
-
-            {/* Contact */}
+            {/* Column 3: Contact */}
             <div>
               <h3 className="text-lg font-semibold text-white">Contact</h3>
               <ul className="mt-4 space-y-2">
-
-                {/* Emails */}
                 <li>
                   <a href="mailto:info@ctistech.com" className="hover:text-white transition">
                     info@ctistech.com
@@ -113,8 +85,6 @@ export default function Footer() {
                     support@ctistech.com
                   </a>
                 </li>
-
-                {/* WhatsApp */}
                 <li>
                   <a
                     href="https://wa.me/2349120523832"
@@ -124,19 +94,18 @@ export default function Footer() {
                     WhatsApp Support
                   </a>
                 </li>
-
-                {/* Contact Page */}
                 <li>
                   <a href="/contact" className="hover:text-white transition">
                     Contact Us
                   </a>
                 </li>
-
-                {/* Location */}
                 <li className="text-gray-400">Lagos, Nigeria</li>
               </ul>
+            </div>
 
-              <h3 className="text-lg font-semibold text-white mt-6">Compliance</h3>
+            {/* Column 4: Compliance */}
+            <div>
+              <h3 className="text-lg font-semibold text-white">Compliance</h3>
               <ul className="mt-4 space-y-2">
                 <li><a href="/privacy" className="hover:text-white transition">Privacy Policy</a></li>
                 <li><a href="/terms" className="hover:text-white transition">Terms of Service</a></li>
