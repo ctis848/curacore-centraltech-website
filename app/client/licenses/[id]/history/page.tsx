@@ -5,16 +5,20 @@ import { useParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function LicenseActivationHistoryPage() {
-  const params = useParams();
-  const id = params.id as string;
+  // ⭐ Explicitly type params so TS knows the shape
+  const params = useParams<{ id: string }>();
+
+  // ⭐ Safe extraction
+  const id = params?.id ?? null;
 
   const supabase = supabaseBrowser();
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!id) return; // ⭐ Guard against null
     loadHistory();
-  }, []);
+  }, [id]);
 
   async function loadHistory() {
     const { data, error } = await supabase
@@ -25,6 +29,10 @@ export default function LicenseActivationHistoryPage() {
 
     if (!error) setHistory(data);
     setLoading(false);
+  }
+
+  if (!id) {
+    return <p className="text-red-600">Invalid license ID</p>;
   }
 
   if (loading) return <p>Loading activation history…</p>;
