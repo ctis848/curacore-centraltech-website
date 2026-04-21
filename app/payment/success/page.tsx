@@ -12,7 +12,9 @@ interface PaymentInfo {
 
 function SuccessContent() {
   const params = useSearchParams();
-  const reference = params.get("reference");
+
+  // ⭐ FIX: Safe access
+  const reference = params?.get("reference") ?? null;
 
   const [loading, setLoading] = useState(true);
   const [payment, setPayment] = useState<PaymentInfo | null>(null);
@@ -36,7 +38,6 @@ function SuccessContent() {
           return;
         }
 
-        // Fetch renewal history entry (optional enhancement)
         const historyRes = await fetch("/api/my-history");
         const historyData = await historyRes.json();
 
