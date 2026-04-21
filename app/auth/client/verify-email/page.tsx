@@ -1,51 +1,56 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function VerifyEmailPage() {
-  const router = useRouter();
   const params = useSearchParams();
-  const supabase = supabaseBrowser();
 
-  const [status, setStatus] = useState("Verifying your email...");
+  const [status, setStatus] = useState("Verifying email…");
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!params) return;
+
     const token = params.get("code");
     const email = params.get("email");
 
     if (!token || !email) {
-      setStatus("Invalid verification link.");
+      setError("Invalid verification link");
       return;
     }
 
-    const verify = async () => {
-      const { error } = await supabase.auth.verifyOtp({
-        type: "email",
-        token,
-        email,
+    verifyEmail(token, email);
+  }, [params]);
+
+  async function verifyEmail(token: string, email: string) {
+    try {
+      const res = await fetch("/api/auth/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, email }),
       });
 
-      if (error) {
-        setStatus("Verification failed. Link may be expired.");
-      } else {
-        setStatus("Email verified successfully! Redirecting...");
-        setTimeout(() => router.replace("/auth/client/login"), 2000);
-      }
-    };
+      const data = await res.json();
 
-    verify();
-  }, []);
+      if (!data.success) {
+        setError("Verification failed");
+        return;
+      }
+
+      setStatus("Email verified successfully");
+    } catch (err) {
+      setError("Network error");
+    }
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow w-full max-w-md text-center">
-        <h1 className="text-2xl font-bold mb-4 text-teal-700 dark:text-teal-300">
-          Email Verification
-        </h1>
-        <p className="text-gray-700 dark:text-gray-300">{status}</p>
-      </div>
+    <div className="p-6 text-center">
+      {error ? (
+        <p className="text-red-600">{error}</p>
+      ) : (
+        <p>{status}</p>
+      )}
     </div>
   );
 }
