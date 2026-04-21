@@ -5,21 +5,24 @@ import { useParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function LicenseDetailsPage() {
-  const params = useParams();
-  const id = params.id as string;
+  // ⭐ Explicitly type params so TS knows the shape
+  const params = useParams<{ id: string }>();
+
+  // ⭐ Safe extraction
+  const id = params?.id ?? null;
 
   const supabase = supabaseBrowser();
   const [license, setLicense] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!id) return; // ⭐ Guard against null
     loadLicense();
-  }, []);
+  }, [id]);
 
   async function loadLicense() {
     setLoading(true);
 
-    // Get logged‑in user
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -31,7 +34,6 @@ export default function LicenseDetailsPage() {
       return;
     }
 
-    // Fetch license (NO request key)
     const { data, error } = await supabase
       .from("License")
       .select(`
@@ -47,7 +49,7 @@ export default function LicenseDetailsPage() {
         userId
       `)
       .eq("id", id)
-      .eq("userId", user.id) // security: only owner can view
+      .eq("userId", user.id)
       .single();
 
     if (!error) setLicense(data);
@@ -85,6 +87,10 @@ USER=${license.userId}`;
     alert("License key copied");
   }
 
+  if (!id) {
+    return <p className="text-red-600">Invalid license ID</p>;
+  }
+
   if (loading) return <p className="text-slate-500">Loading license…</p>;
   if (!license) return <p className="text-slate-500">License not found.</p>;
 
@@ -93,9 +99,7 @@ USER=${license.userId}`;
       <h1 className="text-2xl font-bold">License Details</h1>
 
       <div className="bg-white shadow rounded p-4 space-y-3">
-        <p>
-          <strong>Product:</strong> {license.productName}
-        </p>
+        <p><strong>Product:</strong> {license.productName}</p>
 
         <p className="font-mono break-all">
           <strong>License Key:</strong> {license.licenseKey}
@@ -114,64 +118,36 @@ USER=${license.userId}`;
           </span>
         </p>
 
-        <p>
-          <strong>Activation Count:</strong> {license.activationCount}
-        </p>
-
-        <p>
-          <strong>Max Activations:</strong> {license.maxActivations}
-        </p>
+        <p><strong>Activation Count:</strong> {license.activationCount}</p>
+        <p><strong>Max Activations:</strong> {license.maxActivations}</p>
 
         <p>
           <strong>Expires At:</strong>{" "}
           {license.expiresAt ? new Date(license.expiresAt).toLocaleString() : "—"}
         </p>
 
-        <p>
-          <strong>Created:</strong>{" "}
-          {new Date(license.createdAt).toLocaleString()}
-        </p>
-
-        <p>
-          <strong>Updated:</strong>{" "}
-          {new Date(license.updatedAt).toLocaleString()}
-        </p>
+        <p><strong>Created:</strong> {new Date(license.createdAt).toLocaleString()}</p>
+        <p><strong>Updated:</strong> {new Date(license.updatedAt).toLocaleString()}</p>
       </div>
 
-      {/* ACTION BUTTONS */}
       <div className="flex flex-wrap gap-3">
-        <button
-          onClick={copyLicenseKey}
-          className="px-4 py-2 bg-indigo-600 text-white rounded"
-        >
+        <button onClick={copyLicenseKey} className="px-4 py-2 bg-indigo-600 text-white rounded">
           Copy Key
         </button>
 
-        <button
-          onClick={downloadLicense}
-          className="px-4 py-2 bg-green-600 text-white rounded"
-        >
+        <button onClick={downloadLicense} className="px-4 py-2 bg-green-600 text-white rounded">
           Download License
         </button>
 
-        <button
-          onClick={renewLicense}
-          className="px-4 py-2 bg-purple-600 text-white rounded"
-        >
+        <button onClick={renewLicense} className="px-4 py-2 bg-purple-600 text-white rounded">
           Renew License
         </button>
 
-        <a
-          href={`/client/licenses/${id}/history`}
-          className="px-4 py-2 bg-blue-600 text-white rounded"
-        >
+        <a href={`/client/licenses/${id}/history`} className="px-4 py-2 bg-blue-600 text-white rounded">
           Activation History
         </a>
 
-        <a
-          href={`/client/licenses/${id}/transfer`}
-          className="px-4 py-2 bg-orange-600 text-white rounded"
-        >
+        <a href={`/client/licenses/${id}/transfer`} className="px-4 py-2 bg-orange-600 text-white rounded">
           Transfer License
         </a>
       </div>
