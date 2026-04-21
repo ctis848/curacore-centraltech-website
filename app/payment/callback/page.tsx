@@ -7,12 +7,13 @@ export default function PaymentCallbackPage() {
   const params = useSearchParams();
   const router = useRouter();
 
+  // ⭐ Extract once, safely
+  const reference = params?.get("reference") ?? null;
+
   const [message, setMessage] = useState("Verifying payment…");
 
   useEffect(() => {
     async function verifyPayment() {
-      const reference = params.get("reference");
-
       if (!reference) {
         setMessage("Missing payment reference.");
         router.replace("/payment/failed");
@@ -40,7 +41,7 @@ export default function PaymentCallbackPage() {
     }
 
     verifyPayment();
-  }, []);
+  }, [reference, router]);
 
   return (
     <div className="p-6 text-center">
