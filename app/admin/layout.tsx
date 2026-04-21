@@ -16,6 +16,7 @@ import {
   ClockIcon,
   UserGroupIcon,
   BuildingOfficeIcon,
+  TagIcon,
 } from "@heroicons/react/24/outline";
 
 const navItems = [
@@ -29,11 +30,19 @@ const navItems = [
   { label: "Tenants", href: "/admin/tenants", icon: BuildingOfficeIcon },
   { label: "Users", href: "/admin/users", icon: UserGroupIcon },
   { label: "Support", href: "/admin/support", icon: ChatBubbleLeftRightIcon },
+
+  // Correct Coupons root
+  { label: "Coupons", href: "/admin/coupons", icon: TagIcon },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  const isActive = (href: string) => {
+    if (href === "/admin") return pathname === "/admin";
+    return pathname.startsWith(href);
+  };
 
   return (
     <div className="min-h-screen flex bg-slate-100">
@@ -46,7 +55,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
         <nav className="flex-1 px-4 py-4 space-y-1">
           {navItems.map((item) => {
-            const active = pathname.startsWith(item.href);
+            const active = isActive(item.href);
             const Icon = item.icon;
 
             return (
@@ -78,8 +87,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       {/* MOBILE SIDEBAR */}
       <div className="md:hidden">
         <button
+          type="button"
           onClick={() => setOpen(!open)}
           className="absolute top-3 left-3 z-50 bg-white border rounded px-3 py-1 shadow"
+          aria-label="Toggle admin menu"
         >
           ☰
         </button>
@@ -88,12 +99,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <aside className="fixed inset-y-0 left-0 w-64 bg-white border-r shadow-lg z-40 flex flex-col">
             <div className="px-6 py-4 border-b flex justify-between items-center">
               <h1 className="text-lg font-bold text-slate-900">Admin Menu</h1>
-              <button onClick={() => setOpen(false)}>✕</button>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close menu">
+                ✕
+              </button>
             </div>
 
             <nav className="flex-1 px-4 py-4 space-y-1">
               {navItems.map((item) => {
-                const active = pathname.startsWith(item.href);
+                const active = isActive(item.href);
                 const Icon = item.icon;
 
                 return (

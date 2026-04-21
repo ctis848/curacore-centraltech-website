@@ -1,66 +1,57 @@
-// components/Testimonials.tsx  (or directly in your home page)
+// components/Testimonials.tsx
 export default function Testimonials() {
   const testimonials = [
     {
       quote:
         "CentralCore transformed our hospital operations. Patient care is faster, records are secure, and billing is seamless.",
       name: "Dr. Gbenga Adewale",
-      subtitle: "Rivers State — Ultimate Specialist Hospital",
+      subtitle: "Rivers State. Ultimate Specialist Hospital",
     },
     {
       quote:
         "The best EMR system we've used. Laboratory integration and reporting saved us hours every day.",
       name: "Prof. Dennies Alasia",
-      subtitle: "Rivers State — Althahaus Medical Center",
+      subtitle: "Rivers State. Althahaus Medical Center",
     },
     {
       quote:
         "Ward management and pharmacy module are game-changers. Highly recommend CentralCore.",
       name: "Dr. Franca Ikimalo",
-      subtitle: "Rivers State — Prime Medical Consultants",
+      subtitle: "Rivers State. Prime Medical Consultants",
     },
   ];
 
   return (
     <section className="py-24 px-6 bg-teal-800 text-white">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-5xl md:text-6xl font-black mb-4">
-            Trusted by Leading Healthcare Providers
-          </h2>
-          <p className="text-teal-100 text-lg max-w-2xl mx-auto">
-            Real stories from hospitals and clinics using CentralCore across Rivers State and beyond.
-          </p>
-        </div>
+      <div className="max-w-6xl mx-auto text-center">
 
-        {/* Static Cards Grid */}
-        <div className="grid md:grid-cols-3 gap-8">
-          {testimonials.map((testimonial, index) => (
+        {/* Heading */}
+        <h2 className="text-5xl md:text-6xl font-black mb-16">
+          Trusted by Leading Healthcare Providers
+        </h2>
+
+        {/* Testimonials Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+          {testimonials.map((t, index) => (
             <div
               key={index}
-              className="bg-teal-900/50 backdrop-blur-xl border border-teal-500/30 rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+              className="bg-teal-900/50 backdrop-blur-sm rounded-3xl p-10 border border-teal-700 shadow-xl"
             >
-              <div className="text-6xl text-teal-400 mb-6">“</div>
-
-              <p className="text-lg leading-relaxed mb-8 italic text-teal-100">
-                {testimonial.quote}
+              <p className="text-xl mb-8 italic leading-relaxed">
+                "{t.quote}"
               </p>
 
-              <div>
-                <p className="font-bold text-xl text-white">
-                  {testimonial.name}
-                </p>
-                <p className="text-teal-200 text-sm mt-1">
-                  {testimonial.subtitle}
-                </p>
-              </div>
+              <p className="font-bold text-2xl text-yellow-400">
+                {t.name}
+              </p>
+
+              <p className="text-white text-lg mt-2">
+                {t.subtitle}
+              </p>
             </div>
           ))}
         </div>
 
-        <p className="text-center text-teal-200 mt-12 text-sm">
-          Join over 50+ healthcare facilities using CentralCore
-        </p>
       </div>
     </section>
   );
