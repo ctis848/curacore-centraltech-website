@@ -5,7 +5,9 @@ import { useSearchParams } from "next/navigation";
 
 function PaymentVerifyContent() {
   const params = useSearchParams();
-  const reference = params.get("reference");
+
+  // ⭐ FIX: Safe access
+  const reference = params?.get("reference") ?? null;
 
   return (
     <div className="max-w-md mx-auto mt-20 p-6 bg-white shadow rounded-xl text-center">
