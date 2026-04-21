@@ -22,10 +22,12 @@ export default function PayInvoicePage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
+  // ⭐ Extract ID safely once
+  const invoiceId = params?.id ?? null;
+
   useEffect(() => {
     const load = async () => {
       try {
-        const invoiceId = params.id;
         if (!invoiceId) {
           setNotFound(true);
           return;
@@ -44,7 +46,7 @@ export default function PayInvoicePage() {
           return;
         }
 
-        // Protect route: ensure invoice belongs to logged‑in user
+        // Ensure invoice belongs to logged‑in user
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -64,7 +66,7 @@ export default function PayInvoicePage() {
     };
 
     load();
-  }, [params.id, router, supabase]);
+  }, [invoiceId, router, supabase]);
 
   if (loading) {
     return <p className="text-slate-500">Loading invoice…</p>;
@@ -86,7 +88,6 @@ export default function PayInvoicePage() {
   }
 
   const handlePay = async () => {
-    // Redirect to your payment provider (Flutterwave / Paystack / Stripe)
     window.location.href = `/api/payments/checkout?invoiceId=${invoice.id}`;
   };
 
