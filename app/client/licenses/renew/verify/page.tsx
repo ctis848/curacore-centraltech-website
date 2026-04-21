@@ -9,7 +9,9 @@ export default function VerifyRenewalPage() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const reference = params.get("reference");
+  // ⭐ FIX: Safe access
+  const reference = params?.get("reference") ?? null;
+
   const [status, setStatus] = useState("Verifying payment…");
 
   useEffect(() => {
@@ -26,20 +28,18 @@ export default function VerifyRenewalPage() {
         return;
       }
 
-      // Update licenses
       const {
-  data: { user },
-} = await supabase.auth.getUser();
+        data: { user },
+      } = await supabase.auth.getUser();
 
-if (!user) {
-  setStatus("User not found. Please log in again.");
-  return;
-}
+      if (!user) {
+        setStatus("User not found. Please log in again.");
+        return;
+      }
 
-await supabase.rpc("renew_all_licenses", {
-  userid: user.id,
-});
-
+      await supabase.rpc("renew_all_licenses", {
+        userid: user.id,
+      });
 
       setStatus("Payment successful! Licenses renewed.");
     } catch (err) {
