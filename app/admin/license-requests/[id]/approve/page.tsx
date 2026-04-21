@@ -1,15 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { use, useState, useEffect } from "react";
+import { notFound } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-export default function ApproveLicenseRequestPage() {
-  const router = useRouter();
-  const params = useParams();
-  const supabase = supabaseBrowser();
+type PageProps = {
+  params: Promise<{ id?: string | null }>;
+};
 
-  const requestId = params.id as string;
+export default function ApproveLicenseRequestPage({ params }: PageProps) {
+  // ⭐ Unwrap async params (Next.js 16 requirement)
+  const resolved = use(params);
+
+  if (!resolved?.id) {
+    notFound();
+  }
+
+  const requestId = resolved.id;
+
+  const supabase = supabaseBrowser();
 
   const [licenseKey, setLicenseKey] = useState("");
   const [saving, setSaving] = useState(false);
@@ -74,7 +83,7 @@ export default function ApproveLicenseRequestPage() {
     setSuccessMsg("License successfully sent to Client Portal.");
 
     setTimeout(() => {
-      router.replace("/admin/license-requests");
+      window.location.href = "/admin/license-requests";
     }, 1200);
 
     setSaving(false);
@@ -86,19 +95,10 @@ export default function ApproveLicenseRequestPage() {
 
       {request && (
         <div className="mb-4 p-4 bg-slate-100 rounded border space-y-1">
-          <p>
-            <strong>Product:</strong>{" "}
-            {request.productName || "Unknown Product"}
-          </p>
-          <p>
-            <strong>Request Key:</strong> {request.requestKey}
-          </p>
-          <p>
-            <strong>Status:</strong> {request.status}
-          </p>
-          <p>
-            <strong>User Email:</strong> {request.userEmail || "—"}
-          </p>
+          <p><strong>Product:</strong> {request.productName || "Unknown Product"}</p>
+          <p><strong>Request Key:</strong> {request.requestKey}</p>
+          <p><strong>Status:</strong> {request.status}</p>
+          <p><strong>User Email:</strong> {request.userEmail || "—"}</p>
         </div>
       )}
 
@@ -124,14 +124,6 @@ export default function ApproveLicenseRequestPage() {
           className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50"
         >
           {saving ? "Sending..." : "Send License Key to Client Portal"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="ml-3 text-gray-600 hover:underline"
-        >
-          Cancel
         </button>
       </form>
     </div>
