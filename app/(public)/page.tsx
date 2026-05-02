@@ -1,8 +1,8 @@
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 import Link from 'next/link';
 import Image from 'next/image';
 import EnhancedTestimonials from '@/components/EnhancedTestimonials';
+import EMRCarousel from "@/components/EMRCarousel";
 
 export default function HomePage() {
   return (
@@ -84,6 +84,31 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* ⭐ EMR CAROUSEL SECTION */}
+        <section className="py-24 px-6 md:px-10 bg-white dark:bg-gray-800">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-4xl md:text-5xl font-black text-teal-800 dark:text-teal-300 text-center mb-6">
+              CentralCore EMR — Live Preview
+            </h2>
+
+            <p className="text-center text-gray-700 dark:text-gray-300 max-w-3xl mx-auto text-lg md:text-xl mb-14">
+              A rotating showcase of the CentralCore EMR interface, highlighting real hospital
+              workflows, dashboards, and patient management tools.
+            </p>
+
+            <EMRCarousel />
+
+            <div className="text-center mt-14">
+              <Link
+                href="/products"
+                className="inline-block px-10 py-4 bg-teal-600 text-white rounded-full text-xl font-bold shadow-lg hover:bg-teal-700 hover:scale-105 transition-all duration-300"
+              >
+                Explore Full EMR Features
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {/* CTA SECTION */}
         <section className="py-24 px-6 md:px-10 bg-gradient-to-br from-teal-900 to-teal-800 text-white">
           <div className="max-w-5xl mx-auto text-center space-y-10">
@@ -115,7 +140,6 @@ export default function HomePage() {
 
         <EnhancedTestimonials />
       </div>
-
     </>
   );
 }
