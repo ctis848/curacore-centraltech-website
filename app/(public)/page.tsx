@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import EnhancedTestimonials from '@/components/EnhancedTestimonials';
 import EMRCarousel from "@/components/EMRCarousel";
+import WhatsAppButton from "@/components/WhatsAppButton";   // ⭐ ADDED
 
 export default function HomePage() {
   return (
@@ -140,6 +141,8 @@ export default function HomePage() {
 
         <EnhancedTestimonials />
       </div>
+
+      <WhatsAppButton />   {/* ⭐ ADDED */}
     </>
   );
 }
