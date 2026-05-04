@@ -6,9 +6,6 @@ import {
   autoReplyTemplate,
 } from "@/lib/emailTemplates";
 
-// IMPORTANT: Brevo SDK must be imported with require()
-const Brevo = require("@getbrevo/brevo");
-
 export async function POST(req: Request) {
   try {
     const ip =
@@ -58,31 +55,38 @@ export async function POST(req: Request) {
       );
     }
 
-    // Initialize Brevo API
-    const apiInstance = new Brevo.TransactionalEmailsApi();
-    apiInstance.setApiKey(
-      Brevo.TransactionalEmailsApiApiKeys.apiKey,
-      process.env.BREVO_API_KEY
-    );
-
-    // Send notification to CTIS team
-    await apiInstance.sendTransacEmail({
-      sender: { email: process.env.SMTP_FROM },
-      to: [
-        { email: "info@ctistech.com" },
-        { email: "support@ctistech.com" },
-      ],
-      replyTo: { email },
-      subject: "New Contact Message",
-      htmlContent: contactNotificationTemplate({ name, email, message, ip }),
+    // ⭐ SEND EMAIL TO CTIS TEAM (Brevo REST API)
+    await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": process.env.BREVO_API_KEY!,
+      },
+      body: JSON.stringify({
+        sender: { email: process.env.SMTP_FROM },
+        to: [
+          { email: "info@ctistech.com" },
+          { email: "support@ctistech.com" },
+        ],
+        replyTo: { email },
+        subject: "New Contact Message",
+        htmlContent: contactNotificationTemplate({ name, email, message, ip }),
+      }),
     });
 
-    // Auto‑reply to sender
-    await apiInstance.sendTransacEmail({
-      sender: { email: process.env.SMTP_FROM },
-      to: [{ email }],
-      subject: "We received your message",
-      htmlContent: autoReplyTemplate(name, message),
+    // ⭐ AUTO‑REPLY TO USER
+    await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": process.env.BREVO_API_KEY!,
+      },
+      body: JSON.stringify({
+        sender: { email: process.env.SMTP_FROM },
+        to: [{ email }],
+        subject: "We received your message",
+        htmlContent: autoReplyTemplate(name, message),
+      }),
     });
 
     await supabaseAdmin.from("activity_logs").insert({
