@@ -8,6 +8,9 @@ import {
 
 export async function POST(req: Request) {
   try {
+    console.log("SMTP_FROM =", process.env.SMTP_FROM);
+    console.log("BREVO_API_KEY =", process.env.BREVO_API_KEY ? "OK" : "MISSING");
+
     const ip =
       req.headers.get("x-forwarded-for") ||
       req.headers.get("x-real-ip") ||
@@ -16,12 +19,10 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, email, message, honeypot, timestamp } = body;
 
-    // 🛑 Honeypot spam trap
     if (honeypot && honeypot.trim() !== "") {
       return NextResponse.json({ success: true });
     }
 
-    // 🛑 Timestamp spam protection (must take at least 1.5 seconds)
     if (!timestamp || Date.now() - timestamp < 1500) {
       return NextResponse.json(
         { error: "Form submitted too quickly" },
@@ -29,7 +30,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🛑 Basic validation
     if (!name || !email || !message) {
       return NextResponse.json(
         { error: "All fields are required" },
@@ -37,7 +37,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🛑 Rate limit: 5 messages per minute per IP
     if (!rateLimit(ip as string, 5, 60_000)) {
       return NextResponse.json(
         { error: "Too many requests. Please try again later." },
@@ -45,7 +44,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 📝 Store message in DB
     await supabaseAdmin.from("contact_messages").insert({
       name,
       email,
@@ -61,7 +59,7 @@ export async function POST(req: Request) {
     }
 
     // ⭐ SEND EMAIL TO CTIS TEAM (Brevo REST API)
-    await fetch("https://api.brevo.com/v3/smtp/email", {
+    const teamRes = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -79,8 +77,15 @@ export async function POST(req: Request) {
       }),
     });
 
+    const teamJson = await teamRes.json();
+    console.log("BREVO TEAM RESPONSE:", teamJson);
+
+    if (!teamRes.ok) {
+      throw new Error("Brevo team email failed: " + JSON.stringify(teamJson));
+    }
+
     // ⭐ AUTO‑REPLY TO USER
-    await fetch("https://api.brevo.com/v3/smtp/email", {
+    const userRes = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -94,7 +99,13 @@ export async function POST(req: Request) {
       }),
     });
 
-    // 📝 Log activity
+    const userJson = await userRes.json();
+    console.log("BREVO USER RESPONSE:", userJson);
+
+    if (!userRes.ok) {
+      throw new Error("Brevo user email failed: " + JSON.stringify(userJson));
+    }
+
     await supabaseAdmin.from("activity_logs").insert({
       admin_id: null,
       action: "contact_message_received",
