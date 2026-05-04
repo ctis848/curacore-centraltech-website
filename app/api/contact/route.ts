@@ -6,126 +6,130 @@ import {
   autoReplyTemplate,
 } from "@/lib/emailTemplates";
 
+// 1. Force dynamic execution for fresh env vars and reliable runtime
+export const dynamic = "force-dynamic";
+
+// Helper to handle fetch timeouts
+const fetchWithTimeout = async (url: string, options: any, timeout = 8000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (e) {
+    clearTimeout(id);
+    throw e;
+  }
+};
+
 export async function POST(req: Request) {
   try {
-    console.log("SMTP_FROM =", process.env.SMTP_FROM);
-    console.log("BREVO_API_KEY =", process.env.BREVO_API_KEY ? "OK" : "MISSING");
-
-    const ip =
-      req.headers.get("x-forwarded-for") ||
-      req.headers.get("x-real-ip") ||
-      "unknown";
-
-    const body = await req.json();
-    const { name, email, message, honeypot, timestamp } = body;
-
-    if (honeypot && honeypot.trim() !== "") {
-      return NextResponse.json({ success: true });
+    // 2. Resilience: Safe JSON Body Parsing
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request payload" }, { status: 400 });
     }
 
-    if (!timestamp || Date.now() - timestamp < 1500) {
-      return NextResponse.json(
-        { error: "Form submitted too quickly" },
-        { status: 400 }
-      );
+    const { name, email, message, honeypot, timestamp } = body;
+
+    // 3. Robust IP & Validation
+    const ip = req.headers.get("x-forwarded-for")?.split(',')[0].trim() || 
+               req.headers.get("x-real-ip") || "unknown";
+
+    if (honeypot && honeypot.trim() !== "") return NextResponse.json({ success: true });
+    
+    if (!timestamp || Date.now() - Number(timestamp) < 1500) {
+      return NextResponse.json({ error: "Suspicious activity detected" }, { status: 400 });
     }
 
     if (!name || !email || !message) {
-      return NextResponse.json(
-        { error: "All fields are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Required fields missing" }, { status: 400 });
     }
 
-    if (!rateLimit(ip as string, 5, 60_000)) {
-      return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
-        { status: 429 }
-      );
+    // 4. Protection: Rate Limiting
+    if (!rateLimit(ip, 5, 60_000)) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 
-    await supabaseAdmin.from("contact_messages").insert({
-      name,
-      email,
-      message,
-      ip_address: ip,
+    // 5. Critical Path: Database Persistence
+    const { error: dbError } = await supabaseAdmin.from("contact_messages").insert({
+      name, email, message, ip_address: ip,
     });
 
-    if (!process.env.BREVO_API_KEY) {
-      return NextResponse.json(
-        { error: "Server email configuration error" },
-        { status: 500 }
-      );
+    if (dbError) {
+      console.error("❌ Database Persistence Failed:", dbError.message);
+      throw new Error("Core data storage failure");
     }
 
-    // ⭐ SEND EMAIL TO CTIS TEAM
-    const teamRes = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": process.env.BREVO_API_KEY!,
-      },
-      body: JSON.stringify({
-        sender: { email: process.env.SMTP_FROM },
-        to: [
-          { email: "info@ctistech.com" },
-          { email: "support@ctistech.com" },
-        ],
-        replyTo: { email },
-        subject: "New Contact Message",
-        htmlContent: contactNotificationTemplate({ name, email, message, ip }),
-      }),
-    });
+    // 6. Non-Blocking Path: Email Notifications
+    const BREVO_KEY = process.env.BREVO_API_KEY;
+    const SENDER = process.env.SMTP_FROM;
 
-    const teamJson = await teamRes.json();
-    console.log("BREVO TEAM RESPONSE:", teamJson);
-
-    if (!teamRes.ok) {
-      throw new Error("Brevo team email failed: " + JSON.stringify(teamJson));
+    if (BREVO_KEY && SENDER) {
+      // Execute emails in the background without blocking the main response
+      (async () => {
+        try {
+          await Promise.all([
+            fetchWithTimeout("https://api.brevo.com/v3/smtp/email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "api-key": BREVO_KEY },
+              body: JSON.stringify({
+                sender: { email: SENDER },
+                to: [{ email: "info@ctistech.com" }, { email: "support@ctistech.com" }],
+                replyTo: { email },
+                subject: `New Lead: ${name}`,
+                htmlContent: contactNotificationTemplate({ name, email, message, ip }),
+              }),
+            }),
+            fetchWithTimeout("https://api.brevo.com/v3/smtp/email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "api-key": BREVO_KEY },
+              body: JSON.stringify({
+                sender: { email: SENDER },
+                to: [{ email }],
+                subject: "Message Received",
+                htmlContent: autoReplyTemplate(name, message),
+              }),
+            })
+          ]);
+        } catch (emailErr) {
+          console.error("⚠️ Background Email Warning:", emailErr);
+        }
+      })();
     }
 
-    // ⭐ AUTO‑REPLY TO USER
-    const userRes = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": process.env.BREVO_API_KEY!,
-      },
-      body: JSON.stringify({
-        sender: { email: process.env.SMTP_FROM },
-        to: [{ email }],
-        subject: "We received your message",
-        htmlContent: autoReplyTemplate(name, message),
-      }),
-    });
-
-    const userJson = await userRes.json();
-    console.log("BREVO USER RESPONSE:", userJson);
-
-    if (!userRes.ok) {
-      throw new Error("Brevo user email failed: " + JSON.stringify(userJson));
-    }
-
-    await supabaseAdmin.from("activity_logs").insert({
-      admin_id: null,
+    // 7. Fault-Tolerant Logging
+    // We don't 'await' this or 'throw' if it fails—don't let logs break the user experience
+    supabaseAdmin.from("activity_logs").insert({
       action: "contact_message_received",
       details: { name, email, ip },
+    }).then(({ error }) => {
+      if (error) console.error("⚠️ Activity log failed:", error.message);
     });
 
     return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("❌ Contact form error:", err);
+
+  } catch (err: any) {
+    console.error("❌ CRITICAL SYSTEM ERROR:", err.message);
     return NextResponse.json(
-      { error: "Failed to send message" },
+      { error: "Internal Server Error", message: "A system error occurred. Please try again." },
       { status: 500 }
     );
   }
 }
 
-// ⭐ FIX: Prevent GET from causing 500
+/**
+ * Health Check confirmed by image_4a461b.png
+ */
 export async function GET() {
   return NextResponse.json(
-    { error: "Method Not Allowed" },
-    { status: 405 }
+    { 
+      status: "API is operational",
+      timestamp: new Date().toISOString()
+    }, 
+    { status: 200 }
   );
 }
