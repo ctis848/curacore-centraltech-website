@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // 🛑 Timestamp spam protection (must take at least 1.5 seconds)
+    // 🛑 Timestamp spam protection
     if (!timestamp || Date.now() - timestamp < 1500) {
       return NextResponse.json(
         { error: "Form submitted too quickly" },
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🛑 Rate limit: 5 messages per minute per IP
+    // 🛑 Rate limit
     if (!rateLimit(ip as string, 5, 60_000)) {
       return NextResponse.json(
         { error: "Too many requests. Please try again later." },
@@ -46,8 +46,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // 📝 Log to console
-    console.log("New contact submission:", {
+    // 📝 Log submission
+    console.log("📩 New contact submission:", {
       name,
       email,
       ip,
@@ -62,20 +62,47 @@ export async function POST(req: Request) {
       ip_address: ip,
     });
 
-    // 📧 Brevo SMTP Transporter
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
+    // 🛑 Validate SMTP environment variables
+    const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } =
+      process.env;
+
+    if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM) {
+      console.error("❌ Missing SMTP environment variables");
+      return NextResponse.json(
+        { error: "Server email configuration error" },
+        { status: 500 }
+      );
+    }
+
+    // 🧪 Debug log
+    console.log("🔧 SMTP CONFIG:", {
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      user: SMTP_USER,
+      from: SMTP_FROM,
     });
 
-    // 📧 Email to CTIS team
+    // 📧 Create transporter
+    const transporter = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: Number(SMTP_PORT),
+      secure: Number(SMTP_PORT) === 465, // SSL only on 465
+      auth: {
+        user: SMTP_USER,
+        pass: SMTP_PASS,
+      },
+      connectionTimeout: 10_000, // prevent hanging forever
+      socketTimeout: 10_000,
+    });
+
+    // 🧪 Verify SMTP connection
+    console.log("🔌 Verifying SMTP connection...");
+    await transporter.verify();
+    console.log("✅ SMTP connection OK");
+
+    // 📧 Send notification to CTIS team
     await transporter.sendMail({
-      from: process.env.SMTP_FROM,
+      from: SMTP_FROM,
       replyTo: email,
       to: ["info@ctistech.com", "support@ctistech.com"],
       subject: "New Contact Message",
@@ -84,7 +111,7 @@ export async function POST(req: Request) {
 
     // 📧 Auto‑reply to sender
     await transporter.sendMail({
-      from: process.env.SMTP_FROM,
+      from: SMTP_FROM,
       to: email,
       subject: "We received your message",
       html: autoReplyTemplate(name, message),
@@ -99,7 +126,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("Contact form error:", err);
+    console.error("❌ Contact form error:", err);
     return NextResponse.json(
       { error: "Failed to send message" },
       { status: 500 }
