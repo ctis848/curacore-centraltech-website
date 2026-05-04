@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
 import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 import { rateLimit } from "@/lib/rateLimit";
 import {
   contactNotificationTemplate,
   autoReplyTemplate,
 } from "@/lib/emailTemplates";
+
+// IMPORTANT: Brevo SDK must be imported with require()
+const Brevo = require("@getbrevo/brevo");
 
 export async function POST(req: Request) {
   try {
@@ -17,12 +19,10 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, email, message, honeypot, timestamp } = body;
 
-    // 🛑 Honeypot spam trap
     if (honeypot && honeypot.trim() !== "") {
       return NextResponse.json({ success: true });
     }
 
-    // 🛑 Timestamp spam protection
     if (!timestamp || Date.now() - timestamp < 1500) {
       return NextResponse.json(
         { error: "Form submitted too quickly" },
@@ -30,7 +30,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🛑 Basic validation
     if (!name || !email || !message) {
       return NextResponse.json(
         { error: "All fields are required" },
@@ -38,7 +37,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🛑 Rate limit
     if (!rateLimit(ip as string, 5, 60_000)) {
       return NextResponse.json(
         { error: "Too many requests. Please try again later." },
@@ -46,15 +44,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 📝 Log submission
-    console.log("📩 New contact submission:", {
-      name,
-      email,
-      ip,
-      time: new Date().toISOString(),
-    });
-
-    // 📝 Store message in DB
     await supabaseAdmin.from("contact_messages").insert({
       name,
       email,
@@ -62,62 +51,40 @@ export async function POST(req: Request) {
       ip_address: ip,
     });
 
-    // 🛑 Validate SMTP environment variables
-    const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } =
-      process.env;
-
-    if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM) {
-      console.error("❌ Missing SMTP environment variables");
+    if (!process.env.BREVO_API_KEY) {
       return NextResponse.json(
         { error: "Server email configuration error" },
         { status: 500 }
       );
     }
 
-    // 🧪 Debug log
-    console.log("🔧 SMTP CONFIG:", {
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      user: SMTP_USER,
-      from: SMTP_FROM,
-    });
+    // Initialize Brevo API
+    const apiInstance = new Brevo.TransactionalEmailsApi();
+    apiInstance.setApiKey(
+      Brevo.TransactionalEmailsApiApiKeys.apiKey,
+      process.env.BREVO_API_KEY
+    );
 
-    // 📧 Create transporter
-    const transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: Number(SMTP_PORT),
-      secure: Number(SMTP_PORT) === 465, // SSL only on 465
-      auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS,
-      },
-      connectionTimeout: 10_000, // prevent hanging forever
-      socketTimeout: 10_000,
-    });
-
-    // 🧪 Verify SMTP connection
-    console.log("🔌 Verifying SMTP connection...");
-    await transporter.verify();
-    console.log("✅ SMTP connection OK");
-
-    // 📧 Send notification to CTIS team
-    await transporter.sendMail({
-      from: SMTP_FROM,
-      replyTo: email,
-      to: ["info@ctistech.com", "support@ctistech.com"],
+    // Send notification to CTIS team
+    await apiInstance.sendTransacEmail({
+      sender: { email: process.env.SMTP_FROM },
+      to: [
+        { email: "info@ctistech.com" },
+        { email: "support@ctistech.com" },
+      ],
+      replyTo: { email },
       subject: "New Contact Message",
-      html: contactNotificationTemplate({ name, email, message, ip }),
+      htmlContent: contactNotificationTemplate({ name, email, message, ip }),
     });
 
-    // 📧 Auto‑reply to sender
-    await transporter.sendMail({
-      from: SMTP_FROM,
-      to: email,
+    // Auto‑reply to sender
+    await apiInstance.sendTransacEmail({
+      sender: { email: process.env.SMTP_FROM },
+      to: [{ email }],
       subject: "We received your message",
-      html: autoReplyTemplate(name, message),
+      htmlContent: autoReplyTemplate(name, message),
     });
 
-    // 📝 Log activity
     await supabaseAdmin.from("activity_logs").insert({
       admin_id: null,
       action: "contact_message_received",
