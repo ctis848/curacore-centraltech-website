@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ⭐ SEND EMAIL TO CTIS TEAM (Brevo REST API)
+    // ⭐ SEND EMAIL TO CTIS TEAM
     const teamRes = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
@@ -120,4 +120,12 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+// ⭐ FIX: Prevent GET from causing 500
+export async function GET() {
+  return NextResponse.json(
+    { error: "Method Not Allowed" },
+    { status: 405 }
+  );
 }
