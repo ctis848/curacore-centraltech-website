@@ -16,10 +16,12 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, email, message, honeypot, timestamp } = body;
 
+    // 🛑 Honeypot spam trap
     if (honeypot && honeypot.trim() !== "") {
       return NextResponse.json({ success: true });
     }
 
+    // 🛑 Timestamp spam protection (must take at least 1.5 seconds)
     if (!timestamp || Date.now() - timestamp < 1500) {
       return NextResponse.json(
         { error: "Form submitted too quickly" },
@@ -27,6 +29,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // 🛑 Basic validation
     if (!name || !email || !message) {
       return NextResponse.json(
         { error: "All fields are required" },
@@ -34,6 +37,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // 🛑 Rate limit: 5 messages per minute per IP
     if (!rateLimit(ip as string, 5, 60_000)) {
       return NextResponse.json(
         { error: "Too many requests. Please try again later." },
@@ -41,6 +45,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // 📝 Store message in DB
     await supabaseAdmin.from("contact_messages").insert({
       name,
       email,
@@ -89,6 +94,7 @@ export async function POST(req: Request) {
       }),
     });
 
+    // 📝 Log activity
     await supabaseAdmin.from("activity_logs").insert({
       admin_id: null,
       action: "contact_message_received",
