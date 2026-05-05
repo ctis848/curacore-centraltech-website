@@ -3,7 +3,7 @@
 export default function WhatsAppButton() {
   return (
     <a
-      href="https://wa.me/2349120523832?text=Hello%20CTIS%2C%20I%20need%20assistance%20with%20CentralCore%20EMR"
+      href="https://wa.me/2348059318564?text=Hello%20CTIS%2C%20I%20need%20assistance%20with%20CentralCore%20EMR"
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat on WhatsApp"
