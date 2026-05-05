@@ -1,18 +1,11 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
-import { rateLimit } from "@/lib/rateLimit";
-import {
-  contactNotificationTemplate,
-  autoReplyTemplate,
-} from "@/lib/emailTemplates";
 
-// Force Node.js runtime for better compatibility with Supabase/Brevo
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-    // 1. Validate JSON immediately
+    // Parse JSON safely
     const body = await req.json().catch(() => null);
     if (!body) {
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -20,52 +13,70 @@ export async function POST(req: Request) {
 
     const { name, email, message, honeypot, timestamp } = body;
 
-    // 2. IP & Bot Protection
-    const ip = req.headers.get("x-forwarded-for")?.split(',')[0] || "127.0.0.1";
-    if (honeypot) return NextResponse.json({ success: true });
-    
-    // 3. Check Configuration BEFORE running logic
+    // Basic bot protection
+    if (honeypot && honeypot.trim() !== "") {
+      return NextResponse.json({ success: true });
+    }
+
+    if (!timestamp || Date.now() - Number(timestamp) < 1500) {
+      return NextResponse.json({ error: "Suspicious activity" }, { status: 400 });
+    }
+
+    if (!name || !email || !message) {
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    }
+
+    // Load environment variables
     const BREVO_KEY = process.env.BREVO_API_KEY;
     const SENDER = process.env.SMTP_FROM;
 
     if (!BREVO_KEY || !SENDER) {
-      console.error("CRITICAL: Missing environment variables on production server.");
+      console.error("Missing BREVO_API_KEY or SMTP_FROM");
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
 
-    // 4. Primary Database Action (Await this)
-    const { error: dbError } = await supabaseAdmin.from("contact_messages").insert({
-      name, email, message, ip_address: ip,
+    // Send email to CTIS team
+    await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": BREVO_KEY,
+      },
+      body: JSON.stringify({
+        sender: { email: SENDER },
+        to: [{ email: "info@ctistech.com" }],
+        subject: `New Contact Message from ${name}`,
+        htmlContent: `
+          <h2>New Contact Message</h2>
+          <p><strong>Name:</strong> ${name}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Message:</strong><br>${message}</p>
+        `,
+      }),
     });
 
-    if (dbError) throw new Error(`DB Error: ${dbError.message}`);
-
-    // 5. Fire-and-Forget Emails (Doesn't block the response)
-    // This prevents a 500 error if Brevo is slow or times out
-    const sendEmails = async () => {
-      try {
-        await fetch("https://api.brevo.com/v3/smtp/email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "api-key": BREVO_KEY },
-          body: JSON.stringify({
-            sender: { email: SENDER },
-            to: [{ email: "info@ctistech.com" }, { email: "support@ctistech.com" }],
-            subject: "New Message Received",
-            htmlContent: contactNotificationTemplate({ name, email, message, ip }),
-          }),
-        });
-      } catch (e) {
-        console.error("Background Email Failed", e);
-      }
-    };
-    
-    sendEmails(); // Intentionally not awaited
+    // Auto‑reply to user
+    await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": BREVO_KEY,
+      },
+      body: JSON.stringify({
+        sender: { email: SENDER },
+        to: [{ email }],
+        subject: "We received your message",
+        htmlContent: `
+          <p>Hello ${name},</p>
+          <p>Thank you for contacting CTIS. We have received your message and will respond shortly.</p>
+        `,
+      }),
+    });
 
     return NextResponse.json({ success: true });
 
   } catch (err: any) {
-    // 6. ULTIMATE CATCH: Always return JSON
-    console.error("SERVER CRASH:", err);
+    console.error("CONTACT API ERROR:", err);
     return NextResponse.json(
       { error: "Internal Server Error", details: err.message },
       { status: 500 }
@@ -74,5 +85,5 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
-  return NextResponse.json({ status: "ready" });
+  return NextResponse.json({ status: "API is operational" });
 }
