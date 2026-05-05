@@ -125,18 +125,7 @@ export default function ContactForm() {
     } catch (error) {
       console.error("BREVO ERROR:", error);
 
-      toast.error(
-        <span>
-          Email failed.{" "}
-          <a
-            href={WHATSAPP}
-            className="underline text-blue-500"
-            target="_blank"
-          >
-            Message us on WhatsApp
-          </a>
-        </span>
-      );
+      toast.error("Email failed. Please contact us on WhatsApp: 08059318564");
     }
 
     setLoading(false);
