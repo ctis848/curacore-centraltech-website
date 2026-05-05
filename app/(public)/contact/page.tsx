@@ -25,18 +25,12 @@ export default function ContactForm() {
     const form = e.currentTarget;
 
     const formData = {
-      name: (form.elements.namedItem("name") as HTMLInputElement).value.trim(),
-      email: (form.elements.namedItem("email") as HTMLInputElement).value.trim(),
-      message: (form.elements.namedItem("message") as HTMLTextAreaElement).value.trim(),
+      name: (form.elements.namedItem("name") as HTMLInputElement).value,
+      email: (form.elements.namedItem("email") as HTMLInputElement).value,
+      message: (form.elements.namedItem("message") as HTMLTextAreaElement).value,
       honeypot: (form.elements.namedItem("honeypot") as HTMLInputElement)?.value,
       timestamp: Date.now() - startTime.current,
     };
-
-    // SPAM PROTECTION
-    if (formData.honeypot) {
-      setLoading(false);
-      return;
-    }
 
     if (formData.timestamp < 1500) {
       setLoading(false);
@@ -44,106 +38,35 @@ export default function ContactForm() {
     }
 
     const validation = ContactSchema.safeParse(formData);
+
     if (!validation.success) {
       toast.error(validation.error.issues[0].message);
       setLoading(false);
       return;
     }
 
-    // ⭐ GET USER IP ADDRESS
-    let ip = "Unknown";
-    try {
-      const ipRes = await fetch("https://api.ipify.org?format=json");
-      const ipData = await ipRes.json();
-      ip = ipData.ip;
-    } catch {
-      ip = "Unavailable";
-    }
+    const res = await fetch("/api/contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
 
-    // ⭐ SAFE PUBLIC BREVO KEY
-    const BREVO_KEY = process.env.NEXT_PUBLIC_BREVO_PUBLIC_KEY!;
-    const WHATSAPP = "https://wa.me/2348059318564?text=Hello%20CTIS";
+    const data = await res.json();
+    setLoading(false);
 
-    // ⭐ EMAIL TEMPLATES
-    const adminTemplate = `
-      <h2>New Contact Message</h2>
-      <p><strong>Name:</strong> ${formData.name}</p>
-      <p><strong>Email:</strong> ${formData.email}</p>
-      <p><strong>Message:</strong><br>${formData.message}</p>
-      <hr />
-      <p><strong>IP Address:</strong> ${ip}</p>
-      <p><strong>Submitted At:</strong> ${new Date().toLocaleString()}</p>
-    `;
-
-    const userTemplate = `
-      <p>Hello ${formData.name},</p>
-      <p>Thank you for contacting CTIS. We have received your message and will respond shortly.</p>
-      <br />
-      <p><strong>Your Message:</strong></p>
-      <p>${formData.message}</p>
-      <br />
-      <p>Best regards,<br/>CTIS Support Team</p>
-    `;
-
-    try {
-      // Send to CTIS team
-      await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "api-key": BREVO_KEY,
-        },
-        body: JSON.stringify({
-          sender: { email: "info@ctistech.com", name: "CTIS Website" },
-          to: [{ email: "info@ctistech.com" }],
-          replyTo: { email: formData.email },
-          subject: `New Contact Message from ${formData.name}`,
-          htmlContent: adminTemplate,
-        }),
-      });
-
-      // Auto‑reply to user
-      await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "api-key": BREVO_KEY,
-        },
-        body: JSON.stringify({
-          sender: { email: "info@ctistech.com", name: "CTIS Support" },
-          to: [{ email: formData.email }],
-          subject: "We received your message",
-          htmlContent: userTemplate,
-        }),
-      });
-
+    if (data.success) {
       toast.success("Message sent!");
       setShowModal(true);
       form.reset();
       startTime.current = Date.now();
-
-    } catch (error) {
-      console.error("BREVO ERROR:", error);
-
-      toast.error(
-        <span>
-          Email failed.{" "}
-          <a
-            href={WHATSAPP}
-            className="underline text-blue-500"
-            target="_blank"
-          >
-            Message us on WhatsApp
-          </a>
-        </span>
-      );
+    } else {
+      toast.error(data.error || "Failed to send message");
     }
-
-    setLoading(false);
   }
 
   return (
     <>
+      {/* ⭐ Added top padding to avoid Navbar overlap */}
       <div className="pt-32 pb-10 px-4">
         <motion.div
           initial={{ opacity: 0, y: 25 }}

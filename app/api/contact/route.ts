@@ -1,95 +1,108 @@
-// force amplify rebuild
-
 import { NextResponse } from "next/server";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import nodemailer from "nodemailer";
+import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
+import { rateLimit } from "@/lib/rateLimit";
+import {
+  contactNotificationTemplate,
+  autoReplyTemplate,
+} from "@/lib/emailTemplates";
 
 export async function POST(req: Request) {
   try {
+    const ip =
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("x-real-ip") ||
+      "unknown";
 
-    // 🔥 FORCE BACKEND REDEPLOY LOG (this is what Amplify detects)
-    console.log("AMPLIFY_BACKEND_REDEPLOY_TRIGGER");
-
-    // Parse JSON safely
-    const body = await req.json().catch(() => null);
-    if (!body) {
-      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-    }
-
+    const body = await req.json();
     const { name, email, message, honeypot, timestamp } = body;
 
-    // Basic bot protection
+    // 🛑 Honeypot spam trap
     if (honeypot && honeypot.trim() !== "") {
       return NextResponse.json({ success: true });
     }
 
-    if (!timestamp || Date.now() - Number(timestamp) < 1500) {
-      return NextResponse.json({ error: "Suspicious activity" }, { status: 400 });
+    // 🛑 Timestamp spam protection (must take at least 1.5 seconds)
+    if (!timestamp || Date.now() - timestamp < 1500) {
+      return NextResponse.json(
+        { error: "Form submitted too quickly" },
+        { status: 400 }
+      );
     }
 
+    // 🛑 Basic validation
     if (!name || !email || !message) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: "All fields are required" },
+        { status: 400 }
+      );
     }
 
-    // Load environment variables
-    const BREVO_KEY = process.env.BREVO_API_KEY;
-    const SENDER = process.env.SMTP_FROM;
-
-    if (!BREVO_KEY || !SENDER) {
-      console.error("Missing BREVO_API_KEY or SMTP_FROM");
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    // 🛑 Rate limit: 5 messages per minute per IP
+    if (!rateLimit(ip as string, 5, 60_000)) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 }
+      );
     }
 
-    // Send email to CTIS team
-    await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": BREVO_KEY,
-      },
-      body: JSON.stringify({
-        sender: { email: SENDER },
-        to: [{ email: "info@ctistech.com" }],
-        subject: `New Contact Message from ${name}`,
-        htmlContent: `
-          <h2>New Contact Message</h2>
-          <p><strong>Name:</strong> ${name}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Message:</strong><br>${message}</p>
-        `,
-      }),
+    // 📝 Log to console
+    console.log("New contact submission:", {
+      name,
+      email,
+      ip,
+      time: new Date().toISOString(),
     });
 
-    // Auto‑reply to user
-    await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": BREVO_KEY,
+    // 📝 Store message in DB
+    await supabaseAdmin.from("contact_messages").insert({
+      name,
+      email,
+      message,
+      ip_address: ip,
+    });
+
+    // 📧 Brevo SMTP Transporter
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
       },
-      body: JSON.stringify({
-        sender: { email: SENDER },
-        to: [{ email }],
-        subject: "We received your message",
-        htmlContent: `
-          <p>Hello ${name},</p>
-          <p>Thank you for contacting CTIS. We have received your message and will respond shortly.</p>
-        `,
-      }),
+    });
+
+    // 📧 Email to CTIS team
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      replyTo: email,
+      to: ["info@ctistech.com", "support@ctistech.com"],
+      subject: "New Contact Message",
+      html: contactNotificationTemplate({ name, email, message, ip }),
+    });
+
+    // 📧 Auto‑reply to sender
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: "We received your message",
+      html: autoReplyTemplate(name, message),
+    });
+
+    // 📝 Log activity
+    await supabaseAdmin.from("activity_logs").insert({
+      admin_id: null,
+      action: "contact_message_received",
+      details: { name, email, ip },
     });
 
     return NextResponse.json({ success: true });
-
-  } catch (err: any) {
-    console.error("CONTACT API ERROR:", err);
+  } catch (err) {
+    console.error("Contact form error:", err);
     return NextResponse.json(
-      { error: "Internal Server Error", details: err.message },
+      { error: "Failed to send message" },
       { status: 500 }
     );
   }
-}
-
-export async function GET() {
-  return NextResponse.json({ status: "API is operational" });
 }
