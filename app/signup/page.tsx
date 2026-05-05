@@ -20,7 +20,6 @@ export default function SignupPage() {
     setError(null);
     setMessage(null);
 
-    // Basic validation
     if (!email.includes("@")) {
       setError("Please enter a valid email address.");
       return;
@@ -41,9 +40,7 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/client/verify-email`,
-      },
+      options: {} // ← NO EMAIL CONFIRMATION, NO SMTP
     });
 
     setLoading(false);
@@ -57,7 +54,7 @@ export default function SignupPage() {
       return;
     }
 
-    setMessage("Account created! Check your email to confirm your account.");
+    setMessage("Account created successfully.");
   }
 
   return (
