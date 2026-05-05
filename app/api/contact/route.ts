@@ -7,6 +7,10 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+
+    // 🔥 FORCE BACKEND REDEPLOY LOG (this is what Amplify detects)
+    console.log("AMPLIFY_BACKEND_REDEPLOY_TRIGGER");
+
     // Parse JSON safely
     const body = await req.json().catch(() => null);
     if (!body) {
