@@ -42,7 +42,7 @@ export async function POST(req: Request) {
         emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
         data: {
           name,
-          role: "CLIENT",
+          role: "CLIENT", // Assign role
         },
       },
     });
@@ -63,19 +63,14 @@ export async function POST(req: Request) {
     const user = data.user;
 
     // -----------------------------
-    // 4. Create or update profile row (SAFE UPSERT)
+    // 4. Optional: Create profile row
     // -----------------------------
     if (user) {
-      await supabase.from("ClientProfile").upsert(
-        {
-          userId: user.id,
-          name,
-          email,
-        },
-        {
-          onConflict: "email", // prevents duplicate email errors
-        }
-      );
+      await supabase.from("ClientProfile").insert({
+        userId: user.id,
+        name,
+        email,
+      });
     }
 
     // -----------------------------
