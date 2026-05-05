@@ -33,23 +33,20 @@ export async function POST(req: Request) {
     }
 
     // -----------------------------
-    // 2. Create user in Supabase Auth
+    // 2. Create user WITHOUT email confirmation
     // -----------------------------
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        emailRedirectTo: undefined, // prevents Supabase from sending confirmation email
         data: {
           name,
-          role: "CLIENT", // Assign role
+          role: "CLIENT",
         },
       },
     });
 
-    // -----------------------------
-    // 3. Handle signup errors
-    // -----------------------------
     if (error) {
       let friendly = error.message;
 
@@ -63,7 +60,7 @@ export async function POST(req: Request) {
     const user = data.user;
 
     // -----------------------------
-    // 4. Optional: Create profile row
+    // 3. Create profile row
     // -----------------------------
     if (user) {
       await supabase.from("ClientProfile").insert({
@@ -74,26 +71,23 @@ export async function POST(req: Request) {
     }
 
     // -----------------------------
-    // 5. Send Welcome Email (non-blocking)
+    // 4. Send welcome email (optional, non-blocking)
     // -----------------------------
-    if (email) {
-      sendEmail({
-        to: email,
-        subject: "Welcome to CentralTech",
-        html: welcomeEmailTemplate(name),
-      }).catch((err) => {
-        console.error("Welcome email failed:", err);
-      });
-    }
+    sendEmail({
+      to: email,
+      subject: "Welcome to CentralTech",
+      html: welcomeEmailTemplate(name),
+    }).catch((err) => console.error("Welcome email failed:", err));
 
     // -----------------------------
-    // 6. Success response
+    // 5. Success response
     // -----------------------------
     return NextResponse.json({
       success: true,
-      message: "Signup successful. Check your email to verify your account.",
+      message: "Signup successful.",
       user,
     });
+
   } catch (err) {
     console.error("Signup API error:", err);
     return NextResponse.json(
