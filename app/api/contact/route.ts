@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     // Parse JSON safely
     const body = await req.json().catch(() => null);
     if (!body) {
-      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+      return NextResponse.json({ error: "No data provided" }, { status: 400 });
     }
 
     const { name, email, message, honeypot, timestamp } = body;
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     const SENDER = process.env.SMTP_FROM?.trim();
 
     if (!BREVO_KEY || !SENDER) {
-      console.error("DEPLOYMENT ERROR: Missing BREVO_API_KEY or SMTP_FROM");
+      console.error("DEPLOYMENT ERROR: Missing BREVO_API_KEY or SMTP_FROM in Amplify.");
       return NextResponse.json(
         {
           error: "Configuration Error",
