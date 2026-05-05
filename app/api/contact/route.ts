@@ -1,3 +1,5 @@
+// force amplify rebuild
+
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -5,6 +7,8 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+
+    // 🔥 FORCE BACKEND REDEPLOY LOG (this is what Amplify detects)
     console.log("AMPLIFY_BACKEND_REDEPLOY_TRIGGER");
 
     // Parse JSON safely
@@ -15,34 +19,26 @@ export async function POST(req: Request) {
 
     const { name, email, message, honeypot, timestamp } = body;
 
-    // Bot protection
+    // Basic bot protection
     if (honeypot && honeypot.trim() !== "") {
       return NextResponse.json({ success: true });
     }
 
-    // Timestamp validation
     if (!timestamp || Date.now() - Number(timestamp) < 1500) {
       return NextResponse.json({ error: "Suspicious activity" }, { status: 400 });
     }
 
-    // Required fields
     if (!name || !email || !message) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
     // Load environment variables
-    const BREVO_KEY = process.env.BREVO_API_KEY?.trim();
-    const SENDER = process.env.SMTP_FROM?.trim();
+    const BREVO_KEY = process.env.BREVO_API_KEY;
+    const SENDER = process.env.SMTP_FROM;
 
     if (!BREVO_KEY || !SENDER) {
-      console.error("DEPLOYMENT ERROR: Missing BREVO_API_KEY or SMTP_FROM in Amplify.");
-      return NextResponse.json(
-        {
-          error: "Configuration Error",
-          debug: { has_key: !!BREVO_KEY, has_sender: !!SENDER },
-        },
-        { status: 500 }
-      );
+      console.error("Missing BREVO_API_KEY or SMTP_FROM");
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
 
     // Send email to CTIS team
@@ -83,54 +79,17 @@ export async function POST(req: Request) {
       }),
     });
 
-    // Background email (fire-and-forget)
-    const sendBrevoEmail = async () => {
-      try {
-        await fetch("https://api.brevo.com/v3/smtp/email", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "api-key": BREVO_KEY,
-          },
-          body: JSON.stringify({
-            sender: { email: SENDER, name: "CTIS Web" },
-            to: [{ email: "info@ctistech.com" }],
-            replyTo: { email, name },
-            subject: `CTIS Lead: ${name}`,
-            htmlContent: `
-              <h3>New Lead from CTIS Website</h3>
-              <p><strong>Name:</strong> ${name}</p>
-              <p><strong>Email:</strong> ${email}</p>
-              <p><strong>Message:</strong></p>
-              <p>${message}</p>
-            `,
-          }),
-        });
-      } catch (err) {
-        console.error("Background Email Delivery Failed:", err);
-      }
-    };
-
-    sendBrevoEmail();
-
     return NextResponse.json({ success: true });
+
   } catch (err: any) {
     console.error("CONTACT API ERROR:", err);
     return NextResponse.json(
-      { error: "Internal Server Error", message: err.message },
+      { error: "Internal Server Error", details: err.message },
       { status: 500 }
     );
   }
 }
 
-// Health check
 export async function GET() {
-  return NextResponse.json({
-    status: "API is operational",
-    diagnostics: {
-      BREVO_READY: !!process.env.BREVO_API_KEY,
-      SMTP_READY: !!process.env.SMTP_FROM,
-      TIME: new Date().toISOString(),
-    },
-  });
+  return NextResponse.json({ status: "API is operational" });
 }
