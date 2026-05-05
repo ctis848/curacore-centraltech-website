@@ -86,7 +86,7 @@ export default function ContactForm() {
     `;
 
     try {
-      // Send to CTIS team
+      // ⭐ SEND TO CTIS TEAM (ADMIN)
       await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
@@ -94,7 +94,7 @@ export default function ContactForm() {
           "api-key": BREVO_KEY,
         },
         body: JSON.stringify({
-          sender: { email: "info@ctistech.com", name: "CTIS Website" },
+          sender: { email: "no-reply@ctistech.com", name: "CTIS Website" },
           to: [{ email: "info@ctistech.com" }],
           replyTo: { email: formData.email },
           subject: `New Contact Message from ${formData.name}`,
@@ -102,7 +102,7 @@ export default function ContactForm() {
         }),
       });
 
-      // Auto‑reply to user
+      // ⭐ AUTO‑REPLY TO USER
       await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
@@ -110,7 +110,7 @@ export default function ContactForm() {
           "api-key": BREVO_KEY,
         },
         body: JSON.stringify({
-          sender: { email: "info@ctistech.com", name: "CTIS Support" },
+          sender: { email: "no-reply@ctistech.com", name: "CTIS Support" },
           to: [{ email: formData.email }],
           subject: "We received your message",
           htmlContent: userTemplate,
@@ -124,7 +124,6 @@ export default function ContactForm() {
 
     } catch (error) {
       console.error("BREVO ERROR:", error);
-
       toast.error("Email failed. Please contact us on WhatsApp: 08059318564");
     }
 
