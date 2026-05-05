@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     // Parse JSON safely
     const body = await req.json().catch(() => null);
     if (!body) {
-      return NextResponse.json({ error: "No data provided" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
     const { name, email, message, honeypot, timestamp } = body;
@@ -20,10 +20,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
+    // Timestamp validation
     if (!timestamp || Date.now() - Number(timestamp) < 1500) {
       return NextResponse.json({ error: "Suspicious activity" }, { status: 400 });
     }
 
+    // Required fields
     if (!name || !email || !message) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
