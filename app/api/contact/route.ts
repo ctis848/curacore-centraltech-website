@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+
+    // 🔥 FORCE BACKEND REDEPLOY LOG (this is what Amplify detects)
     console.log("AMPLIFY_BACKEND_REDEPLOY_TRIGGER");
 
     // Parse JSON safely
@@ -17,7 +19,7 @@ export async function POST(req: Request) {
 
     const { name, email, message, honeypot, timestamp } = body;
 
-    // Bot protection
+    // Basic bot protection
     if (honeypot && honeypot.trim() !== "") {
       return NextResponse.json({ success: true });
     }
@@ -36,13 +38,7 @@ export async function POST(req: Request) {
 
     if (!BREVO_KEY || !SENDER) {
       console.error("Missing BREVO_API_KEY or SMTP_FROM");
-      return NextResponse.json(
-        {
-          error: "Server configuration error",
-          debug: { has_key: !!BREVO_KEY, has_sender: !!SENDER }
-        },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
 
     // Send email to CTIS team
@@ -95,10 +91,5 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
-  return NextResponse.json({
-    status: "API is operational",
-    BREVO_READY: !!process.env.BREVO_API_KEY,
-    SMTP_READY: !!process.env.SMTP_FROM,
-    time: new Date().toISOString(),
-  });
+  return NextResponse.json({ status: "API is operational" });
 }
