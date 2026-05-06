@@ -1,5 +1,3 @@
-// force amplify rebuild
-
 import { NextResponse } from "next/server";
 import axios from "axios";
 import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
@@ -19,10 +17,7 @@ export async function POST(req: Request) {
       body = await req.json();
     } catch (err: any) {
       console.error("❌ JSON parse error:", err);
-      return NextResponse.json(
-        { error: "Invalid JSON body" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
     const ip =
@@ -96,15 +91,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate Brevo API key
-    if (!process.env.BREVO_API_KEY || !process.env.SMTP_FROM) {
+    // Validate SMTP PASS (used as API key)
+    if (!process.env.SMTP_PASS || !process.env.SMTP_FROM) {
       return NextResponse.json(
-        { error: "Brevo API environment variables missing" },
+        { error: "SMTP environment variables missing" },
         { status: 500 }
       );
     }
 
-    // Send admin email using Brevo API
+    // Send admin email using Brevo SMTP key over HTTPS
     try {
       await axios.post(
         "https://api.brevo.com/v3/smtp/email",
@@ -119,15 +114,15 @@ export async function POST(req: Request) {
         },
         {
           headers: {
-            "api-key": process.env.BREVO_API_KEY!,
+            "api-key": process.env.SMTP_PASS, // USE SMTP KEY HERE
             "Content-Type": "application/json",
           },
         }
       );
     } catch (err: any) {
-      console.error("❌ Brevo admin email error:", err);
+      console.error("❌ Brevo admin email error:", err.response?.data || err);
       return NextResponse.json(
-        { error: "Failed to send admin email: " + err.message },
+        { error: "Failed to send admin email" },
         { status: 500 }
       );
     }
@@ -144,21 +139,20 @@ export async function POST(req: Request) {
         },
         {
           headers: {
-            "api-key": process.env.BREVO_API_KEY!,
+            "api-key": process.env.SMTP_PASS, // USE SMTP KEY HERE
             "Content-Type": "application/json",
           },
         }
       );
     } catch (err: any) {
-      console.error("❌ Brevo auto‑reply error:", err);
+      console.error("❌ Brevo auto‑reply error:", err.response?.data || err);
       return NextResponse.json(
-        { error: "Failed to send auto‑reply: " + err.message },
+        { error: "Failed to send auto‑reply" },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ success: true });
-
   } catch (err: any) {
     console.error("❌ UNCAUGHT ERROR:", err);
     return NextResponse.json(
