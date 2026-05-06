@@ -4,9 +4,9 @@ import { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 const PRODUCT_PLANS = [
-  "CentralCore Pro",
-  "CentralCore",
+  "Starter",
   "Pro",
+  "Enterprise",
 ];
 
 export default function ClientLicenseRequestPage() {

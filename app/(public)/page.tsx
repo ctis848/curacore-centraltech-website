@@ -13,7 +13,7 @@ export default function HomePage() {
       <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
 
         {/* HERO */}
-        <section className="relative min-h-[80vh] sm:h-[90vh] w-full overflow-hidden">
+        <section className="relative min-h-[80vh] sm:h-[90vh] w-full overflow-hidden pt-24 sm:pt-32">
           <Image
             src="/hospital-bg.jpg"
             alt="Modern hospital background for CentralCore EMR"
