@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
+import axios from "axios";
 import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 import { rateLimit } from "@/lib/rateLimit";
 import {
@@ -94,63 +94,36 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate SMTP ENV
-    if (
-      !process.env.SMTP_HOST ||
-      !process.env.SMTP_PORT ||
-      !process.env.SMTP_USER ||
-      !process.env.SMTP_PASS ||
-      !process.env.SMTP_FROM
-    ) {
+    // Validate Brevo API key
+    if (!process.env.BREVO_API_KEY || !process.env.SMTP_FROM) {
       return NextResponse.json(
-        { error: "SMTP environment variables missing" },
+        { error: "Brevo API environment variables missing" },
         { status: 500 }
       );
     }
 
-    // Create transporter
-    let transporter;
+    // Send admin email using Brevo API
     try {
-      transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT),
-        secure: false,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+      await axios.post(
+        "https://api.brevo.com/v3/smtp/email",
+        {
+          sender: { email: process.env.SMTP_FROM },
+          to: [
+            { email: "info@ctistech.com" },
+            { email: "support@ctistech.com" }
+          ],
+          subject: "New Contact Message",
+          htmlContent: contactNotificationTemplate({ name, email, message, ip }),
         },
-        tls: { rejectUnauthorized: false },
-      });
-    } catch (err: any) {
-      console.error("❌ Transporter creation error:", err);
-      return NextResponse.json(
-        { error: "SMTP transporter failed: " + err.message },
-        { status: 500 }
+        {
+          headers: {
+            "api-key": process.env.BREVO_API_KEY!,
+            "Content-Type": "application/json",
+          },
+        }
       );
-    }
-
-    // Verify SMTP
-    try {
-      await transporter.verify();
     } catch (err: any) {
-      console.error("❌ SMTP verify error:", err);
-      return NextResponse.json(
-        { error: "SMTP verification failed: " + err.message },
-        { status: 500 }
-      );
-    }
-
-    // Send admin email
-    try {
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM,
-        replyTo: email,
-        to: ["info@ctistech.com", "support@ctistech.com"],
-        subject: "New Contact Message",
-        html: contactNotificationTemplate({ name, email, message, ip }),
-      });
-    } catch (err: any) {
-      console.error("❌ Admin email error:", err);
+      console.error("❌ Brevo admin email error:", err);
       return NextResponse.json(
         { error: "Failed to send admin email: " + err.message },
         { status: 500 }
@@ -159,14 +132,23 @@ export async function POST(req: Request) {
 
     // Send auto‑reply
     try {
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM,
-        to: email,
-        subject: "We received your message",
-        html: autoReplyTemplate(name, message),
-      });
+      await axios.post(
+        "https://api.brevo.com/v3/smtp/email",
+        {
+          sender: { email: process.env.SMTP_FROM },
+          to: [{ email }],
+          subject: "We received your message",
+          htmlContent: autoReplyTemplate(name, message),
+        },
+        {
+          headers: {
+            "api-key": process.env.BREVO_API_KEY!,
+            "Content-Type": "application/json",
+          },
+        }
+      );
     } catch (err: any) {
-      console.error("❌ Auto‑reply error:", err);
+      console.error("❌ Brevo auto‑reply error:", err);
       return NextResponse.json(
         { error: "Failed to send auto‑reply: " + err.message },
         { status: 500 }
