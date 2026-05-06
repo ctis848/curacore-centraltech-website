@@ -101,10 +101,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Send admin email
+    // Send admin email (TO your domain inbox)
     try {
       await resend.emails.send({
-        from: "CTIS Tech <info@ctistech.com>",
+        from: "CTIS Tech <onboarding@resend.dev>",
         to: ["info@ctistech.com", "support@ctistech.com"],
         subject: "New Contact Message",
         html: contactNotificationTemplate({ name, email, message, ip }),
@@ -117,10 +117,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Send auto‑reply
+    // Send auto‑reply (TO the user)
     try {
       await resend.emails.send({
-        from: "CTIS Tech <info@ctistech.com>",
+        from: "CTIS Tech <onboarding@resend.dev>",
         to: email,
         subject: "We received your message",
         html: autoReplyTemplate(name, message),
