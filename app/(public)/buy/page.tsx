@@ -13,13 +13,10 @@ export default function BuyLicensePage() {
   const router = useRouter();
 
   const [plan, setPlan] = useState<'starter' | 'pro' | 'enterprise'>('starter');
-  const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
   const [quantity, setQuantity] = useState(1);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [userLoading, setUserLoading] = useState(true);
 
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
@@ -31,44 +28,21 @@ export default function BuyLicensePage() {
     HOSPITAL20: 20,
   };
 
-  // Base monthly prices
-  const monthlyPrices: Record<string, number> = {
+  // Flat plan prices
+  const planPrices: Record<string, number> = {
     starter: 250000,
     pro: 350000,
     enterprise: 550000,
   };
 
-  // Yearly prices (15% discount)
-  const yearlyPrices: Record<string, number> = {
-    starter: monthlyPrices.starter * 0.85,
-    pro: monthlyPrices.pro * 0.85,
-    enterprise: monthlyPrices.enterprise * 0.85,
+  // Annual maintenance fee (20% of license price)
+  const annualFees: Record<string, number> = {
+    starter: planPrices.starter * 0.2,
+    pro: planPrices.pro * 0.2,
+    enterprise: planPrices.enterprise * 0.2,
   };
 
-  const planPrices = billing === 'monthly' ? monthlyPrices : yearlyPrices;
-
   const VAT_RATE = 0.075;
-
-  // Load user
-  useEffect(() => {
-    async function loadUser() {
-      try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
-        const data = await res.json().catch(() => null);
-
-        if (data?.email) {
-          setUser(data);
-          setEmail(data.email);
-        }
-      } catch (err) {
-        console.error('Error loading user:', err);
-      }
-
-      setUserLoading(false);
-    }
-
-    loadUser();
-  }, []);
 
   // Pricing calculations
   const baseAmount = planPrices[plan] * quantity;
@@ -140,6 +114,7 @@ export default function BuyLicensePage() {
             { display_name: 'Full Name', variable_name: 'full_name', value: fullName },
             { display_name: 'Plan', variable_name: 'plan', value: plan },
             { display_name: 'Quantity', variable_name: 'quantity', value: quantity },
+            { display_name: 'Annual Fee', variable_name: 'annual_fee', value: annualFees[plan] },
           ],
         },
         callback: async (response: any) => {
@@ -163,7 +138,7 @@ export default function BuyLicensePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-32 md:pt-40 pb-20 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 pt-28 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
 
         {/* Header */}
@@ -172,40 +147,11 @@ export default function BuyLicensePage() {
             Buy CentralCore EMR License
           </h1>
           <p className="mt-4 text-lg opacity-90">
-            Secure your license(s) — multiple licenses supported
+            One‑time license fee • Annual maintenance billed next year
           </p>
         </div>
 
         <div className="p-8 md:p-12 lg:p-16 space-y-12">
-
-          {/* Billing Toggle */}
-          <div className="flex items-center justify-center mb-6">
-            <div className="flex bg-gray-200 dark:bg-gray-700 rounded-full p-1">
-              <button
-                type="button"
-                onClick={() => setBilling("monthly")}
-                className={`px-6 py-2 rounded-full text-sm font-semibold transition ${
-                  billing === "monthly"
-                    ? "bg-teal-600 text-white"
-                    : "text-gray-700 dark:text-gray-300"
-                }`}
-              >
-                Monthly
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setBilling("yearly")}
-                className={`px-6 py-2 rounded-full text-sm font-semibold transition ${
-                  billing === "yearly"
-                    ? "bg-teal-600 text-white"
-                    : "text-gray-700 dark:text-gray-300"
-                }`}
-              >
-                Yearly (Save 15%)
-              </button>
-            </div>
-          </div>
 
           {/* Plan Selection */}
           <div className="space-y-4">
@@ -221,7 +167,7 @@ export default function BuyLicensePage() {
                   setPlan("starter");
                   setQuantity(1);
                 }}
-                className={`cursor-pointer p-6 rounded-2xl border-2 transition-all transform hover:scale-[1.02] ${
+                className={`cursor-pointer p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
                   plan === "starter"
                     ? "border-teal-600 bg-teal-50 shadow-xl"
                     : "border-gray-300 hover:border-teal-400"
@@ -233,27 +179,31 @@ export default function BuyLicensePage() {
                 </div>
 
                 <p className="text-teal-700 font-semibold mt-3">
-                  {billing === "monthly" ? "₦250,000 / license" : "₦212,500 / license"}
+                  ₦250,000 / license
                 </p>
 
+                <span className="inline-block mt-2 bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full">
+                  Annual Fee: ₦50,000 / year
+                </span>
+
                 <p className="text-sm text-gray-600 mt-3">
-                  Perfect for small clinics and startups
+                  Up to 4 Users
                 </p>
               </div>
 
-              {/* Pro — MOST POPULAR */}
+              {/* Pro */}
               <div
                 onClick={() => {
                   setPlan("pro");
                   setQuantity(1);
                 }}
-                className={`relative cursor-pointer p-6 rounded-2xl border-2 transition-all transform hover:scale-[1.02] ${
+                className={`relative cursor-pointer p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
                   plan === "pro"
                     ? "border-teal-600 bg-teal-50 shadow-xl"
                     : "border-gray-300 hover:border-teal-400"
                 }`}
               >
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-teal-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
                   MOST POPULAR
                 </span>
 
@@ -263,11 +213,15 @@ export default function BuyLicensePage() {
                 </div>
 
                 <p className="text-teal-700 font-semibold mt-3">
-                  {billing === "monthly" ? "₦350,000 / license" : "₦297,500 / license"}
+                  ₦350,000 / license
                 </p>
 
+                <span className="inline-block mt-2 bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full">
+                  Annual Fee: ₦70,000 / year
+                </span>
+
                 <p className="text-sm text-gray-600 mt-3">
-                  Ideal for medium-sized hospitals
+                  Up to 8 Users
                 </p>
               </div>
 
@@ -277,7 +231,7 @@ export default function BuyLicensePage() {
                   setPlan("enterprise");
                   setQuantity(1);
                 }}
-                className={`cursor-pointer p-6 rounded-2xl border-2 transition-all transform hover:scale-[1.02] ${
+                className={`cursor-pointer p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
                   plan === "enterprise"
                     ? "border-teal-600 bg-teal-50 shadow-xl"
                     : "border-gray-300 hover:border-teal-400"
@@ -289,13 +243,18 @@ export default function BuyLicensePage() {
                 </div>
 
                 <p className="text-teal-700 font-semibold mt-3">
-                  {billing === "monthly" ? "₦550,000 / license" : "₦467,500 / license"}
+                  ₦550,000 / license
                 </p>
 
+                <span className="inline-block mt-2 bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full">
+                  Annual Fee: ₦110,000 / year
+                </span>
+
                 <p className="text-sm text-gray-600 mt-3">
-                  Best for large hospitals & multi-branch facilities
+                  Unlimited Users
                 </p>
               </div>
+
             </div>
           </div>
 
@@ -380,7 +339,7 @@ export default function BuyLicensePage() {
           {/* Price Breakdown */}
           <div className="bg-teal-50 p-8 rounded-2xl border border-teal-100 space-y-2">
             <div className="flex justify-between text-lg text-gray-700">
-              <span>Base ({quantity} × {formatNaira(planPrices[plan])})</span>
+              <span>License Fee ({quantity} × {formatNaira(planPrices[plan])})</span>
               <span>{formatNaira(baseAmount)}</span>
             </div>
 
@@ -392,11 +351,6 @@ export default function BuyLicensePage() {
             )}
 
             <div className="flex justify-between text-lg text-gray-700">
-              <span>Subtotal</span>
-              <span>{formatNaira(subtotal)}</span>
-            </div>
-
-            <div className="flex justify-between text-lg text-gray-700">
               <span>VAT (7.5%)</span>
               <span>{formatNaira(vatAmount)}</span>
             </div>
@@ -404,9 +358,17 @@ export default function BuyLicensePage() {
             <hr className="my-3" />
 
             <div className="flex justify-between text-2xl font-extrabold text-teal-800">
-              <span>Total</span>
+              <span>Total (Pay Now)</span>
               <span>{formatNaira(totalAmount)}</span>
             </div>
+
+            <p className="text-sm text-gray-600 pt-2">
+              <strong>Annual Maintenance Fee:</strong> {formatNaira(annualFees[plan])} / year  
+              <br />
+              <span className="text-teal-700 font-semibold">
+                (Starts next year — NOT charged today)
+              </span>
+            </p>
           </div>
 
           {/* Full Name */}

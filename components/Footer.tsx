@@ -33,11 +33,11 @@ export default function Footer() {
         }}
       />
 
-      <footer className="bg-[#0f1a2b] text-gray-300 pt-20 pb-10 mt-20 border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-6">
+      <footer className="bg-[#0f1a2b] text-gray-300 pt-16 sm:pt-20 pb-10 mt-20 border-t border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
 
           {/* 4‑Column Footer */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 sm:gap-12">
 
             {/* Column 1: About + CTA */}
             <div>
@@ -45,7 +45,7 @@ export default function Footer() {
                 Empowering Modern Healthcare
               </h3>
 
-              <p className="text-gray-400 mt-4 leading-relaxed">
+              <p className="text-gray-400 mt-4 leading-relaxed text-sm sm:text-base">
                 CentralCore EMR delivers secure, intelligent, and scalable medical
                 record management for clinics, hospitals, and enterprise health networks.
               </p>
@@ -53,7 +53,7 @@ export default function Footer() {
               <a
                 href="/contact"
                 className="inline-block mt-6 px-6 py-3 bg-teal-600 hover:bg-teal-500 
-                           text-white rounded-lg font-semibold transition"
+                           text-white rounded-lg font-semibold transition text-sm sm:text-base"
               >
                 Contact Sales
               </a>
@@ -62,7 +62,7 @@ export default function Footer() {
             {/* Column 2: Product */}
             <div>
               <h3 className="text-lg font-semibold text-white">Product</h3>
-              <ul className="mt-4 space-y-2">
+              <ul className="mt-4 space-y-2 text-sm sm:text-base">
                 <li><a href="/features" className="hover:text-white transition">Features</a></li>
                 <li><a href="/pricing" className="hover:text-white transition">Pricing</a></li>
                 <li><a href="/download" className="hover:text-white transition">Download</a></li>
@@ -74,7 +74,7 @@ export default function Footer() {
             {/* Column 3: Contact */}
             <div>
               <h3 className="text-lg font-semibold text-white">Contact</h3>
-              <ul className="mt-4 space-y-2">
+              <ul className="mt-4 space-y-2 text-sm sm:text-base">
                 <li>
                   <a href="mailto:info@ctistech.com" className="hover:text-white transition">
                     info@ctistech.com
@@ -106,7 +106,7 @@ export default function Footer() {
             {/* Column 4: Compliance */}
             <div>
               <h3 className="text-lg font-semibold text-white">Compliance</h3>
-              <ul className="mt-4 space-y-2">
+              <ul className="mt-4 space-y-2 text-sm sm:text-base">
                 <li><a href="/privacy" className="hover:text-white transition">Privacy Policy</a></li>
                 <li><a href="/terms" className="hover:text-white transition">Terms of Service</a></li>
                 <li><a href="/security" className="hover:text-white transition">Security</a></li>
@@ -116,7 +116,7 @@ export default function Footer() {
           </div>
 
           {/* Bottom */}
-          <div className="text-center text-gray-500 mt-16 border-t border-gray-800 pt-6">
+          <div className="text-center text-gray-500 mt-14 sm:mt-16 border-t border-gray-800 pt-6 text-sm">
             © {new Date().getFullYear()} CentralCore EMR — All rights reserved.
           </div>
         </div>

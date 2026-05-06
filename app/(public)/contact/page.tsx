@@ -32,19 +32,19 @@ export default function ContactForm() {
       timestamp: Date.now(),
     };
 
-    // 🛑 Honeypot spam trap
+    // Honeypot
     if (formData.honeypot) {
       setLoading(false);
       return;
     }
 
-    // 🛑 Timestamp spam protection
+    // Timestamp spam protection
     if (Date.now() - startTime.current < 1500) {
       setLoading(false);
       return toast.error("Slow down and try again.");
     }
 
-    // 🛑 Validate fields
+    // Validate fields
     const validation = ContactSchema.safeParse(formData);
     if (!validation.success) {
       toast.error(validation.error.issues[0].message);
@@ -53,18 +53,24 @@ export default function ContactForm() {
     }
 
     try {
-      // ⭐ SEND TO BACKEND API (NOT BREVO)
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
-      const data = await res.json();
+      // ⭐ SAFE JSON PARSE — NEVER RETURNS {}
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch (err) {
+        console.error("❌ Backend did not return JSON:", err);
+      }
 
+      // ⭐ ALWAYS SHOW REAL ERROR
       if (!res.ok) {
-        console.error("Contact API error:", data);
-        toast.error(data.error || "Failed to send message");
+        console.error("❌ Contact API error:", data || "No JSON returned");
+        toast.error(data?.error || "Server error");
         setLoading(false);
         return;
       }
@@ -75,7 +81,7 @@ export default function ContactForm() {
       startTime.current = Date.now();
 
     } catch (error) {
-      console.error("CONTACT FORM ERROR:", error);
+      console.error("❌ CONTACT FORM ERROR:", error);
       toast.error("Something went wrong. Please try again.");
     }
 

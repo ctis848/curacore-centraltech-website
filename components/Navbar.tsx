@@ -11,8 +11,8 @@ export default function Navbar() {
 
   return (
     <nav className="w-full border-b bg-white shadow-sm fixed top-0 left-0 z-50">
-      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+
         {/* Logo */}
         <Link href="/" className="text-xl font-bold">
           CentralCore
@@ -43,7 +43,7 @@ export default function Navbar() {
 
         {/* Mobile Hamburger */}
         <button
-          className="md:hidden"
+          className="md:hidden text-gray-800"
           onClick={toggleMenu}
           aria-label="Toggle Menu"
         >
@@ -52,36 +52,43 @@ export default function Navbar() {
       </div>
 
       {/* Mobile Dropdown */}
-      {open && (
-        <div className="md:hidden bg-white border-t shadow-inner px-6 py-4 flex flex-col gap-4 font-medium">
-          <Link href="/" onClick={toggleMenu}>Home</Link>
-          <Link href="/features" onClick={toggleMenu}>Features</Link>
-          <Link href="/services" onClick={toggleMenu}>Services</Link>
-          <Link href="/resources" onClick={toggleMenu}>Resources</Link>
-          <Link href="/pricing" onClick={toggleMenu}>Pricing</Link>
-          <Link href="/products" onClick={toggleMenu}>Products</Link>
-          <Link href="/buy" onClick={toggleMenu} className="text-yellow-600 font-semibold">
-            Buy
-          </Link>
+      <div
+        className={`md:hidden bg-white border-t shadow-inner px-6 py-4 flex flex-col gap-4 font-medium transition-all duration-300 ${
+          open ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 overflow-hidden"
+        }`}
+      >
+        <Link href="/" onClick={toggleMenu}>Home</Link>
+        <Link href="/features" onClick={toggleMenu}>Features</Link>
+        <Link href="/services" onClick={toggleMenu}>Services</Link>
+        <Link href="/resources" onClick={toggleMenu}>Resources</Link>
+        <Link href="/pricing" onClick={toggleMenu}>Pricing</Link>
+        <Link href="/products" onClick={toggleMenu}>Products</Link>
 
-          {/* AUTH ROUTES */}
-          <Link
-            href="/auth/client/login"
-            onClick={toggleMenu}
-            className="text-blue-600"
-          >
-            Login
-          </Link>
+        <Link
+          href="/buy"
+          onClick={toggleMenu}
+          className="text-yellow-600 font-semibold"
+        >
+          Buy
+        </Link>
 
-          <Link
-            href="/auth/client/signup"
-            onClick={toggleMenu}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-center"
-          >
-            Sign Up
-          </Link>
-        </div>
-      )}
+        {/* AUTH ROUTES */}
+        <Link
+          href="/auth/client/login"
+          onClick={toggleMenu}
+          className="text-blue-600"
+        >
+          Login
+        </Link>
+
+        <Link
+          href="/auth/client/signup"
+          onClick={toggleMenu}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md text-center"
+        >
+          Sign Up
+        </Link>
+      </div>
     </nav>
   );
 }
