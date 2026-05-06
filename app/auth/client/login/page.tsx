@@ -22,7 +22,7 @@ export default function ClientLogin() {
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
-      // 1️⃣ Authenticate only — no role check here
+      // Authenticate user
       const { data, error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
@@ -42,15 +42,11 @@ export default function ClientLogin() {
         return;
       }
 
-      // 2️⃣ Block unverified accounts
-      if (!user.email_confirmed_at) {
-        setErrorMsg("Please verify your email before logging in.");
-        setLoading(false);
-        return;
-      }
+      // Email confirmation check removed (you disabled email confirmation)
+      // if (!user.email_confirmed_at) { ... }
 
-      // 3️⃣ Redirect — server will validate role
-      window.location.href = "/client/dashboard";
+      // Redirect to client dashboard
+      router.push("/client/dashboard");
     } catch (err) {
       console.error("Login error:", err);
       setErrorMsg("Network error. Please try again.");

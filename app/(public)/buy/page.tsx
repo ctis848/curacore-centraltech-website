@@ -12,7 +12,8 @@ declare global {
 export default function BuyLicensePage() {
   const router = useRouter();
 
-  const [plan, setPlan] = useState('starter');
+  const [plan, setPlan] = useState<'starter' | 'pro' | 'enterprise'>('starter');
+  const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
   const [quantity, setQuantity] = useState(1);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -24,36 +25,36 @@ export default function BuyLicensePage() {
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
   const [couponError, setCouponError] = useState('');
 
-  // Hardcoded coupons (example)
+  // Coupons
   const coupons: Record<string, number> = {
-    CENTRAL10: 10, // 10% off
-    HOSPITAL20: 20, // 20% off
+    CENTRAL10: 10,
+    HOSPITAL20: 20,
   };
 
-  // Plan prices (in Naira)
-  const planPrices: Record<string, number> = {
+  // Base monthly prices
+  const monthlyPrices: Record<string, number> = {
     starter: 250000,
-    pro: 250000,
+    pro: 350000,
     enterprise: 550000,
   };
 
-  // VAT rate
-  const VAT_RATE = 0.075; // 7.5%
+  // Yearly prices (15% discount)
+  const yearlyPrices: Record<string, number> = {
+    starter: monthlyPrices.starter * 0.85,
+    pro: monthlyPrices.pro * 0.85,
+    enterprise: monthlyPrices.enterprise * 0.85,
+  };
 
-  // Load logged-in user safely
+  const planPrices = billing === 'monthly' ? monthlyPrices : yearlyPrices;
+
+  const VAT_RATE = 0.075;
+
+  // Load user
   useEffect(() => {
     async function loadUser() {
       try {
         const res = await fetch('/api/auth/me', { credentials: 'include' });
-
-        let data = null;
-        try {
-          data = await res.json();
-        } catch {
-          setUser(null);
-          setUserLoading(false);
-          return;
-        }
+        const data = await res.json().catch(() => null);
 
         if (data?.email) {
           setUser(data);
@@ -69,20 +70,12 @@ export default function BuyLicensePage() {
     loadUser();
   }, []);
 
-  // Base total
+  // Pricing calculations
   const baseAmount = planPrices[plan] * quantity;
-
-  // Discount
   const discountPercent = appliedCoupon?.discount ?? 0;
   const discountAmount = (baseAmount * discountPercent) / 100;
-
-  // Subtotal after discount
   const subtotal = baseAmount - discountAmount;
-
-  // VAT
   const vatAmount = subtotal * VAT_RATE;
-
-  // Final total
   const totalAmount = subtotal + vatAmount;
 
   const formatNaira = (num: number) =>
@@ -104,7 +97,6 @@ export default function BuyLicensePage() {
     }
   }
 
-  // License activation tracking after payment
   async function activateLicense(reference: string) {
     try {
       await fetch('/api/licenses/activate', {
@@ -123,7 +115,6 @@ export default function BuyLicensePage() {
     }
   }
 
-  // Paystack inline popup
   async function handlePayment() {
     if (!fullName.trim() || !email.trim()) {
       alert('Please fill in full name and email');
@@ -139,28 +130,16 @@ export default function BuyLicensePage() {
       setLoading(true);
 
       const handler = window.PaystackPop.setup({
-        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY, // set in .env
+        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
         email,
-        amount: Math.round(totalAmount) * 100, // kobo
+        amount: Math.round(totalAmount) * 100,
         currency: 'NGN',
         ref: 'CENTRALCORE-' + Date.now(),
         metadata: {
           custom_fields: [
-            {
-              display_name: 'Full Name',
-              variable_name: 'full_name',
-              value: fullName,
-            },
-            {
-              display_name: 'Plan',
-              variable_name: 'plan',
-              value: plan,
-            },
-            {
-              display_name: 'Quantity',
-              variable_name: 'quantity',
-              value: quantity,
-            },
+            { display_name: 'Full Name', variable_name: 'full_name', value: fullName },
+            { display_name: 'Plan', variable_name: 'plan', value: plan },
+            { display_name: 'Quantity', variable_name: 'quantity', value: quantity },
           ],
         },
         callback: async (response: any) => {
@@ -186,6 +165,7 @@ export default function BuyLicensePage() {
   return (
     <div className="min-h-screen bg-gray-50 pt-32 md:pt-40 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+
         {/* Header */}
         <div className="bg-gradient-to-r from-teal-700 to-teal-500 p-8 md:p-12 text-white text-center">
           <h1 className="text-4xl md:text-5xl font-extrabold">
@@ -196,188 +176,285 @@ export default function BuyLicensePage() {
           </p>
         </div>
 
-        {/* Form content */}
         <div className="p-8 md:p-12 lg:p-16 space-y-12">
-          {userLoading && (
-            <div className="animate-pulse space-y-6">
-              <div className="h-10 bg-gray-200 rounded-xl" />
-              <div className="h-10 bg-gray-200 rounded-xl" />
+
+          {/* Billing Toggle */}
+          <div className="flex items-center justify-center mb-6">
+            <div className="flex bg-gray-200 dark:bg-gray-700 rounded-full p-1">
+              <button
+                type="button"
+                onClick={() => setBilling("monthly")}
+                className={`px-6 py-2 rounded-full text-sm font-semibold transition ${
+                  billing === "monthly"
+                    ? "bg-teal-600 text-white"
+                    : "text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                Monthly
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBilling("yearly")}
+                className={`px-6 py-2 rounded-full text-sm font-semibold transition ${
+                  billing === "yearly"
+                    ? "bg-teal-600 text-white"
+                    : "text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                Yearly (Save 15%)
+              </button>
             </div>
-          )}
+          </div>
 
-          {!userLoading && (
-            <>
-              {/* Plan Selection */}
-              <div className="space-y-4">
-                <label className="block text-xl font-semibold text-gray-800">
-                  Choose Plan
-                </label>
-                <select
-                  value={plan}
-                  onChange={(e) => {
-                    setPlan(e.target.value);
-                    setQuantity(1);
-                  }}
-                  className="w-full p-4 text-lg border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                >
-                  <option value="starter">Starter — ₦250,000 per license</option>
-                  <option value="pro">Pro — ₦350,000 per license</option>
-                  <option value="enterprise">Enterprise — ₦550,000 per license</option>
-                </select>
-              </div>
+          {/* Plan Selection */}
+          <div className="space-y-4">
+            <label className="block text-xl font-semibold text-gray-800">
+              Choose Plan
+            </label>
 
-              {/* Quantity Selector */}
-              <div className="space-y-4">
-                <label className="block text-xl font-semibold text-gray-800">
-                  Number of Licenses
-                </label>
-                <div className="flex items-center gap-6">
-                  <button
-                    type="button"
-                    onClick={decreaseQty}
-                    disabled={quantity <= 1}
-                    className="w-14 h-14 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed text-2xl font-bold transition"
-                  >
-                    –
-                  </button>
+            <div className="grid md:grid-cols-3 gap-6">
 
-                  <input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      if (val >= 1 && val <= 50) setQuantity(val);
-                    }}
-                    className="w-24 text-center text-3xl font-bold border border-gray-300 rounded-xl py-3 focus:ring-2 focus:ring-teal-500"
-                    min="1"
-                    max="50"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={increaseQty}
-                    disabled={quantity >= 50}
-                    className="w-14 h-14 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed text-2xl font-bold transition"
-                  >
-                    +
-                  </button>
+              {/* Starter */}
+              <div
+                onClick={() => {
+                  setPlan("starter");
+                  setQuantity(1);
+                }}
+                className={`cursor-pointer p-6 rounded-2xl border-2 transition-all transform hover:scale-[1.02] ${
+                  plan === "starter"
+                    ? "border-teal-600 bg-teal-50 shadow-xl"
+                    : "border-gray-300 hover:border-teal-400"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">🚀</span>
+                  <h3 className="text-xl font-bold text-gray-800">Starter</h3>
                 </div>
-                <p className="text-sm text-gray-600">
-                  You can buy up to 50 licenses at once
+
+                <p className="text-teal-700 font-semibold mt-3">
+                  {billing === "monthly" ? "₦250,000 / license" : "₦212,500 / license"}
+                </p>
+
+                <p className="text-sm text-gray-600 mt-3">
+                  Perfect for small clinics and startups
                 </p>
               </div>
 
-              {/* Coupon */}
-              <div className="space-y-3">
-                <label className="block text-xl font-semibold text-gray-800">
-                  Coupon Code (optional)
-                </label>
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value)}
-                    placeholder="Enter coupon code"
-                    className="flex-1 p-4 text-lg border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={applyCoupon}
-                    className="px-6 py-3 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700 transition"
-                  >
-                    Apply
-                  </button>
-                </div>
-                {appliedCoupon && (
-                  <p className="text-sm text-teal-700">
-                    Applied <span className="font-semibold">{appliedCoupon.code}</span> — {appliedCoupon.discount}% off
-                  </p>
-                )}
-                {couponError && (
-                  <p className="text-sm text-red-600">{couponError}</p>
-                )}
-              </div>
-
-              {/* Price Breakdown */}
-              <div className="bg-teal-50 p-8 rounded-2xl border border-teal-100 space-y-2">
-                <div className="flex justify-between text-lg text-gray-700">
-                  <span>Base ({quantity} × {formatNaira(planPrices[plan])})</span>
-                  <span>{formatNaira(baseAmount)}</span>
-                </div>
-
-                {discountAmount > 0 && (
-                  <div className="flex justify-between text-lg text-green-700">
-                    <span>Discount ({discountPercent}%)</span>
-                    <span>-{formatNaira(discountAmount)}</span>
-                  </div>
-                )}
-
-                <div className="flex justify-between text-lg text-gray-700">
-                  <span>Subtotal</span>
-                  <span>{formatNaira(subtotal)}</span>
-                </div>
-
-                <div className="flex justify-between text-lg text-gray-700">
-                  <span>VAT (7.5%)</span>
-                  <span>{formatNaira(vatAmount)}</span>
-                </div>
-
-                <hr className="my-3" />
-
-                <div className="flex justify-between text-2xl font-extrabold text-teal-800">
-                  <span>Total</span>
-                  <span>{formatNaira(totalAmount)}</span>
-                </div>
-              </div>
-
-              {/* Full Name */}
-              <div className="space-y-4">
-                <label className="block text-xl font-semibold text-gray-800">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Enter your full name"
-                  className="w-full p-4 text-lg border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  required
-                />
-              </div>
-
-              {/* Email */}
-              <div className="space-y-4">
-                <label className="block text-xl font-semibold text-gray-800">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  className="w-full p-4 text-lg border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  required
-                />
-              </div>
-
-              {/* Pay Button */}
-              <button
-                onClick={handlePayment}
-                disabled={loading || !fullName.trim() || !email.trim()}
-                className={`w-full py-5 text-xl font-bold rounded-xl text-white transition-all transform hover:scale-[1.02] ${
-                  loading || !fullName.trim() || !email.trim()
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-teal-600 hover:bg-teal-700 shadow-lg hover:shadow-xl'
+              {/* Pro — MOST POPULAR */}
+              <div
+                onClick={() => {
+                  setPlan("pro");
+                  setQuantity(1);
+                }}
+                className={`relative cursor-pointer p-6 rounded-2xl border-2 transition-all transform hover:scale-[1.02] ${
+                  plan === "pro"
+                    ? "border-teal-600 bg-teal-50 shadow-xl"
+                    : "border-gray-300 hover:border-teal-400"
                 }`}
               >
-                {loading ? 'Processing...' : `Pay ${formatNaira(totalAmount)} Securely`}
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+                  MOST POPULAR
+                </span>
+
+                <div className="flex items-center gap-3 mt-2">
+                  <span className="text-3xl">💼</span>
+                  <h3 className="text-xl font-bold text-gray-800">Pro</h3>
+                </div>
+
+                <p className="text-teal-700 font-semibold mt-3">
+                  {billing === "monthly" ? "₦350,000 / license" : "₦297,500 / license"}
+                </p>
+
+                <p className="text-sm text-gray-600 mt-3">
+                  Ideal for medium-sized hospitals
+                </p>
+              </div>
+
+              {/* Enterprise */}
+              <div
+                onClick={() => {
+                  setPlan("enterprise");
+                  setQuantity(1);
+                }}
+                className={`cursor-pointer p-6 rounded-2xl border-2 transition-all transform hover:scale-[1.02] ${
+                  plan === "enterprise"
+                    ? "border-teal-600 bg-teal-50 shadow-xl"
+                    : "border-gray-300 hover:border-teal-400"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">🏥</span>
+                  <h3 className="text-xl font-bold text-gray-800">Enterprise</h3>
+                </div>
+
+                <p className="text-teal-700 font-semibold mt-3">
+                  {billing === "monthly" ? "₦550,000 / license" : "₦467,500 / license"}
+                </p>
+
+                <p className="text-sm text-gray-600 mt-3">
+                  Best for large hospitals & multi-branch facilities
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quantity Selector */}
+          <div className="space-y-4">
+            <label className="block text-xl font-semibold text-gray-800">
+              Number of Licenses
+            </label>
+
+            <div className="flex items-center gap-6">
+              <button
+                type="button"
+                onClick={decreaseQty}
+                disabled={quantity <= 1}
+                className="w-14 h-14 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-50 text-2xl font-bold"
+              >
+                –
               </button>
 
-              <p className="text-center text-sm text-gray-600 pt-6">
-                Secure payment powered by Paystack • Instant license activation after payment
+              <input
+                type="number"
+                value={quantity}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (val >= 1 && val <= 50) setQuantity(val);
+                }}
+                className="w-24 text-center text-3xl font-bold border border-gray-300 rounded-xl py-3"
+                min="1"
+                max="50"
+              />
+
+              <button
+                type="button"
+                onClick={increaseQty}
+                disabled={quantity >= 50}
+                className="w-14 h-14 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-50 text-2xl font-bold"
+              >
+                +
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600">
+              You can buy up to 50 licenses at once
+            </p>
+          </div>
+
+          {/* Coupon */}
+          <div className="space-y-3">
+            <label className="block text-xl font-semibold text-gray-800">
+              Coupon Code (optional)
+            </label>
+
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value)}
+                placeholder="Enter coupon code"
+                className="flex-1 p-4 text-lg border border-gray-300 rounded-xl"
+              />
+
+              <button
+                type="button"
+                onClick={applyCoupon}
+                className="px-6 py-3 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700"
+              >
+                Apply
+              </button>
+            </div>
+
+            {appliedCoupon && (
+              <p className="text-sm text-teal-700">
+                Applied <strong>{appliedCoupon.code}</strong> — {appliedCoupon.discount}% off
               </p>
-            </>
-          )}
+            )}
+
+            {couponError && (
+              <p className="text-sm text-red-600">{couponError}</p>
+            )}
+          </div>
+
+          {/* Price Breakdown */}
+          <div className="bg-teal-50 p-8 rounded-2xl border border-teal-100 space-y-2">
+            <div className="flex justify-between text-lg text-gray-700">
+              <span>Base ({quantity} × {formatNaira(planPrices[plan])})</span>
+              <span>{formatNaira(baseAmount)}</span>
+            </div>
+
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-lg text-green-700">
+                <span>Discount ({discountPercent}%)</span>
+                <span>-{formatNaira(discountAmount)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between text-lg text-gray-700">
+              <span>Subtotal</span>
+              <span>{formatNaira(subtotal)}</span>
+            </div>
+
+            <div className="flex justify-between text-lg text-gray-700">
+              <span>VAT (7.5%)</span>
+              <span>{formatNaira(vatAmount)}</span>
+            </div>
+
+            <hr className="my-3" />
+
+            <div className="flex justify-between text-2xl font-extrabold text-teal-800">
+              <span>Total</span>
+              <span>{formatNaira(totalAmount)}</span>
+            </div>
+          </div>
+
+          {/* Full Name */}
+          <div className="space-y-4">
+            <label className="block text-xl font-semibold text-gray-800">
+              Full Name
+            </label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Enter your full name"
+              className="w-full p-4 text-lg border border-gray-300 rounded-xl"
+              required
+            />
+          </div>
+
+          {/* Email */}
+          <div className="space-y-4">
+            <label className="block text-xl font-semibold text-gray-800">
+              Email Address
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
+              className="w-full p-4 text-lg border border-gray-300 rounded-xl"
+              required
+            />
+          </div>
+
+          {/* Pay Button */}
+          <button
+            onClick={handlePayment}
+            disabled={loading || !fullName.trim() || !email.trim()}
+            className={`w-full py-5 text-xl font-bold rounded-xl text-white transition-all transform hover:scale-[1.02] ${
+              loading || !fullName.trim() || !email.trim()
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-teal-600 hover:bg-teal-700 shadow-lg hover:shadow-xl'
+            }`}
+          >
+            {loading ? 'Processing...' : `Pay ${formatNaira(totalAmount)} Securely`}
+          </button>
+
+          <p className="text-center text-sm text-gray-600 pt-6">
+            Secure payment powered by Paystack • Instant license activation after payment
+          </p>
         </div>
       </div>
     </div>

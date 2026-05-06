@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function SignupForm() {
+  const supabase = supabaseBrowser();
   const [loading, setLoading] = useState(false);
 
   async function handleSignup(e: any) {
@@ -12,27 +12,27 @@ export default function SignupForm() {
     setLoading(true);
 
     const form = new FormData(e.target);
-    const email = form.get("email");
-    const password = form.get("password");
+    const email = form.get("email") as string;
+    const password = form.get("password") as string;
 
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {} // NO EMAIL CONFIRMATION
     });
 
-    const data = await res.json();
     setLoading(false);
 
-    alert(data.success ? "Signup successful!" : data.error);
+    alert(error ? error.message : "Signup successful!");
   }
 
   return (
     <form onSubmit={handleSignup} className="space-y-4 max-w-md mx-auto">
-      <Input name="email" placeholder="Email" type="email" required />
-      <Input name="password" placeholder="Password" type="password" required />
-      <Button type="submit" disabled={loading}>
+      <input name="email" placeholder="Email" type="email" required />
+      <input name="password" placeholder="Password" type="password" required />
+      <button type="submit" disabled={loading}>
         {loading ? "Creating account..." : "Sign Up"}
-      </Button>
+      </button>
     </form>
   );
 }

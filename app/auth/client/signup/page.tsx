@@ -5,20 +5,22 @@ import { useRouter } from "next/navigation";
 import PublicNavbar from "@/components/layout/PublicNavbar";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-export default function ClientSignup() {
+export default function SignupPage() {
   const router = useRouter();
   const supabase = supabaseBrowser();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const handleSignup = async (e: any) => {
+  async function handleSignup(e: any) {
     e.preventDefault();
-    setMessage("");
     setLoading(true);
+    setMessage("");
+
+    const form = new FormData(e.target);
+    const email = form.get("email") as string;
+    const password = form.get("password") as string;
+    const confirm = form.get("confirm") as string;
 
     if (password !== confirm) {
       setMessage("Passwords do not match");
@@ -35,28 +37,23 @@ export default function ClientSignup() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/client/verify-email`,
-      },
+      options: {}
     });
 
+    setLoading(false);
+
     if (error) {
-      if (error.message.includes("already registered")) {
-        setMessage("This email is already registered. Try logging in.");
-      } else {
-        setMessage(error.message || "Signup failed");
-      }
-      setLoading(false);
+      setMessage(error.message);
       return;
     }
 
-    setMessage("Account created. Check your email to verify your account.");
-    setTimeout(() => router.replace("/auth/client/login"), 2000);
-    setLoading(false);
-  };
+    setMessage("Signup successful! Redirecting...");
+    setTimeout(() => router.push("/auth/client/login"), 1500);
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+      {/* CentralCore Navbar */}
       <PublicNavbar />
 
       <div className="min-h-[80vh] flex items-center justify-center px-4">
@@ -64,42 +61,36 @@ export default function ClientSignup() {
           onSubmit={handleSignup}
           className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow w-full max-w-md"
         >
-          <h1 className="text-3xl font-bold text-teal-700 dark:text-teal-300 mb-6">
+          <h1 className="text-3xl font-bold text-teal-700 dark:text-teal-300 mb-6 text-center">
             Create Account
           </h1>
 
           <input
+            name="email"
             type="email"
-            disabled={loading}
             placeholder="Email"
-            className="w-full p-3 rounded border dark:bg-gray-700 dark:text-white mb-4"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
             required
+            className="w-full p-3 rounded border dark:bg-gray-700 dark:text-white mb-4"
           />
 
           <input
+            name="password"
             type="password"
-            disabled={loading}
             placeholder="Password"
-            className="w-full p-3 rounded border dark:bg-gray-700 dark:text-white mb-4"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
             required
+            className="w-full p-3 rounded border dark:bg-gray-700 dark:text-white mb-4"
           />
 
           <input
+            name="confirm"
             type="password"
-            disabled={loading}
             placeholder="Confirm Password"
-            className="w-full p-3 rounded border dark:bg-gray-700 dark:text-white mb-4"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
             required
+            className="w-full p-3 rounded border dark:bg-gray-700 dark:text-white mb-4"
           />
 
           {message && (
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+            <p className="text-center text-sm text-gray-700 dark:text-gray-300 mb-3">
               {message}
             </p>
           )}
@@ -112,8 +103,15 @@ export default function ClientSignup() {
             {loading ? "Creating account..." : "Sign Up"}
           </button>
 
-          <p className="mt-4 text-sm text-center">
-            Already have an account{" "}
+          <div className="flex justify-between mt-4 text-sm">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="text-gray-600 dark:text-gray-300 hover:underline"
+            >
+              Return Home
+            </button>
+
             <button
               type="button"
               onClick={() => router.push("/auth/client/login")}
@@ -121,7 +119,7 @@ export default function ClientSignup() {
             >
               Login
             </button>
-          </p>
+          </div>
         </form>
       </div>
     </div>
