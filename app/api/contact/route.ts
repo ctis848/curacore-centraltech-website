@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import axios from "axios";
+import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 import { rateLimit } from "@/lib/rateLimit";
 import {
   contactNotificationTemplate,
   autoReplyTemplate,
 } from "@/lib/emailTemplates";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: Request) {
   try {
@@ -91,36 +93,24 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate SMTP PASS (used as API key)
-    if (!process.env.SMTP_PASS || !process.env.SMTP_FROM) {
+    // Validate Resend key
+    if (!process.env.RESEND_API_KEY) {
       return NextResponse.json(
-        { error: "SMTP environment variables missing" },
+        { error: "Resend API key missing" },
         { status: 500 }
       );
     }
 
-    // Send admin email using Brevo SMTP key over HTTPS
+    // Send admin email
     try {
-      await axios.post(
-        "https://api.brevo.com/v3/smtp/email",
-        {
-          sender: { email: process.env.SMTP_FROM },
-          to: [
-            { email: "info@ctistech.com" },
-            { email: "support@ctistech.com" }
-          ],
-          subject: "New Contact Message",
-          htmlContent: contactNotificationTemplate({ name, email, message, ip }),
-        },
-        {
-          headers: {
-            "api-key": process.env.SMTP_PASS, // USE SMTP KEY HERE
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      await resend.emails.send({
+        from: "CTIS Tech <info@ctistech.com>",
+        to: ["info@ctistech.com", "support@ctistech.com"],
+        subject: "New Contact Message",
+        html: contactNotificationTemplate({ name, email, message, ip }),
+      });
     } catch (err: any) {
-      console.error("❌ Brevo admin email error:", err.response?.data || err);
+      console.error("❌ Resend admin email error:", err);
       return NextResponse.json(
         { error: "Failed to send admin email" },
         { status: 500 }
@@ -129,23 +119,14 @@ export async function POST(req: Request) {
 
     // Send auto‑reply
     try {
-      await axios.post(
-        "https://api.brevo.com/v3/smtp/email",
-        {
-          sender: { email: process.env.SMTP_FROM },
-          to: [{ email }],
-          subject: "We received your message",
-          htmlContent: autoReplyTemplate(name, message),
-        },
-        {
-          headers: {
-            "api-key": process.env.SMTP_PASS, // USE SMTP KEY HERE
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      await resend.emails.send({
+        from: "CTIS Tech <info@ctistech.com>",
+        to: email,
+        subject: "We received your message",
+        html: autoReplyTemplate(name, message),
+      });
     } catch (err: any) {
-      console.error("❌ Brevo auto‑reply error:", err.response?.data || err);
+      console.error("❌ Resend auto‑reply error:", err);
       return NextResponse.json(
         { error: "Failed to send auto‑reply" },
         { status: 500 }
