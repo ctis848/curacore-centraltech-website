@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import EnhancedTestimonials from '@/components/EnhancedTestimonials';
 import EMRCarousel from "@/components/EMRCarousel";
-import WhatsAppButton from "@/components/WhatsAppButton";   // ⭐ ADDED
+import WhatsAppButton from "@/components/WhatsAppButton";
 
 export default function HomePage() {
   return (
@@ -26,11 +26,12 @@ export default function HomePage() {
 
           <div className="relative z-10 h-full flex flex-col justify-center items-center text-center text-white px-6">
             <h1 className="text-5xl md:text-7xl font-black mb-6 tracking-tight drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
-              CentralCore EMR
+              The Future of Hospital Intelligence
             </h1>
 
             <p className="text-2xl md:text-4xl mb-10 font-light max-w-4xl leading-snug opacity-95 drop-shadow-[0_2px_10px_rgba(0,0,0,0.4)]">
-              A Complete Electronic Medical Record System for Modern Healthcare
+              CentralCore EMR — a next‑generation clinical ecosystem engineered to elevate patient care,
+              streamline operations, and power the modern digital hospital.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-6 md:gap-8">
@@ -38,21 +39,21 @@ export default function HomePage() {
                 href="/buy"
                 className="bg-yellow-400 text-teal-900 px-10 py-5 md:px-12 md:py-6 rounded-full text-xl md:text-2xl font-bold shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:bg-yellow-300 hover:scale-105 transition-all duration-300"
               >
-                Buy License Now
+                Buy License — Begin Your Digital Transformation
               </Link>
 
               <Link
                 href="/products"
                 className="bg-white/20 backdrop-blur-md text-white border-2 border-white/40 px-10 py-5 md:px-12 md:py-6 rounded-full text-xl md:text-2xl font-bold shadow-[0_10px_25px_rgba(255,255,255,0.15)] hover:bg-white/30 hover:scale-105 transition-all duration-300"
               >
-                Explore Features
+                Discover the Technology
               </Link>
 
               <Link
                 href="/download"
                 className="bg-teal-500 text-white px-10 py-5 md:px-12 md:py-6 rounded-full text-xl md:text-2xl font-bold shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:bg-teal-600 hover:scale-105 transition-all duration-300"
               >
-                Download App
+                Experience the EMR App
               </Link>
             </div>
           </div>
@@ -66,12 +67,12 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             {[
-              { title: "Smart Patient Records", desc: "Access complete patient histories, vitals, and clinical notes instantly.", icon: "🩺" },
-              { title: "Integrated Pharmacy", desc: "Manage prescriptions, stock levels, and dispensing with ease.", icon: "💊" },
-              { title: "Laboratory Automation", desc: "Fast, accurate lab result processing with seamless EMR integration.", icon: "🧪" },
-              { title: "Hospital Surveillance", desc: "CCTV monitoring integrated directly into your hospital dashboard.", icon: "📹" },
-              { title: "Nurse Call System", desc: "Instant patient-to-nurse communication for faster response times.", icon: "🔔" },
-              { title: "Digital Signage", desc: "Display patient queues, announcements, and hospital updates.", icon: "🖥️" }
+              { title: "Smart Patient Records", desc: "Access AI‑enhanced patient histories with instant visibility into vitals, diagnostics, and treatment timelines.", icon: "🩺" },
+              { title: "Integrated Pharmacy", desc: "A synchronized pharmacy engine that automates prescriptions, stock intelligence, and medication safety workflows.", icon: "💊" },
+              { title: "Laboratory Automation", desc: "Accelerated diagnostics with automated lab workflows and real‑time result delivery into patient charts.", icon: "🧪" },
+              { title: "Hospital Surveillance", desc: "Unified CCTV monitoring embedded directly into your hospital dashboard for proactive operational oversight.", icon: "📹" },
+              { title: "Nurse Call System", desc: "An intelligent nurse‑call network enabling faster patient response and optimized ward coordination.", icon: "🔔" },
+              { title: "Digital Signage", desc: "Dynamic hospital‑wide displays for patient queues, announcements, and real‑time service updates.", icon: "🖥️" }
             ].map((f, i) => (
               <div
                 key={i}
@@ -85,7 +86,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ⭐ EMR CAROUSEL SECTION */}
+        {/* EMR CAROUSEL SECTION */}
         <section className="py-24 px-6 md:px-10 bg-white dark:bg-gray-800">
           <div className="max-w-7xl mx-auto">
             <h2 className="text-4xl md:text-5xl font-black text-teal-800 dark:text-teal-300 text-center mb-6">
@@ -93,8 +94,9 @@ export default function HomePage() {
             </h2>
 
             <p className="text-center text-gray-700 dark:text-gray-300 max-w-3xl mx-auto text-lg md:text-xl mb-14">
-              A rotating showcase of the CentralCore EMR interface, highlighting real hospital
-              workflows, dashboards, and patient management tools.
+              An immersive, high‑definition showcase of CentralCore EMR — revealing refined clinical workflows,
+              intelligent real‑time dashboards, and a seamless patient‑care ecosystem engineered for
+              next‑generation hospitals.
             </p>
 
             <EMRCarousel />
@@ -114,11 +116,12 @@ export default function HomePage() {
         <section className="py-24 px-6 md:px-10 bg-gradient-to-br from-teal-900 to-teal-800 text-white">
           <div className="max-w-5xl mx-auto text-center space-y-10">
             <h2 className="text-5xl md:text-6xl font-black tracking-tight">
-              Ready to Modernize Your Hospital?
+              Transform Your Hospital Into a Smart Healthcare Institution
             </h2>
 
             <p className="text-xl md:text-2xl font-light max-w-3xl mx-auto opacity-90">
-              CentralCore EMR gives you the tools to deliver faster, safer, and smarter patient care.
+              CentralCore EMR empowers your team with intelligent automation, real‑time insights,
+              and a seamless digital workflow designed for excellence in patient care.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
@@ -126,23 +129,35 @@ export default function HomePage() {
                 href="/buy"
                 className="bg-yellow-400 text-teal-900 px-12 py-6 rounded-full text-2xl md:text-3xl font-bold shadow-[0_10px_30px_rgba(0,0,0,0.4)] hover:bg-yellow-300 hover:scale-105 transition-all duration-300"
               >
-                Buy License Now
+                Begin Your Digital Transformation
               </Link>
 
               <Link
                 href="/download"
                 className="bg-white text-teal-900 px-12 py-6 rounded-full text-2xl md:text-3xl font-bold shadow-[0_10px_30px_rgba(0,0,0,0.4)] hover:bg-gray-100 hover:scale-105 transition-all duration-300"
               >
-                Download App
+                Get the EMR App
               </Link>
             </div>
           </div>
         </section>
 
-        <EnhancedTestimonials />
+        {/* TESTIMONIALS */}
+        <section className="py-24 px-6 md:px-10 bg-gray-50 dark:bg-gray-900">
+          <h2 className="text-4xl md:text-5xl font-black text-teal-800 dark:text-teal-300 text-center mb-6">
+            Trusted by Forward‑Thinking Hospitals
+          </h2>
+
+          <p className="text-center text-gray-700 dark:text-gray-300 max-w-3xl mx-auto text-lg md:text-xl mb-14">
+            Discover how CentralCore EMR is transforming clinical efficiency, elevating patient outcomes,
+            and redefining digital healthcare across leading medical institutions.
+          </p>
+
+          <EnhancedTestimonials />
+        </section>
       </div>
 
-      <WhatsAppButton />   {/* ⭐ ADDED */}
+      <WhatsAppButton />
     </>
   );
 }

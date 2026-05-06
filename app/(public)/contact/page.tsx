@@ -29,20 +29,22 @@ export default function ContactForm() {
       email: (form.elements.namedItem("email") as HTMLInputElement).value.trim(),
       message: (form.elements.namedItem("message") as HTMLTextAreaElement).value.trim(),
       honeypot: (form.elements.namedItem("honeypot") as HTMLInputElement)?.value,
-      timestamp: Date.now() - startTime.current,
+      timestamp: Date.now(),
     };
 
-    // SPAM PROTECTION
+    // 🛑 Honeypot spam trap
     if (formData.honeypot) {
       setLoading(false);
       return;
     }
 
-    if (formData.timestamp < 1500) {
+    // 🛑 Timestamp spam protection
+    if (Date.now() - startTime.current < 1500) {
       setLoading(false);
       return toast.error("Slow down and try again.");
     }
 
+    // 🛑 Validate fields
     const validation = ContactSchema.safeParse(formData);
     if (!validation.success) {
       toast.error(validation.error.issues[0].message);
@@ -50,72 +52,22 @@ export default function ContactForm() {
       return;
     }
 
-    // ⭐ GET USER IP ADDRESS
-    let ip = "Unknown";
     try {
-      const ipRes = await fetch("https://api.ipify.org?format=json");
-      const ipData = await ipRes.json();
-      ip = ipData.ip;
-    } catch {
-      ip = "Unavailable";
-    }
-
-    // ⭐ SAFE PUBLIC BREVO KEY
-    const BREVO_KEY = process.env.NEXT_PUBLIC_BREVO_PUBLIC_KEY!;
-    const WHATSAPP = "https://wa.me/2348059318564?text=Hello%20CTIS";
-
-    // ⭐ EMAIL TEMPLATES
-    const adminTemplate = `
-      <h2>New Contact Message</h2>
-      <p><strong>Name:</strong> ${formData.name}</p>
-      <p><strong>Email:</strong> ${formData.email}</p>
-      <p><strong>Message:</strong><br>${formData.message}</p>
-      <hr />
-      <p><strong>IP Address:</strong> ${ip}</p>
-      <p><strong>Submitted At:</strong> ${new Date().toLocaleString()}</p>
-    `;
-
-    const userTemplate = `
-      <p>Hello ${formData.name},</p>
-      <p>Thank you for contacting CTIS. We have received your message and will respond shortly.</p>
-      <br />
-      <p><strong>Your Message:</strong></p>
-      <p>${formData.message}</p>
-      <br />
-      <p>Best regards,<br/>CTIS Support Team</p>
-    `;
-
-    try {
-      // ⭐ SEND TO CTIS TEAM (ADMIN)
-      await fetch("https://api.brevo.com/v3/smtp/email", {
+      // ⭐ SEND TO BACKEND API (NOT BREVO)
+      const res = await fetch("/api/contact", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "api-key": BREVO_KEY,
-        },
-        body: JSON.stringify({
-          sender: { email: "no-reply@ctistech.com", name: "CTIS Website" },
-          to: [{ email: "info@ctistech.com" }],
-          replyTo: { email: formData.email },
-          subject: `New Contact Message from ${formData.name}`,
-          htmlContent: adminTemplate,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
       });
 
-      // ⭐ AUTO‑REPLY TO USER
-      await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "api-key": BREVO_KEY,
-        },
-        body: JSON.stringify({
-          sender: { email: "no-reply@ctistech.com", name: "CTIS Support" },
-          to: [{ email: formData.email }],
-          subject: "We received your message",
-          htmlContent: userTemplate,
-        }),
-      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("Contact API error:", data);
+        toast.error(data.error || "Failed to send message");
+        setLoading(false);
+        return;
+      }
 
       toast.success("Message sent!");
       setShowModal(true);
@@ -123,8 +75,8 @@ export default function ContactForm() {
       startTime.current = Date.now();
 
     } catch (error) {
-      console.error("BREVO ERROR:", error);
-      toast.error("Email failed. Please contact us on WhatsApp: 08059318564");
+      console.error("CONTACT FORM ERROR:", error);
+      toast.error("Something went wrong. Please try again.");
     }
 
     setLoading(false);
