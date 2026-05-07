@@ -12,12 +12,17 @@ export async function POST(request: Request) {
     const licenseId = body?.licenseId; // "annual-fee"
     const amount = body?.amount;
 
-    if (!invoiceId && !licenseId) {
+    // If neither invoiceId nor licenseId is provided,
+    // treat this as a NEW LICENSE PURCHASE
+    const isNewPurchase = !invoiceId && !licenseId;
+
+    if (!isNewPurchase && !invoiceId && !licenseId) {
       return NextResponse.json(
         { error: "invoiceId or licenseId is required" },
         { status: 400 }
       );
     }
+
 
     if (!PAYSTACK_SECRET_KEY) {
       return NextResponse.json(
@@ -80,6 +85,30 @@ export async function POST(request: Request) {
         description: "Invoice Payment",
       };
     }
+
+    // ----------------------------------------------------
+    // NEW LICENSE PURCHASE FLOW
+    // ----------------------------------------------------
+    if (isNewPurchase) {
+      if (!amount || isNaN(amount)) {
+        return NextResponse.json(
+          { error: "Amount is required for new license purchase" },
+          { status: 400 }
+        );
+      }
+
+      finalAmount = Math.round(amount);
+
+      metadata = {
+        userId: user.id,
+        description: "New License Purchase",
+        plan: body.plan,
+        quantity: body.quantity,
+        fullName: body.fullName,
+        email: body.email,
+        annualFee: body.annualFee,
+        };
+      }
 
     // ----------------------------------------------------
     // ANNUAL LICENSE RENEWAL FLOW

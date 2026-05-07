@@ -1,13 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-declare global {
-  interface Window {
-    PaystackPop: any;
-  }
-}
 
 export default function BuyLicensePage() {
   const router = useRouter();
@@ -28,18 +22,18 @@ export default function BuyLicensePage() {
     HOSPITAL20: 20,
   };
 
-  // Flat plan prices
+  // Plan prices
   const planPrices: Record<string, number> = {
     starter: 250000,
     pro: 350000,
     enterprise: 550000,
   };
 
-  // Annual maintenance fee (20% of license price)
+  // Annual fee (20%)
   const annualFees: Record<string, number> = {
-    starter: planPrices.starter * 0.2,
-    pro: planPrices.pro * 0.2,
-    enterprise: planPrices.enterprise * 0.2,
+    starter: planPrices.starter * 0.2 * quantity,
+    pro: planPrices.pro * 0.2 * quantity,
+    enterprise: planPrices.enterprise * 0.2 * quantity,
   };
 
   const VAT_RATE = 0.075;
@@ -89,51 +83,44 @@ export default function BuyLicensePage() {
     }
   }
 
+  // ⭐ NEW: Redirect Paystack Checkout (same method as your working page)
   async function handlePayment() {
     if (!fullName.trim() || !email.trim()) {
       alert('Please fill in full name and email');
       return;
     }
 
-    if (!window.PaystackPop) {
-      alert('Payment system not loaded. Please refresh the page.');
-      return;
-    }
-
     try {
       setLoading(true);
 
-      const handler = window.PaystackPop.setup({
-        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
-        email,
-        amount: Math.round(totalAmount) * 100,
-        currency: 'NGN',
-        ref: 'CENTRALCORE-' + Date.now(),
-        metadata: {
-          custom_fields: [
-            { display_name: 'Full Name', variable_name: 'full_name', value: fullName },
-            { display_name: 'Plan', variable_name: 'plan', value: plan },
-            { display_name: 'Quantity', variable_name: 'quantity', value: quantity },
-            { display_name: 'Annual Fee', variable_name: 'annual_fee', value: annualFees[plan] },
-          ],
-        },
-        callback: async (response: any) => {
-          setLoading(false);
-          await activateLicense(response.reference);
-          alert('Payment successful! Reference: ' + response.reference);
-          router.push('/client/client-panel');
-        },
-        onClose: () => {
-          setLoading(false);
-          alert('Payment window closed.');
-        },
+      const res = await fetch('/api/payments/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: Math.round(totalAmount),
+          email,
+          plan,
+          quantity,
+          fullName,
+          annualFee: annualFees[plan],
+        }),
       });
 
-      handler.openIframe();
+      const data = await res.json();
+
+      if (!res.ok || !data.authorization_url) {
+        alert(data.error || 'Unable to start payment.');
+        setLoading(false);
+        return;
+      }
+
+      // ⭐ Redirect to Paystack
+      window.location.href = data.authorization_url;
+
     } catch (err) {
+      console.error('Payment error:', err);
+      alert('Unable to start payment.');
       setLoading(false);
-      console.error(err);
-      alert('Error initializing payment.');
     }
   }
 
