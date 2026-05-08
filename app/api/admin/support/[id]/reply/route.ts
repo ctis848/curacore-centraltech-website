@@ -1,7 +1,10 @@
+// FILE: app/api/admin/support/[id]/reply/route.ts
+
 import { NextResponse } from "next/server";
-import { admin } from "@/lib/supabase/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin"; // ✅ FIXED
 import { sendEmail } from "@/lib/email/send";
 import { supportReplyTemplate } from "@/lib/email/templates/supportReply";
+import crypto from "crypto"; // ✅ Needed for randomUUID()
 
 interface Params {
   params: { id: string };
@@ -13,7 +16,7 @@ export async function POST(req: Request, { params }: Params) {
     const ticketId = params.id;
 
     // 1. Fetch ticket (service role bypasses RLS)
-    const { data: ticket, error: ticketError } = await admin
+    const { data: ticket, error: ticketError } = await supabaseAdmin
       .from("SupportTicket")
       .select("*, User(email)")
       .eq("id", ticketId)
@@ -29,7 +32,7 @@ export async function POST(req: Request, { params }: Params) {
     // 2. Insert admin reply
     const replyId = crypto.randomUUID();
 
-    const { error: replyError } = await admin
+    const { error: replyError } = await supabaseAdmin
       .from("TicketReply")
       .insert({
         id: replyId,
@@ -37,6 +40,7 @@ export async function POST(req: Request, { params }: Params) {
         userId: adminId,
         isFromAdmin: true,
         message: reply,
+        createdAt: new Date().toISOString(), // ⭐ recommended for consistency
       });
 
     if (replyError) {
@@ -46,7 +50,7 @@ export async function POST(req: Request, { params }: Params) {
       );
     }
 
-    // 3. Send email notification using Brevo + HTML template
+    // 3. Send email notification using your HTML template
     const userEmail = ticket.User?.email;
 
     if (userEmail) {

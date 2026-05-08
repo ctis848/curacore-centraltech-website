@@ -1,10 +1,11 @@
 // FILE: app/api/admin/license-requests/[id]/approve/route.ts
 
 import { NextResponse } from "next/server";
-import { admin } from "@/lib/supabase/admin"; // SERVICE ROLE CLIENT
+import { supabaseAdmin } from "@/lib/supabase/admin"; // ✅ FIXED: correct import
 import { sendEmail } from "@/lib/email/send";
 import { licenseKeyDeliveredTemplate } from "@/lib/email/templates/licenseKeyDelivered";
 import { generateLicenseKey } from "@/lib/license/generator";
+import crypto from "crypto"; // ✅ Required for randomUUID()
 
 interface RouteParams {
   params: { id: string };
@@ -16,7 +17,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     const { manualKey } = await req.json(); // admin may paste a key
 
     // 1. Fetch the license request + user email
-    const { data: request, error: requestError } = await admin
+    const { data: request, error: requestError } = await supabaseAdmin
       .from("LicenseRequest")
       .select("*, User(email)")
       .eq("id", id)
@@ -35,7 +36,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     // 3. Create license record
     const licenseId = crypto.randomUUID();
 
-    const { error: licenseError } = await admin.from("License").insert({
+    const { error: licenseError } = await supabaseAdmin.from("License").insert({
       id: licenseId,
       userId: request.userId,
       productName: request.productName,
@@ -55,7 +56,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
 
     // 4. Update request status
-    await admin
+    await supabaseAdmin
       .from("LicenseRequest")
       .update({
         status: "APPROVED",

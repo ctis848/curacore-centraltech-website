@@ -1,36 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 import { supabaseServer } from "@/lib/supabase/server";
 import { sendReceiptEmail } from "@/lib/email/sendReceiptEmail";
 
-const PAYSTACK_WEBHOOK_SECRET = process.env.PAYSTACK_WEBHOOK_SECRET!;
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const rawBody = await req.text();
-    const signature = req.headers.get("x-paystack-signature");
+    const reference = req.nextUrl.searchParams.get("reference");
 
-    // ----------------------------------------------------
-    // VERIFY SIGNATURE
-    // ----------------------------------------------------
-    const hash = crypto
-      .createHmac("sha512", PAYSTACK_WEBHOOK_SECRET)
-      .update(rawBody)
-      .digest("hex");
-
-    if (hash !== signature) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    if (!reference) {
+      return NextResponse.json(
+        { success: false, error: "Missing reference" },
+        { status: 400 }
+      );
     }
 
-    const event = JSON.parse(rawBody);
-
-    // Only process successful payments
-    if (event.event !== "charge.success") {
-      return NextResponse.json({ received: true });
+    if (!PAYSTACK_SECRET_KEY) {
+      return NextResponse.json(
+        { success: false, error: "PAYSTACK_SECRET_KEY not configured" },
+        { status: 500 }
+      );
     }
 
-    const tx = event.data;
+    // ----------------------------------------------------
+    // VERIFY WITH PAYSTACK
+    // ----------------------------------------------------
+    const verifyRes = await fetch(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+      }
+    );
+
+    const verifyData = await verifyRes.json();
+
+    if (!verifyData.status || !verifyData.data) {
+      return NextResponse.json(
+        { success: false, error: "Verification failed" },
+        { status: 400 }
+      );
+    }
+
+    const tx = verifyData.data;
+
+    // Only process successful transactions
+    if (tx.status !== "success") {
+      return NextResponse.json(
+        { success: false, error: "Transaction not successful" },
+        { status: 400 }
+      );
+    }
+
     const metadata = tx.metadata || {};
+    const userId = metadata.userId as string | undefined;
 
     const supabase = supabaseServer();
 
@@ -45,7 +67,7 @@ export async function POST(req: NextRequest) {
 
     if (!existing) {
       await supabase.from("Payment").insert({
-        userid: metadata.userId,
+        userid: userId ?? null,
         amount: tx.amount / 100,
         currency: tx.currency,
         status: tx.status.toUpperCase(),
@@ -70,42 +92,76 @@ export async function POST(req: NextRequest) {
     }
 
     // ----------------------------------------------------
-    // ANNUAL LICENSE RENEWAL FLOW (ALL ACTIVE LICENSES)
+    // NEW LICENSE PURCHASE FLOW (20% RULE FOR EXISTING CLIENTS)
     // ----------------------------------------------------
-    if (metadata.licenseId === "annual-fee") {
-      const userId = metadata.userId;
+    if (metadata.type === "NEW_LICENSE_PURCHASE" && userId) {
+      const quantity = Number(metadata.quantity) || 0;
+      const annualFeeFromBuyPage = Number(metadata.annualFee) || 0; // already 20% × price × qty
 
-      // Fetch all active licenses
-      const { data: activeLicenses } = await supabase
-        .from("License")
-        .select("id, annualFeePaidUntil")
+      const { data: billing, error: billingError } = await supabase
+        .from("ClientBilling")
+        .select("annual_fee")
         .eq("userId", userId)
-        .eq("status", "ACTIVE");
+        .maybeSingle();
 
-      if (activeLicenses && activeLicenses.length > 0) {
-        for (const lic of activeLicenses) {
-          const current = lic.annualFeePaidUntil
-            ? new Date(lic.annualFeePaidUntil)
-            : new Date();
+      if (!billingError) {
+        const existingAnnual = billing?.annual_fee ?? 0;
+        const newAnnualFee = existingAnnual + annualFeeFromBuyPage;
 
-          const newDate = new Date(
-            current.setFullYear(current.getFullYear() + 1)
-          );
+        await supabase
+          .from("ClientBilling")
+          .update({
+            annual_fee: newAnnualFee,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("userId", userId);
 
-          await supabase
-            .from("License")
-            .update({ annualFeePaidUntil: newDate.toISOString() })
-            .eq("id", lic.id);
-        }
-
-        // Insert renewal history
         await supabase.from("AnnualPaymentHistory").insert({
           userId,
           amount: tx.amount / 100,
           reference: tx.reference,
           status: tx.status.toUpperCase(),
           paidAt: new Date().toISOString(),
-          licenseCount: activeLicenses.length,
+          licenseCount: quantity,
+          description: "Additional License Purchase (20% Annual Fee Applied)",
+        });
+      }
+    }
+
+    // ----------------------------------------------------
+    // ANNUAL SUBSCRIPTION RENEWAL FLOW (CLIENT-LEVEL)
+    // ----------------------------------------------------
+    if (metadata.type === "ANNUAL_RENEWAL" && userId) {
+      const { data: billing, error: billingError } = await supabase
+        .from("ClientBilling")
+        .select("next_renewal_date")
+        .eq("userId", userId)
+        .maybeSingle();
+
+      if (!billingError) {
+        const currentDate = billing?.next_renewal_date
+          ? new Date(billing.next_renewal_date)
+          : new Date();
+
+        const newRenewalDate = new Date(
+          currentDate.setFullYear(currentDate.getFullYear() + 1)
+        ).toISOString();
+
+        await supabase
+          .from("ClientBilling")
+          .update({
+            next_renewal_date: newRenewalDate,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("userId", userId);
+
+        await supabase.from("AnnualPaymentHistory").insert({
+          userId,
+          amount: tx.amount / 100,
+          reference: tx.reference,
+          status: tx.status.toUpperCase(),
+          paidAt: new Date().toISOString(),
+          description: "Annual Subscription Renewal",
         });
       }
     }
@@ -114,18 +170,18 @@ export async function POST(req: NextRequest) {
     // SEND RECEIPT EMAIL
     // ----------------------------------------------------
     await sendReceiptEmail({
-      to: tx.customer.email,
+      to: tx.customer?.email,
       amount: tx.amount / 100,
       currency: tx.currency,
       reference: tx.reference,
-      licenseId: metadata.licenseId,
+      licenseId: metadata.licenseId ?? null,
     });
 
-    return NextResponse.json({ received: true });
+    return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("Webhook error:", err);
+    console.error("Verify error:", err);
     return NextResponse.json(
-      { error: "Server error" },
+      { success: false, error: "Server error" },
       { status: 500 }
     );
   }

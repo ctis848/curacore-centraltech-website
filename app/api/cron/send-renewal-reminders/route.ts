@@ -14,7 +14,7 @@ export async function GET() {
         id,
         renewal_due_date,
         service_fee_paid,
-        user_id,
+        userId:user_id,
         user:auth.users(email)
       `)
       .eq("service_fee_paid", false);
@@ -36,12 +36,41 @@ export async function GET() {
         (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      // Send reminder 7 days before due date
+      // Only send reminder exactly 7 days before due date
       if (diff === 7) {
+        const reminderDate = due.toISOString().split("T")[0];
+
+        // Check if reminder already sent
+        const { data: existingReminder } = await supabase
+          .from("reminder_logs")
+          .select("id")
+          .eq("license_id", license.id)
+          .eq("reminder_date", reminderDate)
+          .maybeSingle();
+
+        if (existingReminder) {
+          // Skip duplicate reminders
+          continue;
+        }
+
+        // Send email
         await sendEmail({
           to: license.user?.email ?? "",
           subject: "Your Annual Service Fee is Due Soon",
-          html: `Your 20% annual service fee for license ${license.id} is due in 7 days.`,
+          html: `
+            <p>Dear Client,</p>
+            <p>Your 20% annual service fee for license <strong>${license.id}</strong> is due in <strong>7 days</strong>.</p>
+            <p>Please log in to your dashboard to complete your renewal.</p>
+            <p>Thank you.</p>
+          `,
+        });
+
+        // Log reminder to prevent duplicates
+        await supabase.from("reminder_logs").insert({
+          license_id: license.id,
+          user_id: license.userId, // ⭐ FIXED FIELD NAME
+          reminder_date: reminderDate,
+          sent_at: new Date().toISOString(),
         });
       }
     }

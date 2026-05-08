@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
 
     const tx = verifyData.data;
     const metadata = tx.metadata || {};
+    const userId = metadata.userId;
 
     const supabase = supabaseServer();
 
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
 
     if (!existing) {
       await supabase.from("Payment").insert({
-        userid: metadata.userId,
+        userid: userId,
         amount: tx.amount / 100,
         currency: tx.currency,
         status: tx.status.toUpperCase(),
@@ -75,44 +76,82 @@ export async function GET(req: NextRequest) {
     }
 
     // ----------------------------------------------------
-    // ANNUAL LICENSE RENEWAL FLOW (ALL ACTIVE LICENSES)
+    // NEW LICENSE PURCHASE FLOW (20% RULE FOR EXISTING CLIENTS)
     // ----------------------------------------------------
-    if (metadata.licenseId === "annual-fee") {
-      const userId = metadata.userId;
+    if (metadata.type === "NEW_LICENSE_PURCHASE") {
+      const plan = metadata.plan;
+      const quantity = Number(metadata.quantity);
+      const annualFeeFromBuyPage = Number(metadata.annualFee); // already 20% × price × qty
 
-      // Fetch all active licenses
-      const { data: activeLicenses } = await supabase
-        .from("License")
-        .select("id, annualFeePaidUntil")
+      // Load existing annual fee
+      const { data: billing } = await supabase
+        .from("ClientBilling")
+        .select("annual_fee")
         .eq("userId", userId)
-        .eq("status", "ACTIVE");
+        .single();
 
-      if (activeLicenses && activeLicenses.length > 0) {
-        for (const lic of activeLicenses) {
-          const current = lic.annualFeePaidUntil
-            ? new Date(lic.annualFeePaidUntil)
-            : new Date();
+      const existingAnnual = billing?.annual_fee ?? 0;
 
-          const newDate = new Date(
-            current.setFullYear(current.getFullYear() + 1)
-          );
+      // New annual fee = existing + 20% of additional license cost
+      const newAnnualFee = existingAnnual + annualFeeFromBuyPage;
 
-          await supabase
-            .from("License")
-            .update({ annualFeePaidUntil: newDate.toISOString() })
-            .eq("id", lic.id);
-        }
+      await supabase
+        .from("ClientBilling")
+        .update({
+          annual_fee: newAnnualFee,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("userId", userId);
 
-        // Insert renewal history
-        await supabase.from("AnnualPaymentHistory").insert({
-          userId,
-          amount: tx.amount / 100,
-          reference: tx.reference,
-          status: tx.status.toUpperCase(),
-          paidAt: new Date().toISOString(),
-          licenseCount: activeLicenses.length,
-        });
-      }
+      // Log license purchase
+      await supabase.from("AnnualPaymentHistory").insert({
+        userId,
+        amount: tx.amount / 100,
+        reference: tx.reference,
+        status: tx.status.toUpperCase(),
+        paidAt: new Date().toISOString(),
+        licenseCount: quantity,
+        description: "Additional License Purchase (20% Annual Fee Applied)",
+      });
+    }
+
+    // ----------------------------------------------------
+    // ANNUAL SUBSCRIPTION RENEWAL FLOW (CLIENT-LEVEL)
+    // ----------------------------------------------------
+    if (metadata.type === "ANNUAL_RENEWAL") {
+      // Load current renewal date
+      const { data: billing } = await supabase
+        .from("ClientBilling")
+        .select("next_renewal_date")
+        .eq("userId", userId)
+        .single();
+
+      const currentDate = billing?.next_renewal_date
+        ? new Date(billing.next_renewal_date)
+        : new Date();
+
+      // Add +1 year
+      const newRenewalDate = new Date(
+        currentDate.setFullYear(currentDate.getFullYear() + 1)
+      ).toISOString();
+
+      await supabase
+        .from("ClientBilling")
+        .update({
+          next_renewal_date: newRenewalDate,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("userId", userId);
+
+      // Log renewal
+      await supabase.from("AnnualPaymentHistory").insert({
+        userId,
+        amount: tx.amount / 100,
+        reference: tx.reference,
+        status: tx.status.toUpperCase(),
+        paidAt: new Date().toISOString(),
+        description: "Annual Subscription Renewal",
+      });
     }
 
     // ----------------------------------------------------
@@ -123,7 +162,7 @@ export async function GET(req: NextRequest) {
       amount: tx.amount / 100,
       currency: tx.currency,
       reference: tx.reference,
-      licenseId: metadata.licenseId,
+      licenseId: metadata.licenseId ?? null,
     });
 
     return NextResponse.json({ success: true });

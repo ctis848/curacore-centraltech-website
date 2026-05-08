@@ -1,10 +1,16 @@
+// FILE: app/api/admin/license-requests/[id]/reject/route.ts
+
 import { NextResponse } from "next/server";
-import { admin } from "@/lib/supabase/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin"; // ✅ FIXED
 
 export async function POST(req: Request, { params }: any) {
-  await admin
+  await supabaseAdmin
     .from("LicenseRequest")
-    .update({ status: "REJECTED", processedAt: new Date().toISOString() })
+    .update({
+      status: "REJECTED",
+      processedAt: new Date().toISOString(),
+      processedBy: "ADMIN", // optional but recommended
+    })
     .eq("id", params.id);
 
   return NextResponse.json({

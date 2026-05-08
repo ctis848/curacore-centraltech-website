@@ -29,7 +29,7 @@ export default function BuyLicensePage() {
     enterprise: 550000,
   };
 
-  // Annual fee (20%)
+  // ⭐ Annual fee = 20% of license price × quantity
   const annualFees: Record<string, number> = {
     starter: planPrices.starter * 0.2 * quantity,
     pro: planPrices.pro * 0.2 * quantity,
@@ -83,7 +83,7 @@ export default function BuyLicensePage() {
     }
   }
 
-  // ⭐ NEW: Redirect Paystack Checkout (same method as your working page)
+  // ⭐ Redirect Paystack Checkout
   async function handlePayment() {
     if (!fullName.trim() || !email.trim()) {
       alert('Please fill in full name and email');
@@ -103,6 +103,9 @@ export default function BuyLicensePage() {
           quantity,
           fullName,
           annualFee: annualFees[plan],
+
+          // ⭐ REQUIRED FIELD — FIXES THE ERROR
+          type: "NEW_LICENSE_PURCHASE",
         }),
       });
 
@@ -114,7 +117,6 @@ export default function BuyLicensePage() {
         return;
       }
 
-      // ⭐ Redirect to Paystack
       window.location.href = data.authorization_url;
 
     } catch (err) {

@@ -12,9 +12,12 @@ type DashboardStats = {
   totalInvoices: number;
   openTickets: number;
   daysRemaining: number | null;
+  annualFee: number | null;
+  nextRenewalDate: string | null;
 };
 
-function getDaysRemaining(dateString: string) {
+function getDaysRemaining(dateString: string | null) {
+  if (!dateString) return null;
   const now = new Date();
   const expiry = new Date(dateString);
   const diff = expiry.getTime() - now.getTime();
@@ -33,6 +36,8 @@ export default function ClientDashboardPage() {
     totalInvoices: 0,
     openTickets: 0,
     daysRemaining: null,
+    annualFee: null,
+    nextRenewalDate: null,
   });
 
   useEffect(() => {
@@ -40,7 +45,6 @@ export default function ClientDashboardPage() {
       try {
         setLoading(true);
 
-        // 1. Get authenticated user
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -52,35 +56,42 @@ export default function ClientDashboardPage() {
 
         const userId = user.id;
 
-        // 2. Fetch dashboard data from correct tables
-        const [licensesRes, invoicesRes, ticketsRes] = await Promise.all([
-          supabase
-            .from("Licenses")
-            .select("id, license_key, created_at")
-            .eq("client_id", userId),
+        const [licensesRes, invoicesRes, ticketsRes, billingRes] =
+          await Promise.all([
+            supabase
+              .from("Licenses")
+              .select("id, license_key, created_at")
+              .eq("client_id", userId),
 
-          supabase
-            .from("Invoice")
-            .select("id, status")
-            .eq("userId", userId),
+            supabase
+              .from("Invoice")
+              .select("id, status")
+              .eq("userId", userId),
 
-          supabase
-            .from("SupportTicket")
-            .select("id, status")
-            .eq("userId", userId),
-        ]);
+            supabase
+              .from("SupportTicket")
+              .select("id, status")
+              .eq("userId", userId),
+
+            // ⭐ New: fetch locked annual fee + next renewal date
+            supabase
+              .from("ClientBilling")
+              .select("annual_fee, next_renewal_date")
+              .eq("userId", userId)
+              .single(),
+          ]);
 
         const licenses = licensesRes.data || [];
         const invoices = invoicesRes.data || [];
         const tickets = ticketsRes.data || [];
 
-        // 3. Compute stats
         const activeLicenses = licenses.length;
         const unpaidInvoices = invoices.filter((i) => i.status !== "PAID").length;
         const openTickets = tickets.filter((t) => t.status === "OPEN").length;
 
-        // 4. Compute renewal reminder (if you add expiresAt later)
-        let daysRemaining: number | null = null;
+        const annualFee = billingRes.data?.annual_fee ?? null;
+        const nextRenewalDate = billingRes.data?.next_renewal_date ?? null;
+        const daysRemaining = getDaysRemaining(nextRenewalDate);
 
         setStats({
           activeLicenses,
@@ -89,6 +100,8 @@ export default function ClientDashboardPage() {
           totalInvoices: invoices.length,
           openTickets,
           daysRemaining,
+          annualFee,
+          nextRenewalDate,
         });
       } catch (err) {
         console.error("Dashboard error:", err);
@@ -100,7 +113,6 @@ export default function ClientDashboardPage() {
     loadStats();
   }, []);
 
-  // Dashboard cards
   const cards = [
     {
       title: "Active Licenses",
@@ -128,6 +140,11 @@ export default function ClientDashboardPage() {
     },
   ];
 
+  const formatNaira = (num: number | null) =>
+    num == null
+      ? "—"
+      : num.toLocaleString("en-NG", { style: "currency", currency: "NGN" });
+
   return (
     <div className="space-y-6">
       <div>
@@ -142,56 +159,72 @@ export default function ClientDashboardPage() {
       {loading ? (
         <DashboardSkeleton />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {cards.map((card) => (
-            <button
-              key={card.title}
-              onClick={card.onClick}
-              className={`flex flex-col items-start rounded-xl border p-4 text-left shadow-sm transition hover:shadow-md ${card.color}`}
-            >
-              <span className="text-xs font-medium uppercase text-slate-500">
-                {card.title}
-              </span>
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {cards.map((card) => (
+              <button
+                key={card.title}
+                onClick={card.onClick}
+                className={`flex flex-col items-start rounded-xl border p-4 text-left shadow-sm transition hover:shadow-md ${card.color}`}
+              >
+                <span className="text-xs font-medium uppercase text-slate-500">
+                  {card.title}
+                </span>
 
-              <span className="mt-2 text-2xl font-semibold text-slate-900">
-                {card.value}
-              </span>
+                <span className="mt-2 text-2xl font-semibold text-slate-900">
+                  {card.value}
+                </span>
 
-              <span className={`mt-1 text-xs font-medium ${card.subtitleColor}`}>
-                {card.subtitle}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {!loading && (
-        <section className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-xl border bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-800 mb-2">
-              License Summary
-            </h2>
-            <p className="text-sm text-slate-600">
-              You have{" "}
-              <span className="font-semibold">{stats.activeLicenses}</span>{" "}
-              active licenses out of{" "}
-              <span className="font-semibold">{stats.totalLicenses}</span>.
-            </p>
+                <span className={`mt-1 text-xs font-medium ${card.subtitleColor}`}>
+                  {card.subtitle}
+                </span>
+              </button>
+            ))}
           </div>
 
-          <div className="rounded-xl border bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-800 mb-2">
-              Billing & Support
-            </h2>
-            <p className="text-sm text-slate-600">
-              You have{" "}
-              <span className="font-semibold">{stats.unpaidInvoices}</span>{" "}
-              unpaid invoice(s) and{" "}
-              <span className="font-semibold">{stats.openTickets}</span>{" "}
-              open support ticket(s).
-            </p>
-          </div>
-        </section>
+          <section className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-xl border bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-semibold text-slate-800 mb-2">
+                License Summary
+              </h2>
+              <p className="text-sm text-slate-600">
+                You have{" "}
+                <span className="font-semibold">{stats.activeLicenses}</span>{" "}
+                active licenses out of{" "}
+                <span className="font-semibold">{stats.totalLicenses}</span>.
+              </p>
+            </div>
+
+            <div className="rounded-xl border bg-white p-4 shadow-sm space-y-1">
+              <h2 className="text-sm font-semibold text-slate-800 mb-2">
+                Annual Billing
+              </h2>
+              <p className="text-sm text-slate-600">
+                <span className="font-semibold">Annual Fee:</span>{" "}
+                {formatNaira(stats.annualFee)}
+              </p>
+              <p className="text-sm text-slate-600">
+                <span className="font-semibold">Next Renewal Date:</span>{" "}
+                {stats.nextRenewalDate ?? "Not set"}
+              </p>
+              {stats.daysRemaining != null && (
+                <p
+                  className={`text-sm font-semibold ${
+                    stats.daysRemaining <= 7
+                      ? "text-red-600"
+                      : stats.daysRemaining <= 30
+                      ? "text-amber-600"
+                      : "text-emerald-700"
+                  }`}
+                >
+                  {stats.daysRemaining > 0
+                    ? `${stats.daysRemaining} day(s) remaining until annual payment.`
+                    : "Annual payment is due or overdue."}
+                </p>
+              )}
+            </div>
+          </section>
+        </>
       )}
     </div>
   );

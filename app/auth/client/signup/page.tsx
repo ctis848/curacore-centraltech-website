@@ -21,6 +21,7 @@ export default function SignupPage() {
     const email = form.get("email") as string;
     const password = form.get("password") as string;
     const confirm = form.get("confirm") as string;
+    const company_name = form.get("company_name") as string;
 
     if (password !== confirm) {
       setMessage("Passwords do not match");
@@ -37,7 +38,11 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {}
+      options: {
+        data: {
+          company_name: company_name.trim(),
+        },
+      },
     });
 
     setLoading(false);
@@ -53,7 +58,6 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      {/* CentralCore Navbar */}
       <PublicNavbar />
 
       <div className="min-h-[80vh] flex items-center justify-center px-4">
@@ -64,6 +68,14 @@ export default function SignupPage() {
           <h1 className="text-3xl font-bold text-teal-700 dark:text-teal-300 mb-6 text-center">
             Create Account
           </h1>
+
+          <input
+            name="company_name"
+            type="text"
+            placeholder="Company / Hospital Name"
+            required
+            className="w-full p-3 rounded border dark:bg-gray-700 dark:text-white mb-4"
+          />
 
           <input
             name="email"

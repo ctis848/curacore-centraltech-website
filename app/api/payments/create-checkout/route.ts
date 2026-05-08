@@ -1,8 +1,5 @@
 export const runtime = "nodejs";
 
-// ⭐ Debug: Check if production server can see your Paystack key
-console.log("PRODUCTION PAYSTACK KEY:", process.env.PAYSTACK_SECRET_KEY);
-
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email/brevo";
@@ -13,16 +10,21 @@ const PAYSTACK_BASE = "https://api.paystack.co";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const invoiceId = body?.invoiceId;
-    const licenseId = body?.licenseId;
-    const amount = body?.amount;
 
-    // NEW PURCHASE = no invoiceId + no licenseId
-    const isNewPurchase = !invoiceId && !licenseId;
+    const invoiceId = body?.invoiceId as string | undefined;
+    const amount = body?.amount as number | undefined;
+    const type = body?.type as
+      | "ANNUAL_RENEWAL"
+      | "NEW_LICENSE_PURCHASE"
+      | undefined;
 
-    if (!isNewPurchase && !invoiceId && !licenseId) {
+    // NEW PURCHASE = no invoiceId AND type === "NEW_LICENSE_PURCHASE"
+    const isNewPurchase = !invoiceId && type === "NEW_LICENSE_PURCHASE";
+
+    // Validate type
+    if (!isNewPurchase && !invoiceId && type !== "ANNUAL_RENEWAL") {
       return NextResponse.json(
-        { error: "invoiceId or licenseId is required" },
+        { error: "invoiceId or valid type is required" },
         { status: 400 }
       );
     }
@@ -40,13 +42,13 @@ export async function POST(request: Request) {
     const { data: sessionData } = await supabase.auth.getUser();
     const user = sessionData.user;
 
-    // ⭐ Allow UNAUTHENTICATED users ONLY for NEW PURCHASES
+    // Allow UNAUTHENTICATED users ONLY for NEW LICENSE PURCHASES
     if (!user && !isNewPurchase) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // ⭐ Email logic: use Supabase email OR typed email
-    let email = user?.email || body.email;
+    // Email: prefer Supabase user email, fallback to body.email
+    let email: string | undefined = user?.email || body.email;
 
     let finalAmount = amount;
     let metadata: any = { userId: user?.id || null };
@@ -89,6 +91,7 @@ export async function POST(request: Request) {
         invoiceId: invoice.id,
         userId: user?.id || null,
         description: "Invoice Payment",
+        type: "INVOICE_PAYMENT",
       };
     }
 
@@ -108,6 +111,7 @@ export async function POST(request: Request) {
       metadata = {
         userId: user?.id || null,
         description: "New License Purchase",
+        type: "NEW_LICENSE_PURCHASE",
         plan: body.plan,
         quantity: body.quantity,
         fullName: body.fullName,
@@ -117,12 +121,12 @@ export async function POST(request: Request) {
     }
 
     // ----------------------------------------------------
-    // ANNUAL LICENSE RENEWAL FLOW
+    // ANNUAL SUBSCRIPTION RENEWAL FLOW
     // ----------------------------------------------------
-    if (licenseId && !isNewPurchase) {
+    if (type === "ANNUAL_RENEWAL" && !invoiceId && !isNewPurchase) {
       if (!amount || isNaN(amount)) {
         return NextResponse.json(
-          { error: "Amount is required for license renewal" },
+          { error: "Amount is required for annual renewal" },
           { status: 400 }
         );
       }
@@ -130,9 +134,9 @@ export async function POST(request: Request) {
       finalAmount = Math.round(amount);
 
       metadata = {
-        licenseId,
         userId: user?.id || null,
-        description: "Annual License Renewal",
+        description: "Annual Subscription Renewal",
+        type: "ANNUAL_RENEWAL",
       };
     }
 
@@ -154,7 +158,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         email,
-        amount: finalAmount * 100,
+        amount: (finalAmount ?? 0) * 100,
         currency: "NGN",
         reference,
         metadata,
@@ -174,16 +178,18 @@ export async function POST(request: Request) {
     // ----------------------------------------------------
     // Optional: notify user
     // ----------------------------------------------------
-    await sendEmail({
-      to: email ?? "",
-      subject: "Payment Initiated",
-      html: `
-        <h2>Your payment is being processed</h2>
-        <p>Description: <strong>${metadata.description}</strong></p>
-        <p>Amount: <strong>₦${finalAmount.toLocaleString()}</strong></p>
-        <p>Reference: <strong>${reference}</strong></p>
-      `,
-    });
+    if (email) {
+      await sendEmail({
+        to: email,
+        subject: "Payment Initiated",
+        html: `
+          <h2>Your payment is being processed</h2>
+          <p>Description: <strong>${metadata.description}</strong></p>
+          <p>Amount: <strong>₦${(finalAmount ?? 0).toLocaleString()}</strong></p>
+          <p>Reference: <strong>${reference}</strong></p>
+        `,
+      });
+    }
 
     return NextResponse.json({
       authorization_url: data.data.authorization_url,

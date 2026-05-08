@@ -30,7 +30,6 @@ export default function RenewalHistoryPage() {
         return;
       }
 
-      // ⭐ Correct query using snake_case columns
       const { data, error } = await supabase
         .from("AnnualPaymentHistory")
         .select(`
