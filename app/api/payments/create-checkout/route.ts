@@ -11,11 +11,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const invoiceId = body?.invoiceId;
-    const licenseId = body?.licenseId; // "annual-fee"
+    const licenseId = body?.licenseId;
     const amount = body?.amount;
 
-    // If neither invoiceId nor licenseId is provided,
-    // treat this as a NEW LICENSE PURCHASE
+    // NEW PURCHASE = no invoiceId + no licenseId
     const isNewPurchase = !invoiceId && !licenseId;
 
     if (!isNewPurchase && !invoiceId && !licenseId) {
@@ -24,7 +23,6 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-
 
     if (!PAYSTACK_SECRET_KEY) {
       return NextResponse.json(
@@ -39,13 +37,16 @@ export async function POST(request: Request) {
     const { data: sessionData } = await supabase.auth.getUser();
     const user = sessionData.user;
 
-    if (!user) {
+    // ⭐ Allow UNAUTHENTICATED users ONLY for NEW PURCHASES
+    if (!user && !isNewPurchase) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let email = user.email;
+    // ⭐ Email logic: use Supabase email OR typed email
+    let email = user?.email || body.email;
+
     let finalAmount = amount;
-    let metadata: any = { userId: user.id };
+    let metadata: any = { userId: user?.id || null };
 
     // ----------------------------------------------------
     // INVOICE PAYMENT FLOW
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
         );
       }
 
-      if (invoice.userId !== user.id) {
+      if (invoice.userId !== user?.id) {
         return NextResponse.json(
           { error: "You cannot pay another user's invoice" },
           { status: 403 }
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
 
       metadata = {
         invoiceId: invoice.id,
-        userId: user.id,
+        userId: user?.id || null,
         description: "Invoice Payment",
       };
     }
@@ -102,20 +103,20 @@ export async function POST(request: Request) {
       finalAmount = Math.round(amount);
 
       metadata = {
-        userId: user.id,
+        userId: user?.id || null,
         description: "New License Purchase",
         plan: body.plan,
         quantity: body.quantity,
         fullName: body.fullName,
         email: body.email,
         annualFee: body.annualFee,
-        };
-      }
+      };
+    }
 
     // ----------------------------------------------------
     // ANNUAL LICENSE RENEWAL FLOW
     // ----------------------------------------------------
-    if (licenseId) {
+    if (licenseId && !isNewPurchase) {
       if (!amount || isNaN(amount)) {
         return NextResponse.json(
           { error: "Amount is required for license renewal" },
@@ -123,12 +124,11 @@ export async function POST(request: Request) {
         );
       }
 
-      // ⭐ Ensure amount is integer (Paystack requirement)
       finalAmount = Math.round(amount);
 
       metadata = {
         licenseId,
-        userId: user.id,
+        userId: user?.id || null,
         description: "Annual License Renewal",
       };
     }
@@ -151,7 +151,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         email,
-        amount: finalAmount * 100, // Paystack expects amount in kobo
+        amount: finalAmount * 100,
         currency: "NGN",
         reference,
         metadata,
