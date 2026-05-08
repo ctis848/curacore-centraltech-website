@@ -7,8 +7,6 @@ import {
   autoReplyTemplate,
 } from "@/lib/emailTemplates";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(req: Request) {
   try {
     console.log("🔥 Contact API hit");
@@ -93,15 +91,19 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate Resend key
-    if (!process.env.RESEND_API_KEY) {
+    // ⭐ SAFE RESEND INITIALIZATION (Fixes Netlify build crash)
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      console.error("❌ Missing RESEND_API_KEY");
       return NextResponse.json(
         { error: "Resend API key missing" },
         { status: 500 }
       );
     }
 
-    // Send admin email (TO your domain inbox)
+    const resend = new Resend(apiKey);
+
+    // Send admin email
     try {
       await resend.emails.send({
         from: "CTIS Tech <onboarding@resend.dev>",
@@ -117,7 +119,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Send auto‑reply (TO the user)
+    // Send auto‑reply
     try {
       await resend.emails.send({
         from: "CTIS Tech <onboarding@resend.dev>",
