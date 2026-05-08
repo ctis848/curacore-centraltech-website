@@ -1,5 +1,8 @@
 export const runtime = "nodejs";
 
+// ⭐ Debug: Check if production server can see your Paystack key
+console.log("PRODUCTION PAYSTACK KEY:", process.env.PAYSTACK_SECRET_KEY);
+
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email/brevo";
