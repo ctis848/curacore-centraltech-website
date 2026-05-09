@@ -61,7 +61,7 @@ async function handleAuth(
     publicExact.includes(pathname) ||
     publicPrefixes.some((p) => pathname.startsWith(p));
 
-  // Get user
+  // Get Supabase user
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -72,16 +72,39 @@ async function handleAuth(
     return NextResponse.redirect(url);
   };
 
-  // If logged in and visiting an auth page → redirect to dashboard
+  // ⭐ Read admin session cookie
+  const adminSessionCookie = req.cookies.get("admin_session")?.value;
+  let adminSession: any = null;
+
+  if (adminSessionCookie) {
+    try {
+      adminSession = JSON.parse(adminSessionCookie);
+
+      // Expired admin session → logout
+      if (Date.now() > adminSession.expiresAt) {
+        const logout = redirectTo("/auth/admin/login");
+        logout.cookies.set("admin_session", "", { maxAge: 0 });
+        return logout;
+      }
+    } catch {
+      const logout = redirectTo("/auth/admin/login");
+      logout.cookies.set("admin_session", "", { maxAge: 0 });
+      return logout;
+    }
+  }
+
+  // ⭐ FIXED: Prevent redirect loop on admin login page
   if (isPublic && user) {
     const role = user.user_metadata?.role;
 
+    // Only redirect if admin session cookie exists AND is valid
     if (pathname.startsWith("/auth/admin")) {
-      if (role === "ADMIN" || role === "SUPERADMIN") {
+      if (adminSession && (role === "ADMIN" || role === "SUPERADMIN")) {
         return redirectTo("/admin");
       }
     }
 
+    // Superadmin login redirect
     if (pathname.startsWith("/superadmin/login") && role === "SUPERADMIN") {
       return redirectTo("/superadmin");
     }
@@ -102,11 +125,19 @@ async function handleAuth(
 
   // ADMIN PROTECTED (pages + APIs)
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
+    // Must have Supabase user
     if (!user) return redirectTo("/auth/admin/login");
 
     const role = user.user_metadata?.role;
+
+    // Must have admin role
     if (role !== "ADMIN" && role !== "SUPERADMIN") {
       return redirectTo("/unauthorized");
+    }
+
+    // Must have valid admin session cookie
+    if (!adminSession) {
+      return redirectTo("/auth/admin/login");
     }
 
     return res;

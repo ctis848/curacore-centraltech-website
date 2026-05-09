@@ -25,7 +25,6 @@ export async function POST(req: Request) {
     }
   );
 
-  // Login using Supabase Auth
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -38,7 +37,6 @@ export async function POST(req: Request) {
     );
   }
 
-  // Check admin role
   const role = data.user.user_metadata?.role;
   if (role !== "ADMIN" && role !== "SUPERADMIN") {
     return NextResponse.json(
@@ -46,6 +44,18 @@ export async function POST(req: Request) {
       { status: 403 }
     );
   }
+
+  const sessionData = {
+    role,
+    expiresAt: Date.now() + 1000 * 60 * 60 * 2, // 2 hours
+  };
+
+  res.cookies.set("admin_session", JSON.stringify(sessionData), {
+    httpOnly: true,
+    secure: true,
+    path: "/",
+    maxAge: 60 * 60 * 2,
+  });
 
   return res;
 }
