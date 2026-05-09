@@ -41,6 +41,7 @@ export default function SignupPage() {
       options: {
         data: {
           company_name: company_name.trim(),
+          full_name: company_name.trim(),   // ⭐ DISPLAY NAME FIX
         },
       },
     });

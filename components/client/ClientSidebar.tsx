@@ -13,7 +13,6 @@ import {
   FileText,
   RefreshCcw,
   Headphones,
-  User,
   LogOut,
   Menu,
   X,
@@ -28,15 +27,28 @@ export default function ClientSidebar() {
 
   const [open, setOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
 
-  // Load user email
+  // Load user + profile
   useEffect(() => {
     async function loadUser() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
 
-      setUserEmail(session?.user?.email || null);
+      if (!session?.user) return;
+
+      const user = session.user;
+      setUserEmail(user.email || null);
+
+      // Fetch Profile row
+      const { data: profile } = await supabase
+        .from("Profile")
+        .select("company, fullname")
+        .eq("userid", user.id)
+        .single();
+
+      if (profile) {
+        setCompanyName(profile.company || profile.fullname || null);
+      }
     }
 
     loadUser();
@@ -47,7 +59,6 @@ export default function ClientSidebar() {
     router.replace("/auth/client/login");
   }
 
-  // Sidebar structure
   const sections = [
     {
       title: "Dashboard",
@@ -56,60 +67,25 @@ export default function ClientSidebar() {
     {
       title: "Licensing",
       items: [
-        {
-          href: "/client/license-request",
-          label: "Send License Request Key",
-          icon: Key,
-        },
-        {
-          href: "/client/active-licenses",
-          label: "Active Licenses",
-          icon: CheckCircle,
-        },
-        {
-          href: "/client/machine-history",
-          label: "Machine History",
-          icon: Monitor,
-        },
-        {
-          href: "/client/transfer-requests",
-          label: "Transfer Requests",
-          icon: ArrowRightLeft,
-        },
+        { href: "/client/license-request", label: "Send License Request Key", icon: Key },
+        { href: "/client/active-licenses", label: "Active Licenses", icon: CheckCircle },
+        { href: "/client/machine-history", label: "Machine History", icon: Monitor },
+        { href: "/client/transfer-requests", label: "Transfer Requests", icon: ArrowRightLeft },
       ],
     },
     {
       title: "Billing",
       items: [
-        {
-          href: "/client/payment-history",
-          label: "Payment History",
-          icon: CreditCard,
-        },
-        {
-          href: "/client/invoice-history",
-          label: "Invoice History",
-          icon: FileText,
-        },
-        {
-          href: "/client/renew-annual",
-          label: "Renew Annual Payment",
-          icon: RefreshCcw,
-        },
-        {
-          href: "/client/renewal-history",
-          label: "Renewal History",
-          icon: History,
-        },
+        { href: "/client/payment-history", label: "Payment History", icon: CreditCard },
+        { href: "/client/invoice-history", label: "Invoice History", icon: FileText },
+        { href: "/client/renew-annual", label: "Renew Annual Payment", icon: RefreshCcw },
+        { href: "/client/renewal-history", label: "Renewal History", icon: History },
       ],
     },
     {
       title: "Support",
-      items: [
-        { href: "/client/support", label: "Contact Support", icon: Headphones },
-      ],
+      items: [{ href: "/client/support", label: "Contact Support", icon: Headphones }],
     },
-    
   ];
 
   return (
@@ -118,21 +94,29 @@ export default function ClientSidebar() {
       <button
         onClick={() => setOpen(!open)}
         className="md:hidden fixed top-4 left-4 z-50 bg-slate-900 text-white p-2 rounded"
-        aria-label="Toggle Sidebar"
       >
         {open ? <X size={22} /> : <Menu size={22} />}
       </button>
 
       {/* Sidebar */}
       <aside
-        className={`fixed md:static top-0 left-0 h-full w-64 bg-slate-900 text-slate-100 flex flex-col transition-transform duration-300 z-40
+        className={`fixed md:static top-0 left-0 h-full w-64 bg-slate-200 text-slate-900 flex flex-col transition-transform duration-300 z-40
         ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
       >
         {/* Header */}
-        <div className="px-4 py-4 border-b border-slate-700">
+        <div className="px-4 py-4 border-b border-slate-300">
           <h1 className="text-xl font-bold">Client Portal</h1>
+
+          {companyName && (
+            <p className="text-sm font-semibold mt-1 truncate max-w-[180px]">
+              {companyName}
+            </p>
+          )}
+
           {userEmail && (
-            <p className="text-sm text-slate-400 mt-1">{userEmail}</p>
+            <p className="text-xs text-slate-600 truncate max-w-[180px]">
+              {userEmail}
+            </p>
           )}
         </div>
 
@@ -155,8 +139,8 @@ export default function ClientSidebar() {
                     onClick={() => setOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition-all ${
                       active
-                        ? "bg-slate-700 text-white shadow-sm"
-                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                        ? "bg-slate-300 text-slate-900 shadow-sm"
+                        : "text-slate-700 hover:bg-slate-300 hover:text-slate-900"
                     }`}
                   >
                     <Icon size={18} />
@@ -171,7 +155,7 @@ export default function ClientSidebar() {
         {/* Logout Button */}
         <button
           onClick={handleLogout}
-          className="m-3 px-3 py-2 rounded bg-red-600 hover:bg-red-700 text-sm font-semibold flex items-center gap-2"
+          className="m-3 px-3 py-2 rounded bg-red-600 hover:bg-red-700 text-sm font-semibold flex items-center gap-2 text-white"
         >
           <LogOut size={18} />
           Logout
