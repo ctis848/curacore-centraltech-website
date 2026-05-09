@@ -3,36 +3,27 @@
 import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-interface License {
-  id: string;
-  productName: string | null;
-  licenseKey: string;
-  annualFeePaidUntil: string | null;
-  status: string;
-}
-
-interface Billing {
-  annual_fee: number | null;
+interface Company {
+  company_name: string;
+  annual_fee: number;
+  renewal_date: string;
+  base_license_count: number;
+  plan: string;
 }
 
 export default function RenewAnnualPage() {
   const supabase = supabaseBrowser();
 
-  const [licenses, setLicenses] = useState<License[]>([]);
-  const [billing, setBilling] = useState<Billing | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [renewalDue, setRenewalDue] = useState(false);
   const [error, setError] = useState("");
 
-  const BASE_PRICE = 10000; // ₦10,000
-  const ANNUAL_RATE = 0.2; // 20%
-
   useEffect(() => {
-    loadData();
+    loadCompanyData();
   }, []);
 
-  async function loadData() {
+  async function loadCompanyData() {
     setLoading(true);
     setError("");
 
@@ -47,74 +38,47 @@ export default function RenewAnnualPage() {
       return;
     }
 
-    // Load all ACTIVE licenses for this user
-    const { data: licenseData, error: licenseError } = await supabase
-      .from("License")
-      .select("id, productName, licenseKey, annualFeePaidUntil, status")
-      .eq("userId", user.id)
-      .eq("status", "ACTIVE");
+    // 1️⃣ Get profile → company_id
+    const { data: profile } = await supabase
+      .from("Profile")
+      .select("company_id")
+      .eq("userid", user.id)
+      .single();
 
-    if (licenseError) {
-      console.error(licenseError);
-      setError("Unable to load licenses.");
+    if (!profile?.company_id) {
+      setError("Company not found for this user.");
       setLoading(false);
       return;
     }
 
-    // Load billing (fixed annual fee)
-    const { data: billingData } = await supabase
-      .from("ClientBilling")
-      .select("annual_fee")
-      .eq("userId", user.id)
-      .maybeSingle();
+    // 2️⃣ Load company details
+    const { data: companyData, error: companyError } = await supabase
+      .from("companies")
+      .select("company_name, annual_fee, renewal_date, base_license_count, plan")
+      .eq("id", profile.company_id)
+      .single();
 
-    const activeLicenses = licenseData || [];
-    setLicenses(activeLicenses);
-    setBilling(billingData || { annual_fee: null });
+    if (companyError || !companyData) {
+      setError("Unable to load company billing details.");
+      setLoading(false);
+      return;
+    }
 
-    // Renewal due if ANY license is expired or missing annualFeePaidUntil
-    const today = new Date();
-    const due = activeLicenses.some((lic) => {
-      if (!lic.annualFeePaidUntil) return true;
-      return new Date(lic.annualFeePaidUntil) < today;
-    });
-
-    setRenewalDue(due);
+    setCompany(companyData);
     setLoading(false);
   }
 
-  // ---- Billing calculations ----
-  const licenseCount = licenses.length;
-
-  // Existing fixed annual fee from ClientBilling
-  const fixedAnnualFee = billing?.annual_fee ?? 0;
-
-  // Annual fee for ALL active licenses
-  const newLicenseAnnualFee = Math.round(licenseCount * ANNUAL_RATE * BASE_PRICE);
-
-  // Final total annual fee
-  const totalAnnualFee = fixedAnnualFee + newLicenseAnnualFee;
-
   async function processPayment() {
+    if (!company) return;
+
     setProcessing(true);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const user = session?.user;
-      if (!user) {
-        alert("You must be logged in.");
-        setProcessing(false);
-        return;
-      }
-
       const res = await fetch("/api/payments/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: totalAnnualFee,
+          amount: company.annual_fee,
           type: "ANNUAL_RENEWAL",
         }),
       });
@@ -136,53 +100,46 @@ export default function RenewAnnualPage() {
   }
 
   if (loading) return <p className="p-6">Loading…</p>;
+  if (error) return <p className="p-6 text-red-600">{error}</p>;
+  if (!company) return <p className="p-6">No company data found.</p>;
 
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-2xl font-bold mb-4">Renew Annual Payment</h1>
 
-      {error && <p className="text-red-600">{error}</p>}
-
       <div className="bg-white border rounded p-4 shadow-sm space-y-2">
         <p>
-          <strong>Active Licenses:</strong> {licenseCount}
+          <strong>Company:</strong> {company.company_name}
         </p>
 
         <p>
-          <strong>Existing Client Annual Fee:</strong>{" "}
-          <span className="font-semibold text-blue-700">
-            ₦{fixedAnnualFee.toLocaleString()}
-          </span>
+          <strong>Plan:</strong> {company.plan}
         </p>
 
         <p>
-          <strong>Total Annual Fee of All Active Licenses:</strong>{" "}
-          <span className="font-semibold text-purple-700">
-            ₦{newLicenseAnnualFee.toLocaleString()}
-          </span>
+          <strong>Base License Count:</strong> {company.base_license_count}
+        </p>
+
+        <p>
+          <strong>Next Renewal Date:</strong>{" "}
+          {new Date(company.renewal_date).toLocaleDateString()}
         </p>
 
         <hr className="my-2" />
 
         <p>
-          <strong>Total Annual Fee to Pay:</strong>{" "}
+          <strong>Annual Fee to Pay:</strong>{" "}
           <span className="font-semibold text-emerald-700 text-lg">
-            ₦{totalAnnualFee.toLocaleString()}
+            ₦{company.annual_fee.toLocaleString()}
           </span>
         </p>
-
-        {!renewalDue && (
-          <p className="text-blue-600 text-sm">
-            Your annual renewal is not due yet.
-          </p>
-        )}
       </div>
 
       <button
         onClick={processPayment}
-        disabled={processing || !renewalDue || totalAnnualFee <= 0}
+        disabled={processing}
         className={`mt-4 px-4 py-2 rounded text-white ${
-          processing || !renewalDue || totalAnnualFee <= 0
+          processing
             ? "bg-gray-400 cursor-not-allowed"
             : "bg-emerald-600 hover:bg-emerald-700"
         }`}

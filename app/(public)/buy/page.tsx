@@ -176,7 +176,7 @@ export default function BuyLicensePage() {
                 </span>
 
                 <p className="text-sm text-gray-600 mt-3">
-                  Up to 4 Users
+                  Up to 3 Users
                 </p>
               </div>
 
@@ -210,7 +210,7 @@ export default function BuyLicensePage() {
                 </span>
 
                 <p className="text-sm text-gray-600 mt-3">
-                  Up to 8 Users
+                  Up to 5 Users
                 </p>
               </div>
 

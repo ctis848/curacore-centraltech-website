@@ -29,7 +29,6 @@ export default function ClientSidebar() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
 
-  // Load user + profile
   useEffect(() => {
     async function loadUser() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -39,7 +38,6 @@ export default function ClientSidebar() {
       const user = session.user;
       setUserEmail(user.email || null);
 
-      // Fetch Profile row
       const { data: profile } = await supabase
         .from("Profile")
         .select("company, fullname")
@@ -70,6 +68,7 @@ export default function ClientSidebar() {
         { href: "/client/license-request", label: "Send License Request Key", icon: Key },
         { href: "/client/active-licenses", label: "Active Licenses", icon: CheckCircle },
         { href: "/client/machine-history", label: "Machine History", icon: Monitor },
+        { href: "/client/transfer-license", label: "Transfer License", icon: ArrowRightLeft },
         { href: "/client/transfer-requests", label: "Transfer Requests", icon: ArrowRightLeft },
       ],
     },
@@ -78,7 +77,10 @@ export default function ClientSidebar() {
       items: [
         { href: "/client/payment-history", label: "Payment History", icon: CreditCard },
         { href: "/client/invoice-history", label: "Invoice History", icon: FileText },
+
+        // ⭐ NEW: Company-Based Renewal Page
         { href: "/client/renew-annual", label: "Renew Annual Payment", icon: RefreshCcw },
+
         { href: "/client/renewal-history", label: "Renewal History", icon: History },
       ],
     },
@@ -90,7 +92,6 @@ export default function ClientSidebar() {
 
   return (
     <>
-      {/* Mobile Toggle Button */}
       <button
         onClick={() => setOpen(!open)}
         className="md:hidden fixed top-4 left-4 z-50 bg-slate-900 text-white p-2 rounded"
@@ -98,12 +99,10 @@ export default function ClientSidebar() {
         {open ? <X size={22} /> : <Menu size={22} />}
       </button>
 
-      {/* Sidebar */}
       <aside
         className={`fixed md:static top-0 left-0 h-full w-64 bg-slate-200 text-slate-900 flex flex-col transition-transform duration-300 z-40
         ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
       >
-        {/* Header */}
         <div className="px-4 py-4 border-b border-slate-300">
           <h1 className="text-xl font-bold">Client Portal</h1>
 
@@ -120,7 +119,6 @@ export default function ClientSidebar() {
           )}
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 px-2 py-4 overflow-y-auto space-y-6">
           {sections.map((section) => (
             <div key={section.title}>
@@ -152,7 +150,6 @@ export default function ClientSidebar() {
           ))}
         </nav>
 
-        {/* Logout Button */}
         <button
           onClick={handleLogout}
           className="m-3 px-3 py-2 rounded bg-red-600 hover:bg-red-700 text-sm font-semibold flex items-center gap-2 text-white"

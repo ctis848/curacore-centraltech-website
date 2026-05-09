@@ -73,7 +73,6 @@ export default function ClientDashboardPage() {
               .select("id, status")
               .eq("userId", userId),
 
-            // ⭐ New: fetch locked annual fee + next renewal date
             supabase
               .from("ClientBilling")
               .select("annual_fee, next_renewal_date")
@@ -224,6 +223,55 @@ export default function ClientDashboardPage() {
               )}
             </div>
           </section>
+
+          {/* ⭐ BIG DIGITAL COUNTDOWN TIMER */}
+          {stats.daysRemaining != null && (
+            <div
+              className="
+                mt-6 
+                w-full 
+                bg-black 
+                text-green-400 
+                rounded-2xl 
+                p-6 
+                flex 
+                flex-col 
+                items-center 
+                justify-center 
+                shadow-xl
+              "
+            >
+              <span className="text-sm text-gray-300 tracking-widest uppercase">
+                Days Remaining Until Renewal
+              </span>
+
+              <span
+                className={`
+                  mt-3 
+                  font-mono 
+                  text-7xl 
+                  md:text-8xl 
+                  font-bold 
+                  tracking-widest 
+                  ${
+                    stats.daysRemaining <= 7
+                      ? "text-red-500"
+                      : stats.daysRemaining <= 30
+                      ? "text-yellow-400"
+                      : "text-green-400"
+                  }
+                `}
+              >
+                {stats.daysRemaining}
+              </span>
+
+              <span className="mt-2 text-gray-400 text-sm">
+                {stats.daysRemaining > 0
+                  ? "before your annual maintenance fee is due"
+                  : "Payment is due or overdue"}
+              </span>
+            </div>
+          )}
         </>
       )}
     </div>

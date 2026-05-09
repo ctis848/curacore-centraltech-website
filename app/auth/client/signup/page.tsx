@@ -35,21 +35,57 @@ export default function SignupPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
+    // 1️⃣ Create user
+    const { data: signupData, error: signupError } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           company_name: company_name.trim(),
-          full_name: company_name.trim(),   // ⭐ DISPLAY NAME FIX
+          full_name: company_name.trim(),
         },
       },
     });
 
-    setLoading(false);
+    if (signupError) {
+      setMessage(signupError.message);
+      setLoading(false);
+      return;
+    }
 
-    if (error) {
-      setMessage(error.message);
+    const user = signupData.user;
+    if (!user) {
+      setMessage("Signup failed. Try again.");
+      setLoading(false);
+      return;
+    }
+
+    // 2️⃣ Match company by name
+    const { data: company } = await supabase
+      .from("companies")
+      .select("id")
+      .ilike("company_name", company_name.trim())
+      .single();
+
+    if (!company) {
+      setMessage("Company name not found in our system.");
+      setLoading(false);
+      return;
+    }
+
+    // 3️⃣ Save company_id into Profile table
+    const { error: profileError } = await supabase
+      .from("Profile")
+      .update({
+        company_id: company.id,
+        company: company_name.trim(),
+        fullname: company_name.trim(),
+      })
+      .eq("userid", user.id);
+
+    if (profileError) {
+      setMessage("Failed to link company to profile.");
+      setLoading(false);
       return;
     }
 
