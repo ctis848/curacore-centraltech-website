@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import PublicNavbar from "@/components/layout/PublicNavbar";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -11,23 +11,30 @@ export default function ResetPasswordPage() {
 
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [validSession, setValidSession] = useState(false);
+
+  useEffect(() => {
+    async function checkSession() {
+      const { data } = await supabase.auth.getSession();
+      setValidSession(!!data.session);
+    }
+    checkSession();
+  }, []);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Supabase requires a valid session from the reset link
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session) {
-      setMessage("Invalid or expired reset link");
+    if (!validSession) {
+      setMessage("Invalid or expired reset link.");
       return;
     }
 
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      setMessage("Error updating password");
+      setMessage("Error updating password. Try again.");
     } else {
-      setMessage("Password updated successfully");
+      setMessage("Password updated successfully. Redirecting...");
       setTimeout(() => router.replace("/auth/client/login"), 1500);
     }
   };
@@ -45,6 +52,12 @@ export default function ResetPasswordPage() {
             Set New Password
           </h1>
 
+          {!validSession && (
+            <p className="text-red-500 mb-4">
+              Invalid or expired reset link.
+            </p>
+          )}
+
           <input
             type="password"
             placeholder="New password"
@@ -52,11 +65,13 @@ export default function ResetPasswordPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            disabled={!validSession}
           />
 
           <button
             type="submit"
-            className="w-full bg-teal-600 text-white p-3 rounded hover:bg-teal-700"
+            disabled={!validSession}
+            className="w-full bg-teal-600 text-white p-3 rounded hover:bg-teal-700 disabled:opacity-50"
           >
             Update Password
           </button>

@@ -8,19 +8,26 @@ export default function ForgotPasswordPage() {
   const supabase = supabaseBrowser();
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMessage("");
+    setLoading(true);
+
+    const redirectUrl = `${window.location.origin}/auth/client/reset-password`;
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/client/reset-password`,
+      redirectTo: redirectUrl,
     });
 
     if (error) {
-      setMessage("Error sending reset link");
+      setMessage("Unable to send reset link. Please try again.");
     } else {
-      setMessage("Password reset link sent to your email");
+      setMessage("A password reset link has been sent to your email.");
     }
+
+    setLoading(false);
   };
 
   return (
@@ -43,13 +50,15 @@ export default function ForgotPasswordPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={loading}
           />
 
           <button
             type="submit"
-            className="w-full bg-teal-600 text-white p-3 rounded hover:bg-teal-700"
+            disabled={loading}
+            className="w-full bg-teal-600 text-white p-3 rounded hover:bg-teal-700 disabled:opacity-50"
           >
-            Send Reset Link
+            {loading ? "Sending..." : "Send Reset Link"}
           </button>
 
           {message && (

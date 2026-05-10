@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { sendReceiptEmail } from "@/lib/email/sendReceiptEmail";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
+const BREVO_API_KEY = process.env.BREVO_API_KEY!;
 
 export async function GET(req: NextRequest) {
   try {
@@ -43,7 +44,6 @@ export async function GET(req: NextRequest) {
 
     const tx = verifyData.data;
 
-    // Only process successful transactions
     if (tx.status !== "success") {
       return NextResponse.json(
         { success: false, error: "Transaction not successful" },
@@ -92,82 +92,78 @@ export async function GET(req: NextRequest) {
     }
 
     // ----------------------------------------------------
-    // NEW LICENSE PURCHASE FLOW (20% RULE FOR EXISTING CLIENTS)
+    // NEW LICENSE PURCHASE FLOW
     // ----------------------------------------------------
     if (metadata.type === "NEW_LICENSE_PURCHASE" && userId) {
       const quantity = Number(metadata.quantity) || 0;
-      const annualFeeFromBuyPage = Number(metadata.annualFee) || 0; // already 20% × price × qty
+      const annualFeeFromBuyPage = Number(metadata.annualFee) || 0;
 
-      const { data: billing, error: billingError } = await supabase
+      const { data: billing } = await supabase
         .from("ClientBilling")
         .select("annual_fee")
         .eq("userId", userId)
         .maybeSingle();
 
-      if (!billingError) {
-        const existingAnnual = billing?.annual_fee ?? 0;
-        const newAnnualFee = existingAnnual + annualFeeFromBuyPage;
+      const existingAnnual = billing?.annual_fee ?? 0;
+      const newAnnualFee = existingAnnual + annualFeeFromBuyPage;
 
-        await supabase
-          .from("ClientBilling")
-          .update({
-            annual_fee: newAnnualFee,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("userId", userId);
+      await supabase
+        .from("ClientBilling")
+        .update({
+          annual_fee: newAnnualFee,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("userId", userId);
 
-        await supabase.from("AnnualPaymentHistory").insert({
-          userId,
-          amount: tx.amount / 100,
-          reference: tx.reference,
-          status: tx.status.toUpperCase(),
-          paidAt: new Date().toISOString(),
-          licenseCount: quantity,
-          description: "Additional License Purchase (20% Annual Fee Applied)",
-        });
-      }
+      await supabase.from("AnnualPaymentHistory").insert({
+        userId,
+        amount: tx.amount / 100,
+        reference: tx.reference,
+        status: tx.status.toUpperCase(),
+        paidAt: new Date().toISOString(),
+        licenseCount: quantity,
+        description: "Additional License Purchase (20% Annual Fee Applied)",
+      });
     }
 
     // ----------------------------------------------------
-    // ANNUAL SUBSCRIPTION RENEWAL FLOW (CLIENT-LEVEL)
+    // ANNUAL SUBSCRIPTION RENEWAL FLOW
     // ----------------------------------------------------
     if (metadata.type === "ANNUAL_RENEWAL" && userId) {
-      const { data: billing, error: billingError } = await supabase
+      const { data: billing } = await supabase
         .from("ClientBilling")
         .select("next_renewal_date")
         .eq("userId", userId)
         .maybeSingle();
 
-      if (!billingError) {
-        const currentDate = billing?.next_renewal_date
-          ? new Date(billing.next_renewal_date)
-          : new Date();
+      const currentDate = billing?.next_renewal_date
+        ? new Date(billing.next_renewal_date)
+        : new Date();
 
-        const newRenewalDate = new Date(
-          currentDate.setFullYear(currentDate.getFullYear() + 1)
-        ).toISOString();
+      const newRenewalDate = new Date(
+        currentDate.setFullYear(currentDate.getFullYear() + 1)
+      ).toISOString();
 
-        await supabase
-          .from("ClientBilling")
-          .update({
-            next_renewal_date: newRenewalDate,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("userId", userId);
+      await supabase
+        .from("ClientBilling")
+        .update({
+          next_renewal_date: newRenewalDate,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("userId", userId);
 
-        await supabase.from("AnnualPaymentHistory").insert({
-          userId,
-          amount: tx.amount / 100,
-          reference: tx.reference,
-          status: tx.status.toUpperCase(),
-          paidAt: new Date().toISOString(),
-          description: "Annual Subscription Renewal",
-        });
-      }
+      await supabase.from("AnnualPaymentHistory").insert({
+        userId,
+        amount: tx.amount / 100,
+        reference: tx.reference,
+        status: tx.status.toUpperCase(),
+        paidAt: new Date().toISOString(),
+        description: "Annual Subscription Renewal",
+      });
     }
 
     // ----------------------------------------------------
-    // SEND RECEIPT EMAIL
+    // SEND RECEIPT EMAIL TO CUSTOMER
     // ----------------------------------------------------
     await sendReceiptEmail({
       to: tx.customer?.email,
@@ -176,6 +172,32 @@ export async function GET(req: NextRequest) {
       reference: tx.reference,
       licenseId: metadata.licenseId ?? null,
     });
+
+    // ----------------------------------------------------
+    // ⭐ SEND PAYMENT NOTIFICATION TO ADMIN (info@ctistech.com)
+    // ----------------------------------------------------
+    if (BREVO_API_KEY) {
+      await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": BREVO_API_KEY,
+        },
+        body: JSON.stringify({
+          sender: { name: "CTIS Tech", email: "no-reply@ctistech.com" },
+          to: [{ email: "info@ctistech.com" }],
+          subject: "New Payment Received",
+          htmlContent: `
+            <h2>New Payment Notification</h2>
+            <p><strong>Customer:</strong> ${tx.customer?.email}</p>
+            <p><strong>Amount:</strong> ${tx.amount / 100} ${tx.currency}</p>
+            <p><strong>Reference:</strong> ${tx.reference}</p>
+            <p><strong>Status:</strong> ${tx.status.toUpperCase()}</p>
+            <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+          `,
+        }),
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

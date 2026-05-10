@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 import { rateLimit } from "@/lib/rateLimit";
 import {
@@ -91,46 +90,59 @@ export async function POST(req: Request) {
       );
     }
 
-    // ⭐ SAFE RESEND INITIALIZATION (Fixes Netlify build crash)
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      console.error("❌ Missing RESEND_API_KEY");
-      return NextResponse.json(
-        { error: "Resend API key missing" },
-        { status: 500 }
-      );
-    }
+    // ⭐ BREVO REST API — ADMIN EMAIL
+    const adminPayload = {
+      sender: { name: "CTIS Tech", email: "no-reply@ctistech.com" },
+      to: [{ email: "info@ctistech.com" }],
+      replyTo: { email },
+      subject: "New Contact Message",
+      htmlContent: contactNotificationTemplate({
+        name,
+        email,
+        message,
+        ip,
+      }),
+    };
 
-    const resend = new Resend(apiKey);
+    const adminRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": process.env.BREVO_API_KEY!,
+      },
+      body: JSON.stringify(adminPayload),
+    });
 
-    // Send admin email
-    try {
-      await resend.emails.send({
-        from: "CTIS Tech <onboarding@resend.dev>",
-        to: ["info@ctistech.com", "support@ctistech.com"],
-        subject: "New Contact Message",
-        html: contactNotificationTemplate({ name, email, message, ip }),
-      });
-    } catch (err: any) {
-      console.error("❌ Resend admin email error:", err);
+    if (!adminRes.ok) {
+      console.error("❌ Brevo admin email error:", await adminRes.text());
       return NextResponse.json(
         { error: "Failed to send admin email" },
         { status: 500 }
       );
     }
 
-    // Send auto‑reply
-    try {
-      await resend.emails.send({
-        from: "CTIS Tech <onboarding@resend.dev>",
-        to: email,
-        subject: "We received your message",
-        html: autoReplyTemplate(name, message),
-      });
-    } catch (err: any) {
-      console.error("❌ Resend auto‑reply error:", err);
+    // ⭐ BREVO REST API — AUTO‑REPLY
+    const autoReplyPayload = {
+      sender: { name: "CTIS Tech", email: "no-reply@ctistech.com" },
+      to: [{ email }],
+      replyTo: { email: "info@ctistech.com" },
+      subject: "We received your message",
+      htmlContent: autoReplyTemplate(name, message),
+    };
+
+    const autoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": process.env.BREVO_API_KEY!,
+      },
+      body: JSON.stringify(autoReplyPayload),
+    });
+
+    if (!autoRes.ok) {
+      console.error("❌ Brevo auto-reply error:", await autoRes.text());
       return NextResponse.json(
-        { error: "Failed to send auto‑reply" },
+        { error: "Failed to send auto-reply" },
         { status: 500 }
       );
     }

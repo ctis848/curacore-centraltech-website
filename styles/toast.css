@@ -1,0 +1,50 @@
+/* Smooth & classy slide-in */
+@keyframes slideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Smooth slide-out */
+@keyframes slideOut {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+}
+
+.toast-slide-in {
+  animation: slideIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.toast-slide-out {
+  animation: slideOut 0.22s cubic-bezier(0.55, 0, 0.55, 0.2) forwards;
+}
+
+/* Success icon pop animation */
+@keyframes popIn {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.success-icon {
+  animation: popIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}

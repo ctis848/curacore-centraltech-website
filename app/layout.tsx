@@ -1,4 +1,5 @@
 import "./globals.css";
+import "@/styles/toast.css"; // ← Add this line
 
 export default function RootLayout({
   children,
