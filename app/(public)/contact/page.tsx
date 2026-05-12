@@ -59,17 +59,18 @@ export default function ContactForm() {
         body: JSON.stringify(formData),
       });
 
-      // ⭐ SAFE JSON PARSE — NEVER RETURNS {}
+      // ⭐ FINAL FIX — SAFE JSON PARSE
       let data: any = null;
       try {
-        data = await res.json();
-      } catch (err) {
-        console.error("❌ Backend did not return JSON:", err);
+        const text = await res.text();
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
       }
 
       // ⭐ ALWAYS SHOW REAL ERROR
       if (!res.ok) {
-        console.error("❌ Contact API error:", data || "No JSON returned");
+        console.error("❌ Contact API error:", data ?? "No JSON returned");
         toast.error(data?.error || "Server error");
         setLoading(false);
         return;

@@ -6,6 +6,13 @@ import {
   autoReplyTemplate,
 } from "@/lib/emailTemplates";
 
+function json(payload: any, status = 200) {
+  return new NextResponse(JSON.stringify(payload), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export async function POST(req: Request) {
   try {
     console.log("🔥 Contact API hit");
@@ -13,10 +20,15 @@ export async function POST(req: Request) {
     // Parse JSON safely
     let body: any = null;
     try {
-      body = await req.json();
-    } catch (err: any) {
+      const text = await req.text();
+      body = text ? JSON.parse(text) : null;
+    } catch (err) {
       console.error("❌ JSON parse error:", err);
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      return json({ error: "Invalid JSON body" }, 400);
+    }
+
+    if (!body) {
+      return json({ error: "Empty request body" }, 400);
     }
 
     const ip =
@@ -29,38 +41,33 @@ export async function POST(req: Request) {
     // Honeypot
     if (honeypot && honeypot.trim() !== "") {
       console.log("🛑 Honeypot triggered");
-      return NextResponse.json({ success: true });
+      return json({ success: true });
     }
 
     // Timestamp spam protection
-    if (!timestamp || timestamp < 1500) {
-      return NextResponse.json(
-        { error: "Form submitted too quickly" },
-        { status: 400 }
-      );
+    const now = Date.now();
+    if (!timestamp || now - timestamp < 1500) {
+      return json({ error: "Form submitted too quickly" }, 400);
     }
 
     // Validation
     if (!name || !email || !message) {
-      return NextResponse.json(
-        { error: "All fields are required" },
-        { status: 400 }
-      );
+      return json({ error: "All fields are required" }, 400);
     }
 
     // Rate limit
     try {
       if (!rateLimit(ip as string, 5, 60_000)) {
-        return NextResponse.json(
+        return json(
           { error: "Too many requests. Try again later." },
-          { status: 429 }
+          429
         );
       }
     } catch (err: any) {
       console.error("❌ Rate limit error:", err);
-      return NextResponse.json(
+      return json(
         { error: "Rate limit failure: " + err.message },
-        { status: 500 }
+        500
       );
     }
 
@@ -77,20 +84,20 @@ export async function POST(req: Request) {
 
       if (dbError) {
         console.error("❌ Supabase error:", dbError);
-        return NextResponse.json(
+        return json(
           { error: "Database error: " + dbError.message },
-          { status: 500 }
+          500
         );
       }
     } catch (err: any) {
       console.error("❌ Supabase crash:", err);
-      return NextResponse.json(
+      return json(
         { error: "Supabase failure: " + err.message },
-        { status: 500 }
+        500
       );
     }
 
-    // ⭐ BREVO REST API — ADMIN EMAIL
+    // ⭐ BREVO — ADMIN EMAIL
     const adminPayload = {
       sender: { name: "CTIS Tech", email: "no-reply@ctistech.com" },
       to: [{ email: "info@ctistech.com" }],
@@ -115,13 +122,10 @@ export async function POST(req: Request) {
 
     if (!adminRes.ok) {
       console.error("❌ Brevo admin email error:", await adminRes.text());
-      return NextResponse.json(
-        { error: "Failed to send admin email" },
-        { status: 500 }
-      );
+      return json({ error: "Failed to send admin email" }, 500);
     }
 
-    // ⭐ BREVO REST API — AUTO‑REPLY
+    // ⭐ BREVO — AUTO‑REPLY
     const autoReplyPayload = {
       sender: { name: "CTIS Tech", email: "no-reply@ctistech.com" },
       to: [{ email }],
@@ -141,18 +145,15 @@ export async function POST(req: Request) {
 
     if (!autoRes.ok) {
       console.error("❌ Brevo auto-reply error:", await autoRes.text());
-      return NextResponse.json(
-        { error: "Failed to send auto-reply" },
-        { status: 500 }
-      );
+      return json({ error: "Failed to send auto-reply" }, 500);
     }
 
-    return NextResponse.json({ success: true });
+    return json({ success: true });
   } catch (err: any) {
     console.error("❌ UNCAUGHT ERROR:", err);
-    return NextResponse.json(
+    return json(
       { error: err?.message || "Unknown server error" },
-      { status: 500 }
+      500
     );
   }
 }
