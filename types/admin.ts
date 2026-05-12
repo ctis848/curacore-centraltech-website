@@ -28,20 +28,49 @@ export interface LicenseRow {
 }
 
 // =========================
+// LICENSE
+// =========================
+
+export interface LicenseRow {
+  id: string;
+  userId: string;
+  productName: string | null;
+  licenseKey: string | null;
+  status: "ACTIVE" | "INACTIVE" | "EXPIRED";
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+// =========================
 // LICENSE REQUEST
 // =========================
-// ⭐ FIXED: requestKey is ALWAYS a string
-// This removes the TypeScript error in your table.
 
 export interface LicenseRequestRow {
   id: string;
   userId: string;
   productName: string | null;
-  requestKey: string; // FIXED (was string | null)
+  requestKey: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
-  createdAt: string;
-  updatedAt?: string;
+  requestedAt: string;
+
+  User?: {
+    id: string;
+    email: string;
+    companyName: string | null;
+  } | null;
 }
+
+// =========================
+// APPROVED LICENSE (link between request and license)
+// =========================
+
+export interface ApprovedLicenseRow {
+  id: string;
+  licenseRequestId: string;
+  licenseId: string;
+  approvedAt: string;
+}
+
 
 // =========================
 // INVOICE

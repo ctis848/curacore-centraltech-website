@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
-// If you have a helper for generating license keys, keep it.
-// Otherwise, here is a simple fallback:
 function generateLicenseKey() {
-  return Math.random().toString(36).substring(2, 12).toUpperCase();
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 20).toUpperCase();
 }
 
 export async function POST(
@@ -14,31 +11,14 @@ export async function POST(
 ) {
   const { id } = context.params;
 
-  const cookieStore = await cookies();
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: any) {
-          cookieStore.set(name, value, options);
-        },
-        remove(name: string, options: any) {
-          cookieStore.set(name, "", { ...options, maxAge: 0 });
-        }
-      }
-    }
-  );
-
   const newKey = generateLicenseKey();
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("License")
-    .update({ licenseKey: newKey })
+    .update({
+      licenseKey: newKey,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id);
 
   if (error) {

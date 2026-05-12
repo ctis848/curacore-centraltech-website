@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(
   request: NextRequest,
@@ -8,29 +7,12 @@ export async function POST(
 ) {
   const { id } = context.params;
 
-  const cookieStore = await cookies();
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: any) {
-          cookieStore.set(name, value, options);
-        },
-        remove(name: string, options: any) {
-          cookieStore.set(name, "", { ...options, maxAge: 0 });
-        }
-      }
-    }
-  );
-
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("License")
-    .update({ status: "INACTIVE" })
+    .update({
+      status: "INACTIVE",
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id);
 
   if (error) {

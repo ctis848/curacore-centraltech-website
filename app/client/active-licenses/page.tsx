@@ -2,9 +2,21 @@
 
 import React, { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import type { LicenseRow } from "@/types/admin";
 
-export default function ClientActiveLicensesPage() {
+type LicenseRow = {
+  id: string;
+  productName: string | null;
+  licenseKey: string | null;
+  status: string;
+  userid: string;
+  createdat: string;
+  expiresat: string | null;
+  annualFeePercent: number | null;
+  annualFeePaidUntil: string | null;
+  requestKey?: string | null; // ⭐ Added
+};
+
+export default function ClientLicensesPage() {
   const supabase = supabaseBrowser();
 
   const [user, setUser] = useState<any>(null);
@@ -13,7 +25,9 @@ export default function ClientActiveLicensesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  const [sortField, setSortField] = useState<keyof LicenseRow>("createdAt");
+  const [activeTab, setActiveTab] = useState<"ACTIVE" | "PENDING">("ACTIVE");
+
+  const [sortField, setSortField] = useState<keyof LicenseRow>("createdat");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const [page, setPage] = useState(1);
@@ -22,8 +36,7 @@ export default function ClientActiveLicensesPage() {
   // Load user
   useEffect(() => {
     async function loadUser() {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) console.error("Auth load error:", error);
+      const { data } = await supabase.auth.getUser();
       setUser(data?.user || null);
     }
     loadUser();
@@ -33,41 +46,69 @@ export default function ClientActiveLicensesPage() {
   useEffect(() => {
     if (!user?.id) return;
     loadLicenses();
-  }, [user]);
+  }, [user, activeTab]);
 
   async function loadLicenses() {
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("License")
-      .select(`
-        id,
-        productName,
-        licenseKey,
-        status,
-        userId,
-        createdAt,
-        expiresAt,
-        annualFeePercent,
-        annualFeePaidUntil
-      `)
-      .eq("userId", user.id)
-      .in("status", ["ACTIVE", "PAID", "NOT_DUE"])
-      .order("createdAt", { ascending: false });
+    // ACTIVE TAB → Load from License table
+    if (activeTab === "ACTIVE") {
+      const { data } = await supabase
+        .from("License")
+        .select(`
+          id,
+          productName,
+          licenseKey,
+          status,
+          userid,
+          createdat,
+          expiresat,
+          annualFeePercent,
+          annualFeePaidUntil
+        `)
+        .eq("userid", user.id)
+        .in("status", ["ACTIVE", "PAID", "NOT_DUE"])
+        .order("createdat", { ascending: false });
 
-    if (error) {
-      console.error("Client License fetch error RAW:", error);
-      console.error(
-        "Client License fetch error JSON:",
-        JSON.stringify(error, null, 2)
-      );
+      setLicenses(data || []);
+      setFiltered(data || []);
       setLoading(false);
       return;
     }
 
-    setLicenses(data || []);
-    setFiltered(data || []);
-    setLoading(false);
+    // PENDING TAB → Load from LicenseRequest table
+    if (activeTab === "PENDING") {
+      const { data: reqs } = await supabase
+        .from("LicenseRequest")
+        .select(`
+          id,
+          productName,
+          requestKey,
+          status,
+          userId,
+          requestedAt
+        `)
+        .eq("userId", user.id)
+        .eq("status", "PENDING")
+        .order("requestedAt", { ascending: false });
+
+      const pendingMapped = (reqs || []).map((r) => ({
+        id: r.id,
+        productName: r.productName,
+        licenseKey: null,
+        status: "PENDING",
+        userid: r.userId,
+        createdat: r.requestedAt,
+        expiresat: null,
+        annualFeePercent: null,
+        annualFeePaidUntil: null,
+        requestKey: r.requestKey, // ⭐ Added
+      }));
+
+      setLicenses(pendingMapped);
+      setFiltered(pendingMapped);
+      setLoading(false);
+    }
   }
 
   // Sorting
@@ -92,7 +133,8 @@ export default function ClientActiveLicensesPage() {
       return (
         (l.productName ?? "").toLowerCase().includes(s) ||
         (l.licenseKey ?? "").toLowerCase().includes(s) ||
-        (l.status ?? "").toLowerCase().includes(s)
+        (l.status ?? "").toLowerCase().includes(s) ||
+        (l.requestKey ?? "").toLowerCase().includes(s) // ⭐ Added
       );
     });
 
@@ -103,17 +145,15 @@ export default function ClientActiveLicensesPage() {
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
   const totalPages = Math.ceil(filtered.length / pageSize);
 
-  // Copy license key
   function copyLicenseKey(key: string | null) {
     navigator.clipboard.writeText(key ?? "");
     alert("License key copied");
   }
 
-  // Download license file
   function downloadLicense(lic: LicenseRow) {
     const content = `PRODUCT=${lic.productName ?? ""}
 LICENSE_KEY=${lic.licenseKey ?? ""}
-USER=${lic.userId ?? ""}`;
+USER=${lic.userid ?? ""}`;
 
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -128,13 +168,41 @@ USER=${lic.userId ?? ""}`;
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold mb-4">Active Licenses</h1>
+      {/* Dynamic Headline */}
+      <h1 className="text-2xl font-semibold mb-4">
+        {activeTab === "ACTIVE" ? "Active Licenses" : "Pending License Requests"}
+      </h1>
+
+      {/* Tabs */}
+      <div className="flex gap-4 mb-6">
+        <button
+          onClick={() => setActiveTab("ACTIVE")}
+          className={`px-4 py-2 rounded ${
+            activeTab === "ACTIVE"
+              ? "bg-blue-600 text-white"
+              : "bg-slate-200 text-slate-700"
+          }`}
+        >
+          Active Licenses
+        </button>
+
+        <button
+          onClick={() => setActiveTab("PENDING")}
+          className={`px-4 py-2 rounded ${
+            activeTab === "PENDING"
+              ? "bg-blue-600 text-white"
+              : "bg-slate-200 text-slate-700"
+          }`}
+        >
+          Pending Requests
+        </button>
+      </div>
 
       {/* Search */}
       <div className="flex flex-wrap gap-3 mb-4">
         <input
           type="text"
-          placeholder="Search by product, key, or status..."
+          placeholder="Search by product, key, request key, or status..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="px-3 py-2 border rounded shadow-sm flex-1 min-w-[200px]"
@@ -144,87 +212,99 @@ USER=${lic.userId ?? ""}`;
       {loading && <p className="text-slate-500">Loading licenses…</p>}
 
       {!loading && filtered.length === 0 && (
-        <p className="text-slate-500">No active licenses found.</p>
+        <p className="text-slate-500">
+          {activeTab === "ACTIVE"
+            ? "No active licenses found."
+            : "No pending requests found."}
+        </p>
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto border rounded-lg bg-white shadow-sm">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-100 text-slate-700">
-            <tr>
-              {[
-                { label: "Product", field: "productName" },
-                { label: "License Key", field: "licenseKey" },
-                { label: "Status", field: "status" },
-                { label: "Created", field: "createdAt" },
-              ].map((col) => (
-                <th
-                  key={col.label}
-                  className="px-4 py-2 text-left cursor-pointer"
-                  onClick={() => {
-                    setSortField(col.field as keyof LicenseRow);
-                    setSortDir(sortDir === "asc" ? "desc" : "asc");
-                  }}
-                >
-                  {col.label}
-                </th>
-              ))}
-              <th className="px-4 py-2 text-left">Actions</th>
-            </tr>
-          </thead>
+      {!loading && filtered.length > 0 && (
+        <div className="overflow-x-auto border rounded-lg bg-white shadow-sm">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-100 text-slate-700">
+              <tr>
+                <th className="px-4 py-2">Product</th>
 
-          <tbody>
-            {paginated.map((lic) => (
-              <tr key={lic.id} className="border-t hover:bg-slate-50">
-                <td className="px-4 py-2">{lic.productName ?? "N/A"}</td>
+                {/* ⭐ Show Request Key column ONLY in Pending tab */}
+                {activeTab === "PENDING" && (
+                  <th className="px-4 py-2">Request Key</th>
+                )}
 
-                <td className="px-4 py-2 font-mono break-all">
-                  {lic.licenseKey ?? "N/A"}
-                </td>
-
-                <td className="px-4 py-2">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-semibold ${
-                      lic.status === "ACTIVE"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    {lic.status}
-                  </span>
-                </td>
-
-                <td className="px-4 py-2">
-                  {new Date(lic.createdAt).toLocaleString()}
-                </td>
-
-                <td className="px-4 py-2 space-x-3">
-                  <a
-                    href={`/client/licenses/${lic.id}`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    View
-                  </a>
-
-                  <button
-                    onClick={() => copyLicenseKey(lic.licenseKey)}
-                    className="text-indigo-600 hover:underline"
-                  >
-                    Copy
-                  </button>
-
-                  <button
-                    onClick={() => downloadLicense(lic)}
-                    className="text-green-600 hover:underline"
-                  >
-                    Download
-                  </button>
-                </td>
+                <th className="px-4 py-2">License Key</th>
+                <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2">Created</th>
+                <th className="px-4 py-2">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+
+            <tbody>
+              {paginated.map((lic) => (
+                <tr key={lic.id} className="border-t hover:bg-slate-50">
+                  <td className="px-4 py-2">{lic.productName ?? "N/A"}</td>
+
+                  {/* ⭐ Show Request Key value */}
+                  {activeTab === "PENDING" && (
+                    <td className="px-4 py-2 font-mono break-all">
+                      {lic.requestKey ?? "N/A"}
+                    </td>
+                  )}
+
+                  <td className="px-4 py-2 font-mono break-all">
+                    {lic.licenseKey ?? "N/A"}
+                  </td>
+
+                  <td className="px-4 py-2">
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-semibold ${
+                        lic.status === "ACTIVE"
+                          ? "bg-green-100 text-green-700"
+                          : lic.status === "PENDING"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {lic.status}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-2">
+                    {new Date(lic.createdat).toLocaleString()}
+                  </td>
+
+                  <td className="px-4 py-2 space-x-3">
+                    <a
+                      href={`/client/licenses/${lic.id}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      View
+                    </a>
+
+                    {lic.licenseKey && (
+                      <>
+                        <button
+                          onClick={() => copyLicenseKey(lic.licenseKey)}
+                          className="text-indigo-600 hover:underline"
+                        >
+                          Copy
+                        </button>
+
+                        <button
+                          onClick={() => downloadLicense(lic)}
+                          className="text-green-600 hover:underline"
+                        >
+                          Download
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Pagination */}
       <div className="flex justify-between items-center mt-4">

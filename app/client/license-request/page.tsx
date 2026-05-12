@@ -50,7 +50,6 @@ export default function ClientLicenseRequestPage() {
       productName,
       notes: notes || null,
       status: "PENDING",
-      userEmail: session.user.email ?? null,
     });
 
     if (error) {

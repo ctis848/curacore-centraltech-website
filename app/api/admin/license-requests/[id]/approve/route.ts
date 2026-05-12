@@ -1,91 +1,111 @@
-// FILE: app/api/admin/license-requests/[id]/approve/route.ts
-
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin"; // ✅ FIXED: correct import
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/send";
-import { licenseKeyDeliveredTemplate } from "@/lib/email/templates/licenseKeyDelivered";
-import { generateLicenseKey } from "@/lib/license/generator";
-import crypto from "crypto"; // ✅ Required for randomUUID()
 
 interface RouteParams {
   params: { id: string };
 }
 
 export async function POST(req: Request, { params }: RouteParams) {
-  try {
-    const id = params.id;
-    const { manualKey } = await req.json(); // admin may paste a key
+  const id = params.id;
+  const { manualKey } = await req.json();
 
-    // 1. Fetch the license request + user email
-    const { data: request, error: requestError } = await supabaseAdmin
-      .from("LicenseRequest")
-      .select("*, User(email)")
-      .eq("id", id)
-      .single();
-
-    if (requestError || !request) {
-      return NextResponse.json(
-        { success: false, message: "License request not found" },
-        { status: 404 }
-      );
-    }
-
-    // 2. Determine license key (manual or auto-generated)
-    const licenseKey = manualKey?.trim() || generateLicenseKey();
-
-    // 3. Create license record
-    const licenseId = crypto.randomUUID();
-
-    const { error: licenseError } = await supabaseAdmin.from("License").insert({
-      id: licenseId,
-      userId: request.userId,
-      productName: request.productName,
-      licenseKey,
-      activationCount: 0,
-      annualFeePercent: 20,
-      status: "ACTIVE",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    if (licenseError) {
-      return NextResponse.json(
-        { success: false, message: licenseError.message },
-        { status: 500 }
-      );
-    }
-
-    // 4. Update request status
-    await supabaseAdmin
-      .from("LicenseRequest")
-      .update({
-        status: "APPROVED",
-        processedAt: new Date().toISOString(),
-        processedBy: "ADMIN",
-      })
-      .eq("id", id);
-
-    // 5. Send license key email to client
-    const userEmail = request.User?.email;
-
-    if (userEmail) {
-      await sendEmail({
-        to: userEmail,
-        subject: "Your License Key",
-        html: licenseKeyDeliveredTemplate(licenseKey, request.productName),
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "License approved and key sent to client.",
-    });
-
-  } catch (err: any) {
-    console.error("APPROVE LICENSE ERROR:", err);
+  if (!manualKey || !manualKey.trim()) {
     return NextResponse.json(
-      { success: false, message: err.message },
+      { success: false, message: "License key is required" },
+      { status: 400 }
+    );
+  }
+
+  // 1) Load request using SAME RPC as UI
+  const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc(
+    "get_license_requests_with_email"
+  );
+
+  if (rpcError) {
+    return NextResponse.json(
+      { success: false, message: rpcError.message },
       { status: 500 }
     );
   }
+
+  const request = (rpcData || []).find((r: any) => r.id === id);
+
+  if (!request) {
+    return NextResponse.json(
+      { success: false, message: "License request not found" },
+      { status: 404 }
+    );
+  }
+
+  // 2) Validate status
+  if (request.status !== "PENDING") {
+    return NextResponse.json(
+      { success: false, message: "Request already processed" },
+      { status: 400 }
+    );
+  }
+
+  // 3) Create License
+  const { data: license, error: licError } = await supabaseAdmin
+    .from("License")
+    .insert({
+      userId: request.userId,
+      productName: request.productName,
+      licenseKey: manualKey.trim(),
+      status: "ACTIVE",
+      expiresAt: null,
+    })
+    .select()
+    .single();
+
+  if (licError || !license) {
+    return NextResponse.json(
+      { success: false, message: licError?.message || "Failed to create license" },
+      { status: 500 }
+    );
+  }
+
+  // 4) Update LicenseRequest
+  await supabaseAdmin
+    .from("LicenseRequest")
+    .update({
+      status: "APPROVED",
+      processedAt: new Date().toISOString(),
+      processedBy: "ADMIN",
+      requestKey: manualKey.trim(),
+      notes: "Manual license key issued",
+    })
+    .eq("id", id);
+
+  // 5) Link to ApprovedLicense
+  await supabaseAdmin.from("ApprovedLicense").insert({
+    licenseRequestId: id,
+    licenseId: license.id,
+  });
+
+  // 6) Send email
+  if (request.userEmail) {
+    try {
+      await sendEmail({
+        to: request.userEmail,
+        subject: "Your License Has Been Approved",
+        html: `
+          <h2>Your License is Ready</h2>
+          <p>Product: <strong>${request.productName}</strong></p>
+          <p>Your license key:</p>
+          <p style="font-size:18px;font-weight:bold;color:#0a7d32;">
+            ${manualKey.trim()}
+          </p>
+        `,
+      });
+    } catch (err) {
+      console.error("Email failed:", err);
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    data: { request, license },
+  });
 }

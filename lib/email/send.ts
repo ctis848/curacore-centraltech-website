@@ -4,6 +4,11 @@ export async function sendEmail({ to, subject, html }: SendEmailOptions) {
   const apiKey = process.env.BREVO_API_KEY!;
   const from = process.env.EMAIL_FROM!;
 
+  if (!apiKey || !from) {
+    console.error("Missing BREVO_API_KEY or EMAIL_FROM in environment variables");
+    throw new Error("Email configuration error");
+  }
+
   const payload = {
     sender: {
       email: from,

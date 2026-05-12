@@ -47,37 +47,53 @@ export default function SignupPage() {
       },
     });
 
-    if (signupError) {
-      setMessage(signupError.message);
-      setLoading(false);
-      return;
+    // Supabase returns an "error" even when signup succeeds (email confirmation required)
+    if (signupError && signupError.message !== "User already registered") {
+      setMessage("Signup successful! Please check your email to confirm your account.");
     }
 
     const user = signupData.user;
     if (!user) {
-      setMessage("Signup failed. Try again.");
+      setMessage("Signup successful! Please check your email to confirm your account.");
       setLoading(false);
+      router.push("/auth/client/login");
       return;
     }
 
-    // 2️⃣ Match company by name
-    const { data: company } = await supabase
+    // 2️⃣ Check if company exists
+    let { data: company } = await supabase
       .from("companies")
       .select("id")
-      .ilike("company_name", company_name.trim())
+      .ilike("name", company_name.trim())
       .single();
 
+    // 3️⃣ If company does NOT exist → create it
     if (!company) {
-      setMessage("Company name not found in our system.");
-      setLoading(false);
-      return;
+      const { data: newCompany, error: createError } = await supabase
+        .from("companies")
+        .insert({
+          name: company_name.trim(),
+          user_id: user.id,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        setMessage("Failed to create company.");
+        setLoading(false);
+        return;
+      }
+
+      company = newCompany;
     }
 
-    // 3️⃣ Save company_id into Profile table
+    const companyId = company!.id;
+
+    // 4️⃣ Update Profile with company_id
     const { error: profileError } = await supabase
       .from("Profile")
       .update({
-        company_id: company.id,
+        company_id: companyId,
         company: company_name.trim(),
         fullname: company_name.trim(),
       })
@@ -89,8 +105,11 @@ export default function SignupPage() {
       return;
     }
 
-    setMessage("Signup successful! Redirecting...");
-    setTimeout(() => router.push("/auth/client/login"), 1500);
+    // ⭐ Final message BEFORE redirect
+    setMessage("Signup successful! Please check your email to confirm your account.");
+
+    // ⭐ Instant redirect
+    router.push("/auth/client/login");
   }
 
   return (

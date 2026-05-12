@@ -45,7 +45,7 @@ export default function AdminDashboardPage() {
       try {
         setLoading(true);
 
-        // 1. Verify admin session (you can swap this to your own admin auth)
+        // 1. Verify admin session
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -72,7 +72,13 @@ export default function AdminDashboardPage() {
 
         const licenses = (licensesRes.data || []) as LicenseRow[];
         const invoices = (invoicesRes.data || []) as InvoiceRow[];
-        const requests = (requestsRes.data || []) as LicenseRequestRow[];
+
+        // ⭐ FIX: Map createdAt → requestedAt to satisfy LicenseRequestRow
+        const requests = (requestsRes.data || []).map((r: any) => ({
+          ...r,
+          requestedAt: r.requestedAt ?? r.createdAt ?? null,
+        })) as LicenseRequestRow[];
+
         const tickets = (ticketsRes.data || []) as TicketRow[];
 
         const totalActiveLicenses = licenses.filter(
@@ -107,15 +113,16 @@ export default function AdminDashboardPage() {
           const now = new Date();
           const diff =
             (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-          return diff <= 30; // due within 30 days or already past
+          return diff <= 30;
         });
 
+        // ⭐ FIX: Use requestedAt instead of createdAt
         const pendingRequestsList = requests
           .filter((r) => r.status === "PENDING")
           .sort(
             (a, b) =>
-              new Date(a.createdAt).getTime() -
-              new Date(b.createdAt).getTime()
+              new Date(a.requestedAt || "").getTime() -
+              new Date(b.requestedAt || "").getTime()
           )
           .slice(0, 5);
 
