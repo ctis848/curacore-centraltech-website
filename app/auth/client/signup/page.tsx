@@ -29,14 +29,14 @@ export default function SignupPage() {
       return;
     }
 
-    // 1️⃣ Create user ONLY
-    const { error } = await supabase.auth.signUp({
+    // 1️⃣ Create user
+    const { error: signupError } = await supabase.auth.signUp({
       email,
       password,
     });
 
-    if (error) {
-      setMessage(error.message);
+    if (signupError) {
+      setMessage(signupError.message);
       setLoading(false);
       return;
     }
@@ -56,8 +56,8 @@ export default function SignupPage() {
 
     const user = loginData?.user;
 
-    // ⭐ LAYER 1 — READ‑ONLY COMPANY LOOKUP
-    let company: any = null;
+    // ⭐ LAYER 1 — LOOKUP COMPANY BY NAME
+    let company = null;
 
     if (company_name && user) {
       const { data, error: lookupError } = await supabase
@@ -72,32 +72,37 @@ export default function SignupPage() {
       console.log("LOOKUP ERROR:", lookupError);
     }
 
-    // ⭐ LAYER 2 — ATTACH USER TO EXISTING COMPANY (UPDATE ONLY)
+    // ⭐ LAYER 2 — ATTACH USER TO EXISTING COMPANY
     if (company && user) {
-      const { error: updateError } = await supabase
-        .from("companies")
-        .update({ user_id: user.id })
-        .eq("id", company.id);
+      const { error: attachError } = await supabase
+        .from("user_companies")
+        .insert({
+          user_id: user.id,
+          company_id: company.id,
+        });
 
-      console.log("COMPANY UPDATE ERROR:", updateError);
+      console.log("ATTACH EXISTING COMPANY ERROR:", attachError);
     }
 
-    // ⭐ LAYER 3 — CREATE NEW COMPANY IF NOT FOUND (INSERT)
+    // ⭐ LAYER 3 — CREATE NEW COMPANY + ATTACH USER
     if (!company && user && company_name) {
       const { data: newCompany, error: insertError } = await supabase
         .from("companies")
         .insert({
           name: company_name.trim(),
-          user_id: user.id,
-          annual_price: 0,
-          renewal_date: null,
-          license_count: 0,
         })
         .select()
         .single();
 
       console.log("NEW COMPANY CREATED:", newCompany);
       console.log("INSERT ERROR:", insertError);
+
+      if (newCompany) {
+        await supabase.from("user_companies").insert({
+          user_id: user.id,
+          company_id: newCompany.id,
+        });
+      }
     }
 
     // 3️⃣ Redirect
