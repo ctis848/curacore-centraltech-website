@@ -14,6 +14,7 @@ type DashboardStats = {
   daysRemaining: number | null;
   annualFee: number | null;
   nextRenewalDate: string | null;
+  licenseCount: number | null;
 };
 
 function getDaysRemaining(dateString: string | null) {
@@ -38,6 +39,7 @@ export default function ClientDashboardPage() {
     daysRemaining: null,
     annualFee: null,
     nextRenewalDate: null,
+    licenseCount: null,
   });
 
   useEffect(() => {
@@ -56,29 +58,38 @@ export default function ClientDashboardPage() {
 
         const userId = user.id;
 
-        const [licensesRes, invoicesRes, ticketsRes, billingRes] =
-          await Promise.all([
-            supabase
-              .from("Licenses")
-              .select("id, license_key, created_at")
-              .eq("client_id", userId),
+        // ⭐ FETCH COMPANY DETAILS
+        const { data: company, error: companyError } = await supabase
+          .from("companies")
+          .select("*")
+          .eq("user_id", userId)
+          .single();
 
-            supabase
-              .from("Invoice")
-              .select("id, status")
-              .eq("userId", userId),
+        console.log("COMPANY:", company);
+        console.log("COMPANY ERROR:", companyError);
 
-            supabase
-              .from("SupportTicket")
-              .select("id, status")
-              .eq("userId", userId),
+        const annualFee = company?.annual_price ?? null;
+        const nextRenewalDate = company?.renewal_date ?? null;
+        const licenseCount = company?.license_count ?? null;
+        const daysRemaining = getDaysRemaining(nextRenewalDate);
 
-            supabase
-              .from("ClientBilling")
-              .select("annual_fee, next_renewal_date")
-              .eq("userId", userId)
-              .single(),
-          ]);
+        // ⭐ FETCH OTHER DASHBOARD DATA
+        const [licensesRes, invoicesRes, ticketsRes] = await Promise.all([
+          supabase
+            .from("Licenses")
+            .select("id, license_key, created_at")
+            .eq("client_id", userId),
+
+          supabase
+            .from("Invoice")
+            .select("id, status")
+            .eq("userId", userId),
+
+          supabase
+            .from("SupportTicket")
+            .select("id, status")
+            .eq("userId", userId),
+        ]);
 
         const licenses = licensesRes.data || [];
         const invoices = invoicesRes.data || [];
@@ -87,10 +98,6 @@ export default function ClientDashboardPage() {
         const activeLicenses = licenses.length;
         const unpaidInvoices = invoices.filter((i) => i.status !== "PAID").length;
         const openTickets = tickets.filter((t) => t.status === "OPEN").length;
-
-        const annualFee = billingRes.data?.annual_fee ?? null;
-        const nextRenewalDate = billingRes.data?.next_renewal_date ?? null;
-        const daysRemaining = getDaysRemaining(nextRenewalDate);
 
         setStats({
           activeLicenses,
@@ -101,6 +108,7 @@ export default function ClientDashboardPage() {
           daysRemaining,
           annualFee,
           nextRenewalDate,
+          licenseCount,
         });
       } catch (err) {
         console.error("Dashboard error:", err);
@@ -181,16 +189,15 @@ export default function ClientDashboardPage() {
             ))}
           </div>
 
+          {/* ⭐ COMPANY BILLING DETAILS */}
           <section className="grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border bg-white p-4 shadow-sm">
               <h2 className="text-sm font-semibold text-slate-800 mb-2">
-                License Summary
+                Company License Summary
               </h2>
               <p className="text-sm text-slate-600">
-                You have{" "}
-                <span className="font-semibold">{stats.activeLicenses}</span>{" "}
-                active licenses out of{" "}
-                <span className="font-semibold">{stats.totalLicenses}</span>.
+                <span className="font-semibold">Total Licenses Allowed:</span>{" "}
+                {stats.licenseCount ?? "—"}
               </p>
             </div>
 
@@ -224,7 +231,7 @@ export default function ClientDashboardPage() {
             </div>
           </section>
 
-          {/* ⭐ BIG DIGITAL COUNTDOWN TIMER */}
+          {/* ⭐ DIGITAL COUNTDOWN TIMER */}
           {stats.daysRemaining != null && (
             <div
               className="

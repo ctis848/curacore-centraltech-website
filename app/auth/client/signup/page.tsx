@@ -18,10 +18,10 @@ export default function SignupPage() {
     setMessage("");
 
     const form = new FormData(e.target);
+    const company_name = form.get("company_name") as string;
     const email = form.get("email") as string;
     const password = form.get("password") as string;
     const confirm = form.get("confirm") as string;
-    const company_name = form.get("company_name") as string;
 
     if (password !== confirm) {
       setMessage("Passwords do not match");
@@ -29,87 +29,79 @@ export default function SignupPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setMessage("Password must be at least 6 characters long");
-      setLoading(false);
-      return;
-    }
-
-    // 1️⃣ Create user
-    const { data: signupData, error: signupError } = await supabase.auth.signUp({
+    // 1️⃣ Create user ONLY
+    const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          company_name: company_name.trim(),
-          full_name: company_name.trim(),
-        },
-      },
     });
 
-    // Supabase returns an "error" even when signup succeeds (email confirmation required)
-    if (signupError && signupError.message !== "User already registered") {
-      setMessage("Signup successful! Please check your email to confirm your account.");
-    }
-
-    const user = signupData.user;
-    if (!user) {
-      setMessage("Signup successful! Please check your email to confirm your account.");
+    if (error) {
+      setMessage(error.message);
       setLoading(false);
-      router.push("/auth/client/login");
       return;
     }
 
-    // 2️⃣ Check if company exists
-    let { data: company } = await supabase
-      .from("companies")
-      .select("id")
-      .ilike("name", company_name.trim())
-      .single();
+    // 2️⃣ Login immediately
+    const { data: loginData, error: loginError } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    // 3️⃣ If company does NOT exist → create it
-    if (!company) {
-      const { data: newCompany, error: createError } = await supabase
+    if (loginError) {
+      setMessage("Signup succeeded but login failed.");
+      setLoading(false);
+      return;
+    }
+
+    const user = loginData?.user;
+
+    // ⭐ LAYER 1 — READ‑ONLY COMPANY LOOKUP
+    let company: any = null;
+
+    if (company_name && user) {
+      const { data, error: lookupError } = await supabase
+        .from("companies")
+        .select("*")
+        .ilike("name", company_name.trim())
+        .single();
+
+      company = data;
+
+      console.log("COMPANY LOOKUP RESULT:", data);
+      console.log("LOOKUP ERROR:", lookupError);
+    }
+
+    // ⭐ LAYER 2 — ATTACH USER TO EXISTING COMPANY (UPDATE ONLY)
+    if (company && user) {
+      const { error: updateError } = await supabase
+        .from("companies")
+        .update({ user_id: user.id })
+        .eq("id", company.id);
+
+      console.log("COMPANY UPDATE ERROR:", updateError);
+    }
+
+    // ⭐ LAYER 3 — CREATE NEW COMPANY IF NOT FOUND (INSERT)
+    if (!company && user && company_name) {
+      const { data: newCompany, error: insertError } = await supabase
         .from("companies")
         .insert({
           name: company_name.trim(),
           user_id: user.id,
+          annual_price: 0,
+          renewal_date: null,
+          license_count: 0,
         })
         .select()
         .single();
 
-      if (createError) {
-        setMessage("Failed to create company.");
-        setLoading(false);
-        return;
-      }
-
-      company = newCompany;
+      console.log("NEW COMPANY CREATED:", newCompany);
+      console.log("INSERT ERROR:", insertError);
     }
 
-    const companyId = company!.id;
-
-    // 4️⃣ Update Profile with company_id
-    const { error: profileError } = await supabase
-      .from("Profile")
-      .update({
-        company_id: companyId,
-        company: company_name.trim(),
-        fullname: company_name.trim(),
-      })
-      .eq("userid", user.id);
-
-    if (profileError) {
-      setMessage("Failed to link company to profile.");
-      setLoading(false);
-      return;
-    }
-
-    // ⭐ Final message BEFORE redirect
-    setMessage("Signup successful! Please check your email to confirm your account.");
-
-    // ⭐ Instant redirect
-    router.push("/auth/client/login");
+    // 3️⃣ Redirect
+    router.push("/client/dashboard");
   }
 
   return (
@@ -158,7 +150,7 @@ export default function SignupPage() {
           />
 
           {message && (
-            <p className="text-center text-sm text-gray-700 dark:text-gray-300 mb-3">
+            <p className="text-center text-sm text-red-600 dark:text-red-400 mb-3">
               {message}
             </p>
           )}
@@ -170,24 +162,6 @@ export default function SignupPage() {
           >
             {loading ? "Creating account..." : "Sign Up"}
           </button>
-
-          <div className="flex justify-between mt-4 text-sm">
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="text-gray-600 dark:text-gray-300 hover:underline"
-            >
-              Return Home
-            </button>
-
-            <button
-              type="button"
-              onClick={() => router.push("/auth/client/login")}
-              className="text-teal-600 hover:underline"
-            >
-              Login
-            </button>
-          </div>
         </form>
       </div>
     </div>

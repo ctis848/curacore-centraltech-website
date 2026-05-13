@@ -17,7 +17,9 @@ export async function POST(req: Request) {
   try {
     console.log("🔥 Contact API hit");
 
-    // Parse JSON safely
+    // -----------------------------
+    // 1. SAFE JSON PARSE
+    // -----------------------------
     let body: any = null;
     try {
       const text = await req.text();
@@ -38,24 +40,41 @@ export async function POST(req: Request) {
 
     const { name, email, message, honeypot, timestamp } = body;
 
-    // Honeypot
+    // -----------------------------
+    // 2. HONEYPOT
+    // -----------------------------
     if (honeypot && honeypot.trim() !== "") {
       console.log("🛑 Honeypot triggered");
       return json({ success: true });
     }
 
+<<<<<<< HEAD
     // Timestamp spam protection
     const now = Date.now();
     if (!timestamp || now - timestamp < 1500) {
       return json({ error: "Form submitted too quickly" }, 400);
+=======
+    // -----------------------------
+    // 3. TIMESTAMP SPAM PROTECTION
+    // -----------------------------
+    if (!timestamp || timestamp < 1500) {
+      return NextResponse.json(
+        { error: "Form submitted too quickly" },
+        { status: 400 }
+      );
+>>>>>>> 6afb5b6 (Implemented full signup flow with company linking, RLS policies, and dynamic dashboard)
     }
 
-    // Validation
+    // -----------------------------
+    // 4. VALIDATION
+    // -----------------------------
     if (!name || !email || !message) {
       return json({ error: "All fields are required" }, 400);
     }
 
-    // Rate limit
+    // -----------------------------
+    // 5. RATE LIMIT
+    // -----------------------------
     try {
       if (!rateLimit(ip as string, 5, 60_000)) {
         return json(
@@ -71,7 +90,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Save to Supabase
+    // -----------------------------
+    // 6. SAVE TO SUPABASE
+    // -----------------------------
     try {
       const { error: dbError } = await supabaseAdmin
         .from("contact_messages")
@@ -97,7 +118,13 @@ export async function POST(req: Request) {
       );
     }
 
+<<<<<<< HEAD
     // ⭐ BREVO — ADMIN EMAIL
+=======
+    // -----------------------------
+    // 7. SEND ADMIN EMAIL (BREVO)
+    // -----------------------------
+>>>>>>> 6afb5b6 (Implemented full signup flow with company linking, RLS policies, and dynamic dashboard)
     const adminPayload = {
       sender: { name: "CTIS Tech", email: "no-reply@ctistech.com" },
       to: [{ email: "info@ctistech.com" }],
@@ -120,12 +147,30 @@ export async function POST(req: Request) {
       body: JSON.stringify(adminPayload),
     });
 
+    let adminErrorText = "";
+    try {
+      adminErrorText = await adminRes.text();
+    } catch {}
+
     if (!adminRes.ok) {
+<<<<<<< HEAD
       console.error("❌ Brevo admin email error:", await adminRes.text());
       return json({ error: "Failed to send admin email" }, 500);
     }
 
     // ⭐ BREVO — AUTO‑REPLY
+=======
+      console.error("❌ Brevo admin email error:", adminErrorText || "No error text");
+      return NextResponse.json(
+        { error: adminErrorText || "Failed to send admin email" },
+        { status: 500 }
+      );
+    }
+
+    // -----------------------------
+    // 8. SEND AUTO‑REPLY (BREVO)
+    // -----------------------------
+>>>>>>> 6afb5b6 (Implemented full signup flow with company linking, RLS policies, and dynamic dashboard)
     const autoReplyPayload = {
       sender: { name: "CTIS Tech", email: "no-reply@ctistech.com" },
       to: [{ email }],
@@ -143,12 +188,31 @@ export async function POST(req: Request) {
       body: JSON.stringify(autoReplyPayload),
     });
 
+    let autoErrorText = "";
+    try {
+      autoErrorText = await autoRes.text();
+    } catch {}
+
     if (!autoRes.ok) {
+<<<<<<< HEAD
       console.error("❌ Brevo auto-reply error:", await autoRes.text());
       return json({ error: "Failed to send auto-reply" }, 500);
     }
 
     return json({ success: true });
+=======
+      console.error("❌ Brevo auto-reply error:", autoErrorText || "No error text");
+      return NextResponse.json(
+        { error: autoErrorText || "Failed to send auto-reply" },
+        { status: 500 }
+      );
+    }
+
+    // -----------------------------
+    // 9. SUCCESS
+    // -----------------------------
+    return NextResponse.json({ success: true });
+>>>>>>> 6afb5b6 (Implemented full signup flow with company linking, RLS policies, and dynamic dashboard)
   } catch (err: any) {
     console.error("❌ UNCAUGHT ERROR:", err);
     return json(

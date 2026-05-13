@@ -22,7 +22,6 @@ export default function ClientLogin() {
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
-      // Authenticate user
       const { data, error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
@@ -34,18 +33,13 @@ export default function ClientLogin() {
         return;
       }
 
-      const user = data.user;
-
-      if (!user) {
+      if (!data.user) {
         setErrorMsg("Authentication failed");
         setLoading(false);
         return;
       }
 
-      // Email confirmation check removed (you disabled email confirmation)
-      // if (!user.email_confirmed_at) { ... }
-
-      // Redirect to client dashboard
+      // Successful login → redirect
       router.push("/client/dashboard");
     } catch (err) {
       console.error("Login error:", err);
