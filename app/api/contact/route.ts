@@ -48,21 +48,12 @@ export async function POST(req: Request) {
       return json({ success: true });
     }
 
-<<<<<<< HEAD
-    // Timestamp spam protection
-    const now = Date.now();
-    if (!timestamp || now - timestamp < 1500) {
-      return json({ error: "Form submitted too quickly" }, 400);
-=======
     // -----------------------------
     // 3. TIMESTAMP SPAM PROTECTION
     // -----------------------------
-    if (!timestamp || timestamp < 1500) {
-      return NextResponse.json(
-        { error: "Form submitted too quickly" },
-        { status: 400 }
-      );
->>>>>>> 6afb5b6 (Implemented full signup flow with company linking, RLS policies, and dynamic dashboard)
+    const now = Date.now();
+    if (!timestamp || now - timestamp < 1500) {
+      return json({ error: "Form submitted too quickly" }, 400);
     }
 
     // -----------------------------
@@ -118,13 +109,9 @@ export async function POST(req: Request) {
       );
     }
 
-<<<<<<< HEAD
-    // ⭐ BREVO — ADMIN EMAIL
-=======
     // -----------------------------
     // 7. SEND ADMIN EMAIL (BREVO)
     // -----------------------------
->>>>>>> 6afb5b6 (Implemented full signup flow with company linking, RLS policies, and dynamic dashboard)
     const adminPayload = {
       sender: { name: "CTIS Tech", email: "no-reply@ctistech.com" },
       to: [{ email: "info@ctistech.com" }],
@@ -153,24 +140,16 @@ export async function POST(req: Request) {
     } catch {}
 
     if (!adminRes.ok) {
-<<<<<<< HEAD
-      console.error("❌ Brevo admin email error:", await adminRes.text());
-      return json({ error: "Failed to send admin email" }, 500);
-    }
-
-    // ⭐ BREVO — AUTO‑REPLY
-=======
       console.error("❌ Brevo admin email error:", adminErrorText || "No error text");
-      return NextResponse.json(
+      return json(
         { error: adminErrorText || "Failed to send admin email" },
-        { status: 500 }
+        500
       );
     }
 
     // -----------------------------
     // 8. SEND AUTO‑REPLY (BREVO)
     // -----------------------------
->>>>>>> 6afb5b6 (Implemented full signup flow with company linking, RLS policies, and dynamic dashboard)
     const autoReplyPayload = {
       sender: { name: "CTIS Tech", email: "no-reply@ctistech.com" },
       to: [{ email }],
@@ -194,25 +173,18 @@ export async function POST(req: Request) {
     } catch {}
 
     if (!autoRes.ok) {
-<<<<<<< HEAD
-      console.error("❌ Brevo auto-reply error:", await autoRes.text());
-      return json({ error: "Failed to send auto-reply" }, 500);
-    }
-
-    return json({ success: true });
-=======
       console.error("❌ Brevo auto-reply error:", autoErrorText || "No error text");
-      return NextResponse.json(
+      return json(
         { error: autoErrorText || "Failed to send auto-reply" },
-        { status: 500 }
+        500
       );
     }
 
     // -----------------------------
     // 9. SUCCESS
     // -----------------------------
-    return NextResponse.json({ success: true });
->>>>>>> 6afb5b6 (Implemented full signup flow with company linking, RLS policies, and dynamic dashboard)
+    return json({ success: true });
+
   } catch (err: any) {
     console.error("❌ UNCAUGHT ERROR:", err);
     return json(

@@ -59,15 +59,6 @@ export default function ContactForm() {
         body: JSON.stringify(formData),
       });
 
-<<<<<<< HEAD
-      // ⭐ FINAL FIX — SAFE JSON PARSE
-      let data: any = null;
-      try {
-        const text = await res.text();
-        data = text ? JSON.parse(text) : null;
-      } catch {
-        data = null;
-=======
       // ⭐ SAFE JSON PARSE — FALLBACK TO TEXT
       let data: any = null;
       try {
@@ -75,16 +66,11 @@ export default function ContactForm() {
       } catch {
         const text = await res.text();
         data = { error: text };
->>>>>>> 6afb5b6 (Implemented full signup flow with company linking, RLS policies, and dynamic dashboard)
       }
 
       // ⭐ ALWAYS SHOW REAL ERROR
       if (!res.ok) {
-<<<<<<< HEAD
-        console.error("❌ Contact API error:", data ?? "No JSON returned");
-=======
         console.error("❌ Contact API error:", data);
->>>>>>> 6afb5b6 (Implemented full signup flow with company linking, RLS policies, and dynamic dashboard)
         toast.error(data?.error || "Server error");
         setLoading(false);
         return;
