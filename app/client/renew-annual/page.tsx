@@ -4,11 +4,10 @@ import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 interface Company {
-  company_name: string;
-  annual_fee: number;
+  name: string;
+  annual_price: number;
   renewal_date: string;
-  base_license_count: number;
-  plan: string;
+  license_count: number;
 }
 
 export default function RenewAnnualPage() {
@@ -28,24 +27,23 @@ export default function RenewAnnualPage() {
     setError("");
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    const user = session?.user;
     if (!user) {
       setError("You must be logged in.");
       setLoading(false);
       return;
     }
 
-    // 1️⃣ Get profile → company_id
-    const { data: profile } = await supabase
-      .from("Profile")
+    // 1️⃣ Get company_id from user_companies
+    const { data: membership } = await supabase
+      .from("user_companies")
       .select("company_id")
-      .eq("userid", user.id)
+      .eq("user_id", user.id)
       .single();
 
-    if (!profile?.company_id) {
+    if (!membership?.company_id) {
       setError("Company not found for this user.");
       setLoading(false);
       return;
@@ -54,8 +52,8 @@ export default function RenewAnnualPage() {
     // 2️⃣ Load company details
     const { data: companyData, error: companyError } = await supabase
       .from("companies")
-      .select("company_name, annual_fee, renewal_date, base_license_count, plan")
-      .eq("id", profile.company_id)
+      .select("name, annual_price, renewal_date, license_count")
+      .eq("id", membership.company_id)
       .single();
 
     if (companyError || !companyData) {
@@ -64,7 +62,19 @@ export default function RenewAnnualPage() {
       return;
     }
 
-    setCompany(companyData);
+    // ⭐ FIX: Auto‑advance renewal date if expired
+    const today = new Date();
+    let renewal = new Date(companyData.renewal_date);
+
+    if (renewal < today) {
+      renewal.setFullYear(renewal.getFullYear() + 1);
+    }
+
+    setCompany({
+      ...companyData,
+      renewal_date: renewal.toISOString(),
+    });
+
     setLoading(false);
   }
 
@@ -78,7 +88,7 @@ export default function RenewAnnualPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: company.annual_fee,
+          amount: company.annual_price,
           type: "ANNUAL_RENEWAL",
         }),
       });
@@ -109,15 +119,11 @@ export default function RenewAnnualPage() {
 
       <div className="bg-white border rounded p-4 shadow-sm space-y-2">
         <p>
-          <strong>Company:</strong> {company.company_name}
+          <strong>Company:</strong> {company.name}
         </p>
 
         <p>
-          <strong>Plan:</strong> {company.plan}
-        </p>
-
-        <p>
-          <strong>Base License Count:</strong> {company.base_license_count}
+          <strong>Total Licenses Allowed:</strong> {company.license_count}
         </p>
 
         <p>
@@ -130,7 +136,7 @@ export default function RenewAnnualPage() {
         <p>
           <strong>Annual Fee to Pay:</strong>{" "}
           <span className="font-semibold text-emerald-700 text-lg">
-            ₦{company.annual_fee.toLocaleString()}
+            ₦{company.annual_price.toLocaleString()}
           </span>
         </p>
       </div>
