@@ -1,133 +1,137 @@
-// app/client/page.tsx
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-const cards = [
-  { title: "Send License Request Key", href: "/client/license-request" },
-  { title: "Active Licenses", href: "/client/active-licenses" },
-  { title: "Machine History", href: "/client/machine-history" },
-  { title: "Payment History", href: "/client/payment-history" },
-  { title: "Invoice History", href: "/client/invoice-history" },
-  { title: "Annual 20% History", href: "/client/annual-history" },
-  { title: "Renew Annual Payment", href: "/client/renew-annual" },
-  { title: "Transfer License", href: "/client/transfer-license" },
-  { title: "Contact Support", href: "/client/support" },
-];
-
 export default function ClientDashboardPage() {
-  const router = useRouter();
   const supabase = supabaseBrowser();
 
+  const [company, setCompany] = useState<any>(null);
   const [nextRenewal, setNextRenewal] = useState<Date | null>(null);
   const [daysRemaining, setDaysRemaining] = useState<number>(0);
   const [renewalStatus, setRenewalStatus] = useState<"DUE" | "NOT_DUE">("NOT_DUE");
 
   useEffect(() => {
-    async function loadRenewal() {
+    async function loadDashboard() {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      const user = session?.user;
       if (!user) return;
+      const userId = user.id;
 
-      // Get the latest annualFeePaidUntil from active licenses
-      const { data } = await supabase
+      // 1️⃣ Get company_id
+      const { data: membership } = await supabase
+        .from("user_companies")
+        .select("company_id")
+        .eq("user_id", userId)
+        .single();
+
+      if (!membership) return;
+
+      // 2️⃣ Load company
+      const { data: companyData } = await supabase
+        .from("companies")
+        .select("*")
+        .eq("id", membership.company_id)
+        .single();
+
+      setCompany(companyData);
+
+      // 3️⃣ Load renewal info
+      const { data: renewalData } = await supabase
         .from("License")
         .select("annualFeePaidUntil")
-        .eq("userId", user.id)
+        .eq("userId", userId)
         .eq("status", "ACTIVE")
         .order("annualFeePaidUntil", { ascending: false })
         .limit(1);
 
-      if (!data || data.length === 0) return;
+      if (renewalData && renewalData.length > 0) {
+        const nextDate = new Date(renewalData[0].annualFeePaidUntil);
+        setNextRenewal(nextDate);
 
-      const nextDate = new Date(data[0].annualFeePaidUntil);
-      setNextRenewal(nextDate);
+        const today = new Date();
+        const diff = Math.ceil(
+          (nextDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        );
 
-      const today = new Date();
-      const diff = Math.ceil(
-        (nextDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-      );
-
-      setDaysRemaining(diff);
-      setRenewalStatus(diff <= 0 ? "DUE" : "NOT_DUE");
+        setDaysRemaining(diff);
+        setRenewalStatus(diff <= 0 ? "DUE" : "NOT_DUE");
+      }
     }
 
-    loadRenewal();
+    loadDashboard();
   }, []);
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Client Dashboard</h1>
+    <div className="space-y-8">
 
-      {/* ⭐ Annual Renewal Status Block */}
+      {/* ⭐ TITLE AT THE TOP */}
+      <h1 className="text-2xl font-bold">Client Dashboard</h1>
+
+      {/* ⭐ COMPANY CARDS ALWAYS VISIBLE */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
+        <Card title="Company Name" value={company?.name ?? "—"} />
+
+        <Card
+          title="Annual Fee"
+          value={
+            company?.annual_price
+              ? company.annual_price.toLocaleString("en-NG", {
+                  style: "currency",
+                  currency: "NGN",
+                })
+              : "—"
+          }
+        />
+
+        <Card
+          title="Renewal Date"
+          value={company?.renewal_date ?? "—"}
+        />
+
+        <Card
+          title="Total Licenses Allowed"
+          value={company?.license_count ?? "—"}
+        />
+      </div>
+
+      {/* ⭐ RENEWAL COUNTDOWN */}
       {nextRenewal && (
-        <div className="mb-6 p-4 bg-white border rounded shadow-sm space-y-3">
-          <h2 className="text-lg font-semibold">Annual Renewal Status</h2>
-
-          <p>
-            <strong>Next Annual Payment:</strong>{" "}
-            {nextRenewal.toLocaleDateString()}
+        <div className="p-6 bg-black text-green-400 rounded-xl shadow-lg text-center">
+          <p className="text-sm text-gray-300 uppercase tracking-widest">
+            Days Remaining Until Renewal
           </p>
 
-          <p>
-            <strong>Days Remaining:</strong>{" "}
-            {daysRemaining <= 0 ? "0 (Due Now)" : `${daysRemaining} days`}
+          <p
+            className={`mt-3 text-7xl font-bold ${
+              daysRemaining <= 7
+                ? "text-red-500"
+                : daysRemaining <= 30
+                ? "text-yellow-400"
+                : "text-green-400"
+            }`}
+          >
+            {daysRemaining}
           </p>
 
-          {/* ⭐ Color-coded countdown bar */}
-          <div className="w-full h-3 bg-slate-200 rounded overflow-hidden">
-            <div
-              className={`h-full transition-all ${
-                daysRemaining <= 0
-                  ? "bg-red-600"
-                  : daysRemaining <= 7
-                  ? "bg-orange-500"
-                  : "bg-emerald-600"
-              }`}
-              style={{
-                width:
-                  daysRemaining <= 0
-                    ? "100%"
-                    : `${Math.min((daysRemaining / 365) * 100, 100)}%`,
-              }}
-            ></div>
-          </div>
-
-          <p>
-            <strong>Status:</strong>{" "}
-            <span
-              className={`px-2 py-1 rounded text-xs font-semibold ${
-                renewalStatus === "DUE"
-                  ? "bg-red-100 text-red-700"
-                  : "bg-emerald-100 text-emerald-700"
-              }`}
-            >
-              {renewalStatus}
-            </span>
+          <p className="text-gray-400 mt-2 text-sm">
+            {daysRemaining > 0
+              ? "before your annual maintenance fee is due"
+              : "Payment is due or overdue"}
           </p>
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* ⭐ Dashboard Cards */}
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-        {cards.map((card) => (
-          <button
-            key={card.href}
-            onClick={() => router.push(card.href)}
-            className="bg-white rounded shadow p-4 text-left hover:shadow-md transition border border-slate-200"
-          >
-            <h2 className="text-lg font-semibold mb-2">{card.title}</h2>
-            <p className="text-sm text-slate-500">
-              Click to open {card.title.toLowerCase()}.
-            </p>
-          </button>
-        ))}
-      </div>
+function Card({ title, value }: any) {
+  return (
+    <div className="bg-white rounded shadow p-4 border border-slate-200">
+      <h2 className="text-sm font-semibold text-slate-600 uppercase">{title}</h2>
+      <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
     </div>
   );
 }

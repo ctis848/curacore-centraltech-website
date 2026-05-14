@@ -40,7 +40,7 @@ export default function ClientLogin() {
       }
 
       // Successful login → redirect
-      router.push("/client/dashboard");
+      router.push("/client");
     } catch (err) {
       console.error("Login error:", err);
       setErrorMsg("Network error. Please try again.");
