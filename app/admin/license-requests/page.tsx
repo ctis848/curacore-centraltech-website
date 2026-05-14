@@ -5,15 +5,15 @@ import { useEffect, useState } from "react";
 type LicenseStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 interface LicenseRequestRow {
-  id: string;
+  id: string;                     // REQUIRED — FIXED
   userId: string;
   productName: string | null;
   requestKey: string | null;
   status: LicenseStatus;
   requestedAt: string | null;
   userEmail: string | null;
-  companyName?: string | null;
-  manualKey?: string | null; // added for textbox
+  companyName: string | null;
+  manualKey?: string | null;
 }
 
 export default function LicenseRequestsPage() {
@@ -50,6 +50,11 @@ export default function LicenseRequestsPage() {
   }
 
   async function handleApprove(id: string, manualKey?: string | null) {
+    if (!id) {
+      alert("Missing request ID.");
+      return;
+    }
+
     if (!manualKey || !manualKey.trim()) {
       alert("Please enter a license key before approving.");
       return;
@@ -69,7 +74,7 @@ export default function LicenseRequestsPage() {
         return;
       }
 
-      alert("License approved and email sent (if configured).");
+      alert("License approved and email sent.");
       loadRequests();
     } catch (err) {
       console.error("Approve error:", err);
@@ -78,6 +83,11 @@ export default function LicenseRequestsPage() {
   }
 
   async function handleReject(id: string) {
+    if (!id) {
+      alert("Missing request ID.");
+      return;
+    }
+
     const confirmReject = confirm("Are you sure you want to reject this request?");
     if (!confirmReject) return;
 
@@ -93,7 +103,7 @@ export default function LicenseRequestsPage() {
         return;
       }
 
-      alert("Request rejected and email sent (if configured).");
+      alert("Request rejected.");
       loadRequests();
     } catch (err) {
       console.error("Reject error:", err);
@@ -109,40 +119,18 @@ export default function LicenseRequestsPage() {
     <div className="p-6">
       <h1 className="text-2xl font-semibold mb-4">License Management</h1>
 
-      {/* TABS */}
       <div className="flex gap-3 mb-4">
-        <button
-          onClick={() => setActiveTab("PENDING")}
-          className={`px-3 py-2 rounded ${
-            activeTab === "PENDING" ? "bg-emerald-600 text-white" : "bg-slate-200"
-          }`}
-        >
-          Pending
-        </button>
-        <button
-          onClick={() => setActiveTab("APPROVED")}
-          className={`px-3 py-2 rounded ${
-            activeTab === "APPROVED" ? "bg-emerald-600 text-white" : "bg-slate-200"
-          }`}
-        >
-          Approved
-        </button>
-        <button
-          onClick={() => setActiveTab("REJECTED")}
-          className={`px-3 py-2 rounded ${
-            activeTab === "REJECTED" ? "bg-emerald-600 text-white" : "bg-slate-200"
-          }`}
-        >
-          Rejected
-        </button>
-        <button
-          onClick={() => setActiveTab("ALL")}
-          className={`px-3 py-2 rounded ${
-            activeTab === "ALL" ? "bg-emerald-600 text-white" : "bg-slate-200"
-          }`}
-        >
-          All
-        </button>
+        {["PENDING", "APPROVED", "REJECTED", "ALL"].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab as any)}
+            className={`px-3 py-2 rounded ${
+              activeTab === tab ? "bg-emerald-600 text-white" : "bg-slate-200"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
 
       {errorMsg && <p className="text-red-500 mb-3">{errorMsg}</p>}
@@ -197,11 +185,9 @@ export default function LicenseRequestsPage() {
                       : "Invalid Date"}
                   </td>
 
-                  {/* ACTIONS COLUMN */}
                   <td className="p-3 flex gap-2 items-center">
                     {req.status === "PENDING" && (
                       <>
-                        {/* Manual Key Input */}
                         <input
                           type="text"
                           placeholder="Manual key"
@@ -218,7 +204,6 @@ export default function LicenseRequestsPage() {
                           }}
                         />
 
-                        {/* Approve Button */}
                         <button
                           onClick={() => handleApprove(req.id, req.manualKey)}
                           className="px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
@@ -226,7 +211,6 @@ export default function LicenseRequestsPage() {
                           Approve
                         </button>
 
-                        {/* Reject Button */}
                         <button
                           onClick={() => handleReject(req.id)}
                           className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"

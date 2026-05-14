@@ -1,33 +1,23 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-export async function POST(req: Request) {
+export async function GET(req: Request, { params }: any) {
   try {
-    const { id } = await req.json();
+    const { id } = params;
 
-    if (!id) {
-      return NextResponse.json(
-        { success: false, message: "Missing coupon ID" },
-        { status: 400 }
-      );
-    }
-
-    // Delete the coupon
     const { data, error } = await supabaseAdmin
       .from("coupons")
-      .delete()
+      .select("*")
       .eq("id", id)
-      .select()
       .single();
 
-    if (error) {
+    if (error || !data) {
       return NextResponse.json(
-        { success: false, message: error.message },
-        { status: 500 }
+        { success: false, message: "Coupon not found" },
+        { status: 404 }
       );
     }
 
-    // Transform DB → Frontend shape
     const transformed = {
       id: data.id,
       code: data.code,

@@ -3,19 +3,27 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
   try {
-    const { id } = await req.json();
+    const { id, code, type, value, expires, max_uses, active } = await req.json();
 
-    if (!id) {
+    if (!id || !code || !value || !expires || !max_uses) {
       return NextResponse.json(
-        { success: false, message: "Missing coupon ID" },
+        { success: false, message: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    // Delete the coupon
+    const expires_at = new Date(expires).toISOString();
+
     const { data, error } = await supabaseAdmin
       .from("coupons")
-      .delete()
+      .update({
+        code,
+        type,
+        value: Number(value),
+        expires_at,
+        max_uses: Number(max_uses),
+        active
+      })
       .eq("id", id)
       .select()
       .single();
@@ -27,7 +35,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Transform DB → Frontend shape
     const transformed = {
       id: data.id,
       code: data.code,
