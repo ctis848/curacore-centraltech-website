@@ -11,11 +11,21 @@ export default function RejectedRequestsPage() {
   }, []);
 
   async function loadRejected() {
-    const res = await fetch("/api/admin/license-requests");
-    const json = await res.json();
+    try {
+      const res = await fetch(`/api/admin/license-requests?status=REJECTED`, {
+        cache: "no-store",
+      });
 
-    if (json.success) {
-      setRejected(json.data.filter((r: any) => r.status === "REJECTED"));
+      const json = await res.json();
+
+      if (json.success) {
+        setRejected(json.data || []);
+      } else {
+        setRejected([]);
+      }
+    } catch (err) {
+      console.error("Failed to load rejected requests:", err);
+      setRejected([]);
     }
 
     setLoading(false);
@@ -32,11 +42,15 @@ export default function RejectedRequestsPage() {
       <div className="space-y-3">
         {rejected.map((req) => (
           <div key={req.id} className="p-4 bg-white rounded shadow border">
-            <p><strong>Company:</strong> {req.User?.companyName}</p>
-            <p><strong>Email:</strong> {req.User?.email}</p>
-            <p><strong>Product:</strong> {req.productName}</p>
-            <p><strong>Request Key:</strong> {req.requestKey}</p>
-            <p><strong>Rejected:</strong> {new Date(req.requestedAt).toLocaleString()}</p>
+            <p><strong>Company:</strong> {req.companyName || "—"}</p>
+            <p><strong>Email:</strong> {req.userEmail || "—"}</p>
+            <p><strong>Product:</strong> {req.productName || "Unknown"}</p>
+            <p><strong>Request Key:</strong> {req.requestKey || "—"}</p>
+            <p><strong>Rejected:</strong> 
+              {req.requestedAt
+                ? new Date(req.requestedAt).toLocaleString()
+                : "Invalid Date"}
+            </p>
           </div>
         ))}
       </div>

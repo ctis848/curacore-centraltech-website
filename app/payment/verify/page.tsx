@@ -1,27 +1,32 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 function PaymentVerifyContent() {
   const params = useSearchParams();
-
-  // ⭐ FIX: Safe access
   const reference = params?.get("reference") ?? null;
+
+  useEffect(() => {
+    if (!reference) return;
+
+    async function verify() {
+      await fetch(`/api/payments/verify?reference=${reference}`);
+      window.location.href = "/client/dashboard";
+    }
+
+    verify();
+  }, [reference]);
 
   return (
     <div className="max-w-md mx-auto mt-20 p-6 bg-white shadow rounded-xl text-center">
       <h1 className="text-2xl font-bold mb-4 text-teal-600">Verifying Payment…</h1>
 
       {reference && (
-        <p className="text-sm text-gray-600 mb-4">
-          Reference: {reference}
-        </p>
+        <p className="text-sm text-gray-600 mb-4">Reference: {reference}</p>
       )}
 
-      <p className="text-gray-700">
-        Please wait while we confirm your transaction.
-      </p>
+      <p className="text-gray-700">Please wait while we confirm your transaction.</p>
     </div>
   );
 }

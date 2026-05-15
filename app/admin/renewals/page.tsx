@@ -26,26 +26,21 @@ export default function RenewalsPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Filters
   const [search, setSearch] = useState("");
   const [productFilter, setProductFilter] = useState("");
   const [tenantFilter, setTenantFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  // Dropdown lists
   const [products, setProducts] = useState<string[]>([]);
   const [tenants, setTenants] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
 
-  // Sorting
   const [sortKey, setSortKey] = useState<SortKey>("productName");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  // Pagination
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  // Bulk selection
   const [selected, setSelected] = useState<string[]>([]);
 
   const toggleSelect = (id: string) => {
@@ -65,7 +60,6 @@ export default function RenewalsPage() {
     }
   };
 
-  // CSV EXPORT
   function exportCSV(rows: LicenseRow[]) {
     if (!rows.length) return;
 
@@ -99,7 +93,6 @@ export default function RenewalsPage() {
     URL.revokeObjectURL(url);
   }
 
-  // BULK ACTIONS
   async function bulkNotify() {
     if (!selected.length) return alert("No items selected.");
 
@@ -137,7 +130,6 @@ export default function RenewalsPage() {
     alert(json.message);
   }
 
-  // LOAD RENEWALS
   const loadRenewals = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
@@ -145,7 +137,7 @@ export default function RenewalsPage() {
     const { data, error } = await supabase
       .from("License")
       .select("*")
-      .order("createdAt", { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Renewals fetch error:", error);
@@ -154,10 +146,21 @@ export default function RenewalsPage() {
       return;
     }
 
-    const licenseList = (data as LicenseRow[]) || [];
+    const raw = (data || []) as any[];
+
+    const licenseList: LicenseRow[] = raw.map((r) => ({
+      id: r.id,
+      productName: r.productName ?? null,
+      licenseKey: r.licenseKey,
+      expiresAt: r.expires_at ?? null,
+      tenantId: r.user_id ?? null,
+      userId: r.user_id ?? null,
+      status: r.status,
+      createdAt: r.created_at,
+    }));
+
     setLicenses(licenseList);
 
-    // Build dropdown lists safely
     setProducts(
       Array.from(
         new Set(
@@ -188,7 +191,6 @@ export default function RenewalsPage() {
       )
     );
 
-    // Renewal logic
     const now = new Date();
 
     const dueSoonList = licenseList.filter((lic) => {
@@ -298,6 +300,13 @@ export default function RenewalsPage() {
           </button>
         </div>
       </div>
+
+      {/* ERROR */}
+      {errorMsg && (
+        <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded">
+          {errorMsg}
+        </p>
+      )}
 
       {/* BULK ACTION BAR */}
       {selected.length > 0 && (

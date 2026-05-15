@@ -37,7 +37,8 @@ export async function GET(req: NextRequest) {
 
     const tx = verifyData.data;
     const metadata = tx.metadata || {};
-    const userId = metadata.userId;
+    const userId = metadata.user_id;
+    const companyId = metadata.company_id;
 
     const supabase = supabaseServer();
 
@@ -63,24 +64,33 @@ export async function GET(req: NextRequest) {
     }
 
     // ----------------------------------------------------
-    // INVOICE PAYMENT FLOW
-    // ----------------------------------------------------
-    if (metadata.invoiceId) {
-      await supabase
-        .from("Invoice")
-        .update({
-          status: "PAID",
-          paidAt: new Date().toISOString(),
-          transactionId: tx.id,
-        })
-        .eq("id", metadata.invoiceId);
-    }
-
-    // ----------------------------------------------------
-    // NEW LICENSE PURCHASE FLOW (20% RULE)
+    // ⭐ NEW LICENSE PURCHASE FLOW (20% RULE)
     // ----------------------------------------------------
     if (metadata.type === "NEW_LICENSE_PURCHASE") {
-      const quantity = Number(metadata.quantity);
+      const purchased = Number(metadata.plan);
+
+      // 1. Update company license + annual fee
+      const { data: company } = await supabase
+        .from("companies")
+        .select("license_count, annual_price")
+        .eq("id", companyId)
+        .single();
+
+      if (company) {
+        const newLicenseCount = company.license_count + purchased;
+        const newAnnualFee = newLicenseCount * 0.20;
+
+        await supabase
+          .from("companies")
+          .update({
+            license_count: newLicenseCount,
+            annual_price: newAnnualFee,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", companyId);
+      }
+
+      // 2. Update ClientBilling (your existing logic)
       const annualFeeFromBuyPage = Number(metadata.annualFee);
 
       const { data: billing } = await supabase
@@ -90,23 +100,24 @@ export async function GET(req: NextRequest) {
         .single();
 
       const existingAnnual = billing?.annual_fee ?? 0;
-      const newAnnualFee = existingAnnual + annualFeeFromBuyPage;
+      const newAnnualFeeBilling = existingAnnual + annualFeeFromBuyPage;
 
       await supabase
         .from("ClientBilling")
         .update({
-          annual_fee: newAnnualFee,
+          annual_fee: newAnnualFeeBilling,
           updated_at: new Date().toISOString(),
         })
         .eq("userId", userId);
 
+      // 3. Insert into AnnualPaymentHistory
       await supabase.from("AnnualPaymentHistory").insert({
         userId,
         amount: tx.amount / 100,
         reference: tx.reference,
         status: tx.status.toUpperCase(),
         paidAt: new Date().toISOString(),
-        licenseCount: quantity,
+        licenseCount: purchased,
         description: "Additional License Purchase (20% Annual Fee Applied)",
       });
     }
@@ -159,7 +170,7 @@ export async function GET(req: NextRequest) {
     });
 
     // ----------------------------------------------------
-    // ⭐ SEND PAYMENT NOTIFICATION TO ADMIN (info@ctistech.com)
+    // SEND PAYMENT NOTIFICATION TO ADMIN
     // ----------------------------------------------------
     if (BREVO_API_KEY) {
       await fetch("https://api.brevo.com/v3/smtp/email", {

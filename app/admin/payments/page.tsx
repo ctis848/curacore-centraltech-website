@@ -5,13 +5,9 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 
 interface PaymentRow {
   id: string;
-  userid: string | null;
+  invoice_id: string | null;
   amount: number;
-  currency: string;
-  status: string;
-  reference: string;
-  gateway: string;
-  created_at: string;
+  created_at: string | null;
 }
 
 export default function PaymentsPage() {
@@ -20,17 +16,7 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [filtered, setFiltered] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Filters
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [currencyFilter, setCurrencyFilter] = useState("");
-  const [gatewayFilter, setGatewayFilter] = useState("");
-
-  // Dropdown lists
-  const [statuses, setStatuses] = useState<string[]>([]);
-  const [currencies, setCurrencies] = useState<string[]>([]);
-  const [gateways, setGateways] = useState<string[]>([]);
 
   useEffect(() => {
     loadPayments();
@@ -40,9 +26,9 @@ export default function PaymentsPage() {
     setLoading(true);
 
     const { data, error } = await supabase
-      .from("Payment")
+      .from("payments") // ✅ correct table name
       .select("*")
-      .order("created_at", { ascending: false }); // matches your column
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Payment fetch error:", error);
@@ -54,109 +40,36 @@ export default function PaymentsPage() {
 
     setPayments(rows);
     setFiltered(rows);
-
-    // Build dropdown lists (TS-safe)
-    setStatuses(
-      Array.from(
-        new Set(
-          rows
-            .map((p) => p.status)
-            .filter((v): v is string => typeof v === "string")
-        )
-      )
-    );
-
-    setCurrencies(
-      Array.from(
-        new Set(
-          rows
-          .map((p) => p.currency)
-          .filter((v): v is string => typeof v === "string")
-        )
-      )
-    );
-
-    setGateways(
-      Array.from(
-        new Set(
-          rows
-            .map((p) => p.gateway)
-            .filter((v): v is string => typeof v === "string")
-        )
-      )
-    );
-
     setLoading(false);
   }
 
-  // Apply filters + search
+  // Simple search by id, invoice_id
   useEffect(() => {
     const s = search.toLowerCase();
 
     const results = payments.filter((p) => {
       return (
-        (statusFilter ? p.status === statusFilter : true) &&
-        (currencyFilter ? p.currency === currencyFilter : true) &&
-        (gatewayFilter ? p.gateway === gatewayFilter : true) &&
-        (
-          p.reference.toLowerCase().includes(s) ||
-          p.status.toLowerCase().includes(s) ||
-          p.currency.toLowerCase().includes(s) ||
-          p.gateway.toLowerCase().includes(s) ||
-          (p.userid ?? "").toLowerCase().includes(s)
-        )
+        p.id.toLowerCase().includes(s) ||
+        (p.invoice_id ?? "").toLowerCase().includes(s)
       );
     });
 
     setFiltered(results);
-  }, [search, statusFilter, currencyFilter, gatewayFilter, payments]);
+  }, [search, payments]);
 
   return (
     <div>
       <h1 className="text-2xl font-semibold mb-4">Payments</h1>
 
-      {/* Filters */}
+      {/* Search */}
       <div className="flex flex-wrap gap-3 mb-4">
         <input
           type="text"
-          placeholder="Search by reference, status, currency, gateway, or user..."
+          placeholder="Search by payment ID or invoice ID..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="px-3 py-2 border rounded shadow-sm flex-1 min-w-[200px]"
         />
-
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 border rounded"
-        >
-          <option value="">All Statuses</option>
-          {statuses.map((s) => (
-            <option key={s}>{s}</option>
-          ))}
-        </select>
-
-        <select
-          value={currencyFilter}
-          onChange={(e) => setCurrencyFilter(e.target.value)}
-          className="px-3 py-2 border rounded"
-        >
-          <option value="">All Currencies</option>
-          {currencies.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-
-        <select
-          value={gatewayFilter}
-          onChange={(e) => setGatewayFilter(e.target.value)}
-          className="px-3 py-2 border rounded"
-        >
-          <option value="">All Gateways</option>
-          {gateways.map((g) => (
-            <option key={g}>{g}</option>
-          ))}
-        </select>
       </div>
 
       {loading && <p className="text-slate-500">Loading payments…</p>}
@@ -168,48 +81,35 @@ export default function PaymentsPage() {
       {/* Payment List */}
       <div className="space-y-3">
         {filtered.map((p) => (
-          <a
+          <div
             key={p.id}
-            href={`/admin/payments/${p.id}`}
-            className="block border rounded p-4 bg-white hover:bg-slate-50 shadow-sm"
+            className="block border rounded p-4 bg-white shadow-sm"
           >
             <div className="flex justify-between items-center">
               <div>
                 <p className="font-medium text-lg">Payment</p>
                 <p className="text-sm text-slate-600 font-mono">
-                  Ref: {p.reference}
+                  Payment ID: {p.id}
                 </p>
                 <p className="text-sm text-slate-600">
-                  Gateway: {p.gateway}
-                </p>
-                <p className="text-sm text-slate-600">
-                  User: {p.userid || "—"}
+                  Invoice ID: {p.invoice_id || "—"}
                 </p>
               </div>
 
               <div className="text-right">
                 <p className="font-semibold text-emerald-700">
-                  {p.amount.toLocaleString()} {p.currency}
+                  {Number(p.amount).toLocaleString()}
                 </p>
-
-                <span
-                  className={`px-3 py-1 rounded text-sm font-semibold ${
-                    p.status === "SUCCESS"
-                      ? "bg-green-100 text-green-700"
-                      : p.status === "FAILED"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-yellow-100 text-yellow-700"
-                  }`}
-                >
-                  {p.status}
-                </span>
               </div>
             </div>
 
             <p className="text-xs text-slate-500 mt-2">
-              Created: {new Date(p.created_at).toLocaleString()}
+              Created:{" "}
+              {p.created_at
+                ? new Date(p.created_at).toLocaleString()
+                : "Unknown"}
             </p>
-          </a>
+          </div>
         ))}
       </div>
     </div>

@@ -56,54 +56,15 @@ export default function SignupPage() {
 
     const user = loginData?.user;
 
-    // ⭐ LAYER 1 — LOOKUP COMPANY BY NAME
-    let company = null;
-
-    if (company_name && user) {
-      const { data, error: lookupError } = await supabase
-        .from("companies")
-        .select("*")
-        .ilike("name", company_name.trim())
-        .single();
-
-      company = data;
-
-      console.log("COMPANY LOOKUP RESULT:", data);
-      console.log("LOOKUP ERROR:", lookupError);
-    }
-
-    // ⭐ LAYER 2 — ATTACH USER TO EXISTING COMPANY
-    if (company && user) {
-      const { error: attachError } = await supabase
-        .from("user_companies")
-        .insert({
-          user_id: user.id,
-          company_id: company.id,
-        });
-
-      console.log("ATTACH EXISTING COMPANY ERROR:", attachError);
-    }
-
-    // ⭐ LAYER 3 — CREATE NEW COMPANY + ATTACH USER
-    if (!company && user && company_name) {
-      const { data: newCompany, error: insertError } = await supabase
-        .from("companies")
-        .insert({
-          name: company_name.trim(),
-        })
-        .select()
-        .single();
-
-      console.log("NEW COMPANY CREATED:", newCompany);
-      console.log("INSERT ERROR:", insertError);
-
-      if (newCompany) {
-        await supabase.from("user_companies").insert({
-          user_id: user.id,
-          company_id: newCompany.id,
-        });
-      }
-    }
+    // ⭐ SEND TO SERVER API FOR COMPANY LINKING
+    await fetch("/api/auth/link-company", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: user.id,
+        company_name,
+      }),
+    });
 
     // 3️⃣ Redirect
     router.push("/client/dashboard");

@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { email, amount, plan, user_id } = body;
+    const { email, amount, plan, user_id, company_id } = body;
 
-    if (!email || !amount || !plan) {
+    if (!email || !amount || !plan || !company_id) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -22,8 +22,13 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           email,
-          amount: amount * 100, // Paystack expects kobo
-          metadata: { plan, user_id },
+          amount: amount * 100,
+          metadata: { 
+            plan, 
+            user_id,
+            company_id,
+            type: "NEW_LICENSE_PURCHASE"
+          },
           callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/payment/verify`,
         }),
       }
@@ -31,13 +36,9 @@ export async function POST(req: Request) {
 
     const data = await paystackRes.json();
 
-    // Handle Paystack errors
     if (!data?.status || !data?.data?.authorization_url) {
       return NextResponse.json(
-        {
-          error: "Paystack initialization failed",
-          details: data,
-        },
+        { error: "Paystack initialization failed", details: data },
         { status: 500 }
       );
     }

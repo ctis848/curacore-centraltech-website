@@ -31,7 +31,9 @@ export default function LicenseRequestsPage() {
     setErrorMsg("");
 
     try {
-      const res = await fetch("/api/admin/license-requests", { cache: "no-store" });
+      const res = await fetch(`/api/admin/license-requests?status=${activeTab}`, {
+  cache: "no-store",
+  });
       const json = await res.json();
 
       if (!res.ok || !json.success) {
