@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/send";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, context: { params: { id: string } }) {
   try {
-    const id = params.id;
+    const id = context.params.id;
     const { manualKey } = await req.json();
 
     if (!id) {
@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const trimmedKey = manualKey.trim();
 
-    // Load request
+    // Load request directly from DB
     const { data: request, error: reqError } = await supabaseAdmin
       .from("LicenseRequest")
       .select("id, userId, productName, requestKey, status, companyName")
@@ -78,11 +78,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       .from("LicenseRequest")
       .update({
         status: "APPROVED",
-        processedat: new Date().toISOString(),
-        processedby: "ADMIN",
+        processedAt: new Date().toISOString(),
+        processedBy: "ADMIN",
         requestKey: trimmedKey,
         notes: "Manual license key issued",
-        userEmail: userEmail,
       })
       .eq("id", id);
 

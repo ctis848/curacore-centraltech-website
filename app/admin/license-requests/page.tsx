@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 type LicenseStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 interface LicenseRequestRow {
-  id: string;                     // REQUIRED — FIXED
+  id: string;
   userId: string;
   productName: string | null;
   requestKey: string | null;
@@ -21,10 +21,13 @@ export default function LicenseRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<LicenseStatus | "ALL">("PENDING");
   const [errorMsg, setErrorMsg] = useState("");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<keyof LicenseRequestRow>("requestedAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
     loadRequests();
-  }, []);
+  }, [activeTab]);
 
   async function loadRequests() {
     setLoading(true);
@@ -32,8 +35,9 @@ export default function LicenseRequestsPage() {
 
     try {
       const res = await fetch(`/api/admin/license-requests?status=${activeTab}`, {
-  cache: "no-store",
-  });
+        cache: "no-store",
+      });
+
       const json = await res.json();
 
       if (!res.ok || !json.success) {
@@ -52,12 +56,7 @@ export default function LicenseRequestsPage() {
   }
 
   async function handleApprove(id: string, manualKey?: string | null) {
-    if (!id) {
-      alert("Missing request ID.");
-      return;
-    }
-
-    if (!manualKey || !manualKey.trim()) {
+    if (!manualKey?.trim()) {
       alert("Please enter a license key before approving.");
       return;
     }
@@ -85,13 +84,7 @@ export default function LicenseRequestsPage() {
   }
 
   async function handleReject(id: string) {
-    if (!id) {
-      alert("Missing request ID.");
-      return;
-    }
-
-    const confirmReject = confirm("Are you sure you want to reject this request?");
-    if (!confirmReject) return;
+    if (!confirm("Are you sure you want to reject this request?")) return;
 
     try {
       const res = await fetch(`/api/admin/license-requests/${id}/reject`, {
@@ -113,14 +106,54 @@ export default function LicenseRequestsPage() {
     }
   }
 
-  const filtered = requests.filter((r) =>
-    activeTab === "ALL" ? true : r.status === activeTab
-  );
+  // SEARCH + SORT + FILTER
+  const filtered = useMemo(() => {
+    const s = search.toLowerCase().trim();
+
+    let list = requests.filter((r) =>
+      activeTab === "ALL" ? true : r.status === activeTab
+    );
+
+    if (s) {
+      list = list.filter((r) =>
+        [
+          r.companyName,
+          r.userEmail,
+          r.userId,
+          r.productName,
+          r.requestKey,
+        ]
+          .filter(Boolean)
+          .some((v) => v!.toLowerCase().includes(s))
+      );
+    }
+
+    list.sort((a, b) => {
+      const A = (a[sortKey] || "").toString().toLowerCase();
+      const B = (b[sortKey] || "").toString().toLowerCase();
+
+      if (A < B) return sortDir === "asc" ? -1 : 1;
+      if (A > B) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return list;
+  }, [requests, activeTab, search, sortKey, sortDir]);
+
+  function toggleSort(key: keyof LicenseRequestRow) {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-semibold mb-4">License Management</h1>
 
+      {/* TABS */}
       <div className="flex gap-3 mb-4">
         {["PENDING", "APPROVED", "REJECTED", "ALL"].map((tab) => (
           <button
@@ -135,39 +168,75 @@ export default function LicenseRequestsPage() {
         ))}
       </div>
 
+      {/* SEARCH */}
+      <input
+        type="text"
+        placeholder="Search company, email, product, key, user ID..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="px-3 py-2 border rounded w-full mb-4"
+      />
+
       {errorMsg && <p className="text-red-500 mb-3">{errorMsg}</p>}
 
       {loading ? (
         <p>Loading...</p>
       ) : filtered.length === 0 ? (
-        <p className="text-gray-500">No requests in this category.</p>
+        <p className="text-gray-500">No requests found.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse bg-white shadow-sm rounded">
-            <thead>
-              <tr className="bg-slate-100 text-left">
-                <th className="p-3">Company</th>
-                <th className="p-3">User Email</th>
-                <th className="p-3">User ID</th>
-                <th className="p-3">Product</th>
-                <th className="p-3">Request Key</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Requested</th>
+            <thead className="sticky top-0 bg-slate-100 z-10">
+              <tr className="text-left">
+                {[
+                  ["companyName", "Company"],
+                  ["userEmail", "User Email"],
+                  ["userId", "User ID"],
+                  ["productName", "Product"],
+                  ["requestKey", "Request Key"],
+                  ["status", "Status"],
+                  ["requestedAt", "Requested"],
+                ].map(([key, label]) => (
+                  <th
+                    key={key}
+                    onClick={() => toggleSort(key as keyof LicenseRequestRow)}
+                    className="p-3 cursor-pointer select-none"
+                  >
+                    {label}{" "}
+                    {sortKey === key && (sortDir === "asc" ? "↑" : "↓")}
+                  </th>
+                ))}
                 <th className="p-3">Actions</th>
               </tr>
             </thead>
+
             <tbody>
               {filtered.map((req) => (
-                <tr key={req.id} className="border-t hover:bg-slate-50 transition">
+                <tr key={req.id} className="border-t hover:bg-slate-50">
                   <td className="p-3">{req.companyName || "—"}</td>
                   <td className="p-3">{req.userEmail || "—"}</td>
                   <td className="p-3">{req.userId}</td>
                   <td className="p-3">{req.productName || "Unknown"}</td>
-                  <td className="p-3">
-                    <span className="truncate max-w-[260px] inline-block">
-                      {req.requestKey || "—"}
-                    </span>
+
+                  {/* COPY-FRIENDLY REQUEST KEY */}
+                  <td className="p-3 font-mono text-xs break-all">
+                    <div className="flex items-center gap-2">
+                      <span className="select-text">
+                        {req.requestKey || "—"}
+                      </span>
+                      {req.requestKey && (
+                        <button
+                          onClick={() =>
+                            navigator.clipboard.writeText(req.requestKey!)
+                          }
+                          className="px-2 py-1 text-xs border rounded hover:bg-slate-100"
+                        >
+                          Copy
+                        </button>
+                      )}
+                    </div>
                   </td>
+
                   <td className="p-3">
                     <span
                       className={`px-2 py-1 text-xs rounded ${
@@ -181,33 +250,37 @@ export default function LicenseRequestsPage() {
                       {req.status}
                     </span>
                   </td>
+
                   <td className="p-3">
                     {req.requestedAt
                       ? new Date(req.requestedAt).toLocaleString()
                       : "Invalid Date"}
                   </td>
 
-                  <td className="p-3 flex gap-2 items-center">
-                    {req.status === "PENDING" && (
-                      <>
+                  {/* ACTIONS */}
+                  <td className="p-3">
+                    {req.status === "PENDING" ? (
+                      <div className="flex gap-2 items-center">
                         <input
                           type="text"
                           placeholder="Manual key"
                           className="border px-2 py-1 rounded text-sm w-40"
                           value={req.manualKey || ""}
-                          onChange={(e) => {
+                          onChange={(e) =>
                             setRequests((prev) =>
                               prev.map((r) =>
                                 r.id === req.id
                                   ? { ...r, manualKey: e.target.value }
                                   : r
                               )
-                            );
-                          }}
+                            )
+                          }
                         />
 
                         <button
-                          onClick={() => handleApprove(req.id, req.manualKey)}
+                          onClick={() =>
+                            handleApprove(req.id, req.manualKey)
+                          }
                           className="px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
                         >
                           Approve
@@ -219,15 +292,11 @@ export default function LicenseRequestsPage() {
                         >
                           Reject
                         </button>
-                      </>
-                    )}
-
-                    {req.status === "APPROVED" && (
-                      <span className="text-sm text-green-700">Approved</span>
-                    )}
-
-                    {req.status === "REJECTED" && (
-                      <span className="text-sm text-red-700">Rejected</span>
+                      </div>
+                    ) : req.status === "APPROVED" ? (
+                      <span className="text-green-700 text-sm">Approved</span>
+                    ) : (
+                      <span className="text-red-700 text-sm">Rejected</span>
                     )}
                   </td>
                 </tr>

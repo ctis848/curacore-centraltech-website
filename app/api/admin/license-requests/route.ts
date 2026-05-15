@@ -1,30 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status"); // PENDING | APPROVED | REJECTED | ALL
-
-    let query = supabaseAdmin
-      .from("LicenseRequest")
-      .select(`
-        id,
-        userId,
-        productName,
-        requestKey,
-        status,
-        requestedAt,
-        userEmail,
-        companyName
-      `)
-      .order("requestedAt", { ascending: false });
-
-    if (status && status !== "ALL") {
-      query = query.eq("status", status);
-    }
-
-    const { data, error } = await query;
+    // Uses your RPC to fetch license requests with email
+    const { data, error } = await supabaseAdmin.rpc(
+      "get_license_requests_with_email"
+    );
 
     if (error) {
       return NextResponse.json(
@@ -33,11 +15,13 @@ export async function GET(req: Request) {
       );
     }
 
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({
+      success: true,
+      data,
+    });
   } catch (err: any) {
-    console.error("License request list error:", err);
     return NextResponse.json(
-      { success: false, message: "Server error loading license requests" },
+      { success: false, message: err.message ?? "Unexpected server error" },
       { status: 500 }
     );
   }
