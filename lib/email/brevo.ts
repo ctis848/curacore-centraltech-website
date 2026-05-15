@@ -1,49 +1,44 @@
-export interface SendEmailOptions {
-  to: string | string[];
-  subject: string;
-  html: string;
-  text?: string;
-}
+import SibApiV3Sdk from "sib-api-v3-sdk";
 
-export async function sendEmail({
+export async function sendBrevoEmail({
   to,
   subject,
   html,
-  text,
-}: SendEmailOptions) {
+  attachment,
+}: {
+  to: string;
+  subject: string;
+  html: string;
+  attachment?: { name: string; content: string } | null;
+}) {
   try {
-    const recipients = Array.isArray(to)
-      ? to.map((email) => ({ email }))
-      : [{ email: to }];
+    const client = SibApiV3Sdk.ApiClient.instance;
+    client.authentications["api-key"].apiKey = process.env.BREVO_API_KEY!;
 
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "api-key": process.env.BREVO_API_KEY!,
-        "Content-Type": "application/json",
+    const api = new SibApiV3Sdk.TransactionalEmailsApi();
+
+    const email = new SibApiV3Sdk.SendSmtpEmail({
+      sender: {
+        email: process.env.BREVO_SENDER_EMAIL!,
+        name: process.env.BREVO_SENDER_NAME!,
       },
-      body: JSON.stringify({
-        sender: {
-          name: "CentralTech",
-          email: "noreply@centraltech.com",
-        },
-        to: recipients,
-        subject,
-        htmlContent: html,
-        textContent: text || html.replace(/<[^>]+>/g, ""),
-      }),
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      attachment: attachment
+        ? [
+            {
+              name: attachment.name,
+              content: attachment.content,
+            },
+          ]
+        : undefined,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("❌ Brevo API error:", data);
-      return { success: false, error: data.message || "Email failed" };
-    }
-
-    return { success: true, messageId: data.messageId };
-  } catch (error: any) {
-    console.error("❌ Brevo sendEmail error:", error);
-    return { success: false, error: error.message };
+    const response = await api.sendTransacEmail(email);
+    return { success: true, response };
+  } catch (err: any) {
+    console.error("Brevo email error:", err);
+    return { success: false, error: err.message };
   }
 }

@@ -1,195 +1,82 @@
-import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
-import { rateLimit } from "@/lib/rateLimit";
-import {
-  contactNotificationTemplate,
-  autoReplyTemplate,
-} from "@/lib/emailTemplates";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-function json(payload: any, status = 200) {
-  return new NextResponse(JSON.stringify(payload), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
+import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    console.log("🔥 Contact API hit");
+    const form = await req.formData();
 
-    // -----------------------------
-    // 1. SAFE JSON PARSE
-    // -----------------------------
-    let body: any = null;
-    try {
-      const text = await req.text();
-      body = text ? JSON.parse(text) : null;
-    } catch (err) {
-      console.error("❌ JSON parse error:", err);
-      return json({ error: "Invalid JSON body" }, 400);
-    }
+    const name = form.get("name") as string;
+    const email = form.get("email") as string;
+    const message = form.get("message") as string;
+    const file = form.get("file") as File | null;
 
-    if (!body) {
-      return json({ error: "Empty request body" }, 400);
-    }
-
-    const ip =
-      req.headers.get("x-forwarded-for") ||
-      req.headers.get("x-real-ip") ||
-      "unknown";
-
-    const { name, email, message, honeypot, timestamp } = body;
-
-    // -----------------------------
-    // 2. HONEYPOT
-    // -----------------------------
-    if (honeypot && honeypot.trim() !== "") {
-      console.log("🛑 Honeypot triggered");
-      return json({ success: true });
-    }
-
-    // -----------------------------
-    // 3. TIMESTAMP SPAM PROTECTION
-    // -----------------------------
-    const now = Date.now();
-    if (!timestamp || now - timestamp < 1500) {
-      return json({ error: "Form submitted too quickly" }, 400);
-    }
-
-    // -----------------------------
-    // 4. VALIDATION
-    // -----------------------------
     if (!name || !email || !message) {
-      return json({ error: "All fields are required" }, 400);
-    }
-
-    // -----------------------------
-    // 5. RATE LIMIT
-    // -----------------------------
-    try {
-      if (!rateLimit(ip as string, 5, 60_000)) {
-        return json(
-          { error: "Too many requests. Try again later." },
-          429
-        );
-      }
-    } catch (err: any) {
-      console.error("❌ Rate limit error:", err);
-      return json(
-        { error: "Rate limit failure: " + err.message },
-        500
+      return NextResponse.json(
+        { success: false, error: "All fields are required" },
+        { status: 400 }
       );
     }
 
-    // -----------------------------
-    // 6. SAVE TO SUPABASE
-    // -----------------------------
-    try {
-      const { error: dbError } = await supabaseAdmin
-        .from("contact_messages")
-        .insert({
-          name,
-          email,
-          message,
-          ip_address: ip,
-        });
-
-      if (dbError) {
-        console.error("❌ Supabase error:", dbError);
-        return json(
-          { error: "Database error: " + dbError.message },
-          500
-        );
-      }
-    } catch (err: any) {
-      console.error("❌ Supabase crash:", err);
-      return json(
-        { error: "Supabase failure: " + err.message },
-        500
+    if (!process.env.BREVO_API_KEY || !process.env.NOTIFY_EMAIL) {
+      console.error("Missing Brevo API environment variables");
+      return NextResponse.json(
+        { success: false, error: "Server email configuration error" },
+        { status: 500 }
       );
     }
 
-    // -----------------------------
-    // 7. SEND ADMIN EMAIL (BREVO)
-    // -----------------------------
-    const adminPayload = {
-      sender: { name: "CTIS Tech", email: "no-reply@ctistech.com" },
-      to: [{ email: "info@ctistech.com" }],
-      replyTo: { email },
-      subject: "New Contact Message",
-      htmlContent: contactNotificationTemplate({
-        name,
-        email,
-        message,
-        ip,
+    // Prepare attachment (Base64)
+    let attachment = null;
+
+    if (file) {
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+
+      attachment = {
+        name: file.name,
+        content: buffer.toString("base64"),
+      };
+    }
+
+    // Send email using Brevo API
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": process.env.BREVO_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: "CentralCore Contact", email: process.env.NOTIFY_EMAIL },
+        to: [{ email: process.env.NOTIFY_EMAIL }],
+        subject: "New Contact Form Message",
+        htmlContent: `
+          <h2>New Contact Message</h2>
+          <p><strong>Name:</strong> ${name}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Message:</strong></p>
+          <p>${message}</p>
+        `,
+        attachment: attachment ? [attachment] : undefined,
       }),
-    };
-
-    const adminRes = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": process.env.BREVO_API_KEY!,
-      },
-      body: JSON.stringify(adminPayload),
     });
 
-    let adminErrorText = "";
-    try {
-      adminErrorText = await adminRes.text();
-    } catch {}
-
-    if (!adminRes.ok) {
-      console.error("❌ Brevo admin email error:", adminErrorText || "No error text");
-      return json(
-        { error: adminErrorText || "Failed to send admin email" },
-        500
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Brevo API Error:", errorText);
+      return NextResponse.json(
+        { success: false, error: "Brevo API failed", details: errorText },
+        { status: 500 }
       );
     }
 
-    // -----------------------------
-    // 8. SEND AUTO‑REPLY (BREVO)
-    // -----------------------------
-    const autoReplyPayload = {
-      sender: { name: "CTIS Tech", email: "no-reply@ctistech.com" },
-      to: [{ email }],
-      replyTo: { email: "info@ctistech.com" },
-      subject: "We received your message",
-      htmlContent: autoReplyTemplate(name, message),
-    };
-
-    const autoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": process.env.BREVO_API_KEY!,
-      },
-      body: JSON.stringify(autoReplyPayload),
-    });
-
-    let autoErrorText = "";
-    try {
-      autoErrorText = await autoRes.text();
-    } catch {}
-
-    if (!autoRes.ok) {
-      console.error("❌ Brevo auto-reply error:", autoErrorText || "No error text");
-      return json(
-        { error: autoErrorText || "Failed to send auto-reply" },
-        500
-      );
-    }
-
-    // -----------------------------
-    // 9. SUCCESS
-    // -----------------------------
-    return json({ success: true });
-
+    return NextResponse.json({ success: true });
   } catch (err: any) {
-    console.error("❌ UNCAUGHT ERROR:", err);
-    return json(
-      { error: err?.message || "Unknown server error" },
-      500
+    console.error("Contact API error:", err);
+    return NextResponse.json(
+      { success: false, error: "Internal server error", details: String(err) },
+      { status: 500 }
     );
   }
 }
