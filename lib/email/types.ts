@@ -1,7 +1,9 @@
-// FILE: lib/email/types.ts
-
 export interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
+  attachment?: {
+    name: string;
+    content: string; // Base64 string
+  };
 }

@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     // Prepare attachment (Base64)
-    let attachment = null;
+    let attachment: { name: string; content: string } | null = null;
 
     if (file) {
       const bytes = await file.arrayBuffer();
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       };
     }
 
-    // Send email using Brevo API
+    // Send email using Brevo REST API
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
@@ -48,7 +48,10 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        sender: { name: "CentralCore Contact", email: process.env.NOTIFY_EMAIL },
+        sender: {
+          name: "CentralCore Contact",
+          email: process.env.NOTIFY_EMAIL,
+        },
         to: [{ email: process.env.NOTIFY_EMAIL }],
         subject: "New Contact Form Message",
         htmlContent: `
