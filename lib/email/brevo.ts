@@ -42,3 +42,4 @@ export async function sendBrevoEmail({
     return { success: false, error: err.message };
   }
 }
+export { sendBrevoEmail as sendEmail };
