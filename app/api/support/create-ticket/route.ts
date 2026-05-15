@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sendEmail } from "@/lib/email/brevo";
+import { sendEmail } from "@/lib/email/send";
 import { supportTicketTemplate } from "@/lib/email/templates";
 
 export async function POST(req: Request) {
@@ -41,7 +41,9 @@ export async function POST(req: Request) {
       to: user.email,
       subject: "Support Ticket Received",
       html: supportTicketTemplate(subject, message),
-    }).catch((err) => console.error("Support ticket email failed:", err));
+    }).catch((err) =>
+      console.error("Support ticket email failed:", err)
+    );
 
     // 4. Notify admin
     sendEmail({

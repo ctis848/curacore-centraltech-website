@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
-import { sendEmail } from "@/lib/email/brevo";
+import { sendEmail } from "@/lib/email/send";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
 const PAYSTACK_BASE = "https://api.paystack.co";
@@ -18,10 +18,8 @@ export async function POST(request: Request) {
       | "NEW_LICENSE_PURCHASE"
       | undefined;
 
-    // NEW PURCHASE = no invoiceId AND type === "NEW_LICENSE_PURCHASE"
     const isNewPurchase = !invoiceId && type === "NEW_LICENSE_PURCHASE";
 
-    // Validate type
     if (!isNewPurchase && !invoiceId && type !== "ANNUAL_RENEWAL") {
       return NextResponse.json(
         { error: "invoiceId or valid type is required" },
@@ -38,24 +36,21 @@ export async function POST(request: Request) {
 
     const supabase = supabaseServer();
 
-    // Validate user session
     const { data: sessionData } = await supabase.auth.getUser();
     const user = sessionData.user;
 
-    // Allow UNAUTHENTICATED users ONLY for NEW LICENSE PURCHASES
     if (!user && !isNewPurchase) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Email: prefer Supabase user email, fallback to body.email
     let email: string | undefined = user?.email || body.email;
 
     let finalAmount = amount;
     let metadata: any = { userId: user?.id || null };
 
-    // ----------------------------------------------------
-    // INVOICE PAYMENT FLOW
-    // ----------------------------------------------------
+    // -------------------------------
+    // INVOICE PAYMENT
+    // -------------------------------
     if (invoiceId) {
       const { data: invoice, error: invoiceError } = await supabase
         .from("Invoice")
@@ -95,9 +90,9 @@ export async function POST(request: Request) {
       };
     }
 
-    // ----------------------------------------------------
-    // NEW LICENSE PURCHASE FLOW
-    // ----------------------------------------------------
+    // -------------------------------
+    // NEW LICENSE PURCHASE
+    // -------------------------------
     if (isNewPurchase) {
       if (!amount || isNaN(amount)) {
         return NextResponse.json(
@@ -120,9 +115,9 @@ export async function POST(request: Request) {
       };
     }
 
-    // ----------------------------------------------------
-    // ANNUAL SUBSCRIPTION RENEWAL FLOW
-    // ----------------------------------------------------
+    // -------------------------------
+    // ANNUAL RENEWAL
+    // -------------------------------
     if (type === "ANNUAL_RENEWAL" && !invoiceId && !isNewPurchase) {
       if (!amount || isNaN(amount)) {
         return NextResponse.json(
@@ -140,16 +135,16 @@ export async function POST(request: Request) {
       };
     }
 
-    // ----------------------------------------------------
-    // Generate unique reference
-    // ----------------------------------------------------
+    // -------------------------------
+    // Generate reference
+    // -------------------------------
     const reference = `CC-${Date.now()}-${Math.floor(
       Math.random() * 100000
     )}`;
 
-    // ----------------------------------------------------
-    // Initialize Paystack transaction
-    // ----------------------------------------------------
+    // -------------------------------
+    // Initialize Paystack
+    // -------------------------------
     const response = await fetch(`${PAYSTACK_BASE}/transaction/initialize`, {
       method: "POST",
       headers: {
@@ -175,9 +170,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // ----------------------------------------------------
+    // -------------------------------
     // Optional: notify user
-    // ----------------------------------------------------
+    // -------------------------------
     if (email) {
       await sendEmail({
         to: email,

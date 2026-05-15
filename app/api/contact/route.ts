@@ -12,6 +12,7 @@ export async function POST(req: Request) {
     const message = form.get("message") as string;
     const file = form.get("file") as File | null;
 
+    // Validate required fields
     if (!name || !email || !message) {
       return NextResponse.json(
         { success: false, error: "All fields are required" },
@@ -19,7 +20,11 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!process.env.BREVO_API_KEY || !process.env.NOTIFY_EMAIL) {
+    // Validate environment variables
+    const apiKey = process.env.BREVO_API_KEY;
+    const notifyEmail = process.env.NOTIFY_EMAIL;
+
+    if (!apiKey || !notifyEmail) {
       console.error("Missing Brevo API environment variables");
       return NextResponse.json(
         { success: false, error: "Server email configuration error" },
@@ -27,7 +32,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Prepare attachment (Base64)
+    // Optional attachment (Base64)
     let attachment: { name: string; content: string } | null = null;
 
     if (file) {
@@ -40,34 +45,41 @@ export async function POST(req: Request) {
       };
     }
 
-    // Send email using Brevo REST API
+    // Build email payload
+    const payload: any = {
+      sender: {
+        name: "CentralCore Contact",
+        email: notifyEmail,
+      },
+      to: [{ email: notifyEmail }],
+      subject: "New Contact Form Message",
+      htmlContent: `
+        <h2>New Contact Message</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Message:</strong></p>
+        <p>${message}</p>
+      `,
+    };
+
+    if (attachment) {
+      payload.attachment = [attachment];
+    }
+
+    // Send email via Brevo REST API
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
-        "api-key": process.env.BREVO_API_KEY,
+        "api-key": apiKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        sender: {
-          name: "CentralCore Contact",
-          email: process.env.NOTIFY_EMAIL,
-        },
-        to: [{ email: process.env.NOTIFY_EMAIL }],
-        subject: "New Contact Form Message",
-        htmlContent: `
-          <h2>New Contact Message</h2>
-          <p><strong>Name:</strong> ${name}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Message:</strong></p>
-          <p>${message}</p>
-        `,
-        attachment: attachment ? [attachment] : undefined,
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Brevo API Error:", errorText);
+
       return NextResponse.json(
         { success: false, error: "Brevo API failed", details: errorText },
         { status: 500 }
@@ -77,6 +89,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("Contact API error:", err);
+
     return NextResponse.json(
       { success: false, error: "Internal server error", details: String(err) },
       { status: 500 }

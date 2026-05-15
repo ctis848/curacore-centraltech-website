@@ -2,12 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // ⭐ FORCE WEBPACK INSTEAD OF TURBOPACK
   experimental: {
     serverActions: {
       allowedOrigins: ["*"],
     },
-    turbo: false, // <— THIS DISABLES TURBOPACK
   },
 };
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sendEmail } from "@/lib/email/brevo";
+import { sendEmail } from "@/lib/email/send";
 import { passwordResetTemplate } from "@/lib/email/templates";
 import crypto from "crypto";
 
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Delete old tokens (prevent multiple active tokens)
+    // 2. Remove old tokens
     await db.passwordResetToken.deleteMany({
       where: { userId: user.id },
     });
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     // 5. Build reset URL
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${token}`;
 
-    // 6. Send branded email
+    // 6. Send email
     sendEmail({
       to: email,
       subject: "Reset Your Password",

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sendEmail } from "@/lib/email/brevo";
+import { sendEmail } from "@/lib/email/send";
 import { supportTicketTemplate } from "@/lib/email/templates";
 
 export async function POST(req: Request) {
@@ -14,15 +14,20 @@ export async function POST(req: Request) {
       );
     }
 
+    // 1. Find ticket + user
     const ticket = await db.supportTicket.findUnique({
       where: { id: ticketId },
       include: { user: true },
     });
 
     if (!ticket) {
-      return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Ticket not found" },
+        { status: 404 }
+      );
     }
 
+    // 2. Create reply
     const reply = await db.ticketReply.create({
       data: {
         ticketId,
@@ -32,13 +37,15 @@ export async function POST(req: Request) {
       },
     });
 
-    // notify user if admin replied
+    // 3. Notify user if admin replied
     if (fromAdmin) {
       sendEmail({
         to: ticket.user.email,
         subject: `Update on your support ticket: ${ticket.subject}`,
         html: supportTicketTemplate(ticket.subject, message),
-      }).catch(() => {});
+      }).catch((err) =>
+        console.error("Support reply email failed:", err)
+      );
     }
 
     return NextResponse.json({ success: true, reply });
