@@ -36,19 +36,27 @@ export default function LicenseRequestApprovalPage({
     loadRequest();
   }, [requestId]);
 
+<<<<<<< HEAD
   // ⭐ THIS FUNCTION MUST BE INSIDE THE COMPONENT
+=======
+>>>>>>> f30524c (Fix license approval pages and API routes)
   async function approveRequest() {
     if (!request) return;
 
     setSending(true);
     setMsg("");
 
+<<<<<<< HEAD
+=======
+    // FIXED — use userEmail
+>>>>>>> f30524c (Fix license approval pages and API routes)
     const payload = {
       email: request.userEmail,
       productName: request.productName,
       requestKey: request.requestKey,
     };
 
+<<<<<<< HEAD
     // ⭐ FIXED — correct backend route
     const res = await fetch(
       `/api/admin/license-requests/${requestId}/approve-send`,
@@ -58,6 +66,13 @@ export default function LicenseRequestApprovalPage({
         body: JSON.stringify(payload),
       }
     );
+=======
+    const res = await fetch("/api/admin/send-license", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+>>>>>>> f30524c (Fix license approval pages and API routes)
 
     const data = await res.json();
     setSending(false);
