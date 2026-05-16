@@ -1,29 +1,34 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(
-  request: NextRequest,
-  context: { params: { id: string } }
+  req: Request,
+  { params }: { params: { id: string } }
 ) {
-  const { id } = context.params;
+  const supabase = supabaseAdmin;
+  const licenseId = params.id;
 
-  const { error } = await supabaseAdmin
+  const { data: license } = await supabase
     .from("License")
-    .update({
-      status: "INACTIVE",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
+    .select("*")
+    .eq("id", licenseId)
+    .single();
 
-  if (error) {
-    return NextResponse.json(
-      { success: false, message: "Failed to deactivate license." },
-      { status: 500 }
-    );
+  if (!license) {
+    return NextResponse.json({ error: "License not found" }, { status: 404 });
   }
 
-  return NextResponse.json({
-    success: true,
-    message: "License deactivated successfully.",
+  await supabase
+    .from("License")
+    .update({ status: "INACTIVE" })
+    .eq("id", licenseId);
+
+  await supabase.from("AuditLog").insert({
+    id: crypto.randomUUID(),
+    action: "LICENSE_DEACTIVATED",
+    details: `License deactivated for ${license.userId}`,
+    userId: license.userId,
   });
+
+  return NextResponse.json({ success: true });
 }

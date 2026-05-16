@@ -1,71 +1,54 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { sendEmail } from "@/lib/email/send";
+import { Resend } from "resend";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const id = params.id;
+const resend = new Resend(process.env.RESEND_API_KEY!);
 
-  if (!id) {
-    return NextResponse.json(
-      { success: false, message: "Missing request ID" },
-      { status: 400 }
-    );
-  }
+export async function POST(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  const requestId = params.id;
 
-  // Load request
-  const { data: request, error: reqError } = await supabaseAdmin
+  const { data: request, error } = await supabaseAdmin
     .from("LicenseRequest")
-    .select("id, userId, productName, requestKey, status, userEmail")
-    .eq("id", id)
+    .select("*")
+    .eq("id", requestId)
     .single();
 
-  if (reqError || !request) {
-    return NextResponse.json(
-      { success: false, message: "License request not found" },
-      { status: 404 }
-    );
+  if (error || !request) {
+    return NextResponse.json({ error: "Request not found" }, { status: 404 });
   }
 
-  if (request.status !== "PENDING") {
-    return NextResponse.json(
-      { success: false, message: "Request already processed" },
-      { status: 400 }
-    );
-  }
-
-  // Reject request
-  const { error: updateError } = await supabaseAdmin
+  // Update request status
+  await supabaseAdmin
     .from("LicenseRequest")
     .update({
       status: "REJECTED",
-      processedat: new Date().toISOString(),
-      processedby: "ADMIN",
+      processedAt: new Date().toISOString(),
+      processedBy: "ADMIN",
     })
-    .eq("id", id);
+    .eq("id", requestId);
 
-  if (updateError) {
-    return NextResponse.json(
-      { success: false, message: updateError.message },
-      { status: 500 }
-    );
-  }
+  // Audit log
+  await supabaseAdmin.from("AuditLog").insert({
+    id: crypto.randomUUID(),
+    action: "LICENSE_REJECTED",
+    details: `Rejected license request for ${request.userEmail}`,
+    userId: request.userId,
+  });
 
-  // Send rejection email
-  if (request.userEmail) {
-    try {
-      await sendEmail({
-        to: request.userEmail,
-        subject: "Your License Request Was Rejected",
-        html: `
-          <h2>License Request Rejected</h2>
-          <p>Your request for <strong>${request.productName}</strong> was rejected.</p>
-          <p>If you believe this is an error, please contact CentralCore Support.</p>
-        `,
-      });
-    } catch (err) {
-      console.error("Rejection email failed:", err);
-    }
-  }
+  // Send email
+  await resend.emails.send({
+    from: "CentralCore <noreply@centralcore.com>",
+    to: request.userEmail,
+    subject: "Your License Request Was Rejected",
+    html: `
+      <p>Hello,</p>
+      <p>Your license request for <strong>${request.productName}</strong> has been rejected.</p>
+      <p>If you believe this is an error, please contact support.</p>
+    `,
+  });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.redirect("/admin/license-requests");
 }

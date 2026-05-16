@@ -8,23 +8,29 @@ export async function POST(req: Request) {
 
     if (!userEmail || !productName || !licenseKey) {
       return NextResponse.json(
-        { error: "Missing fields" },
+        { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
     await sendEmail({
       to: userEmail,
-      subject: "Your License Key (Resent)",
+      subject: "Your License Key",
       html: licenseApprovedTemplate({
-        productName,
+        productName: productName ?? "Unknown Product",
         licenseKey,
       }),
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      message: "License resent successfully",
+    });
   } catch (err) {
-    console.error("Resend Error:", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    console.error("Resend License Error:", err);
+    return NextResponse.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
   }
 }

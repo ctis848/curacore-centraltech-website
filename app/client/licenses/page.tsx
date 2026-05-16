@@ -2,13 +2,28 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import type { License } from "@/types/client";
 import Link from "next/link";
+
+// Correct License type based on your DB schema
+interface LicenseItem {
+  id: string;
+  userId: string;
+  productName: string;
+  licenseKey: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  licenseRequestId: string | null;
+  license_request: {
+    id: string;
+    requestkey: string;
+  } | null;
+}
 
 export default function LicensesPage() {
   const supabase = supabaseBrowser();
 
-  const [licenses, setLicenses] = useState<License[]>([]);
+  const [licenses, setLicenses] = useState<LicenseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -17,6 +32,7 @@ export default function LicensesPage() {
       setLoading(true);
       setErrorMsg(null);
 
+      // Get logged-in user
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -27,26 +43,27 @@ export default function LicensesPage() {
         return;
       }
 
+      // Fetch licenses (snake_case)
       const { data, error } = await supabase
         .from("License")
         .select(
           `
           id,
-          userId,
-          productName,
-          licenseKey,
+          userid,
+          productname,
+          licensekey,
           status,
-          createdAt,
-          updatedAt,
-          licenseRequestId,
-          license_request:license_licenserequest_fkey (
+          createdat,
+          updatedat,
+          licenserequestid,
+          license_request:license_licenserequestid_fkey (
             id,
-            requestKey
+            requestkey
           )
         `
         )
-        .eq("userId", user.id)
-        .order("createdAt", { ascending: false });
+        .eq("userid", user.id)
+        .order("createdat", { ascending: false });
 
       if (error) {
         console.error("License fetch error:", error);
@@ -54,8 +71,16 @@ export default function LicensesPage() {
         return;
       }
 
-      const normalized = (data || []).map((l: any) => ({
-        ...l,
+      // Normalize snake_case → camelCase
+      const normalized: LicenseItem[] = (data || []).map((l: any) => ({
+        id: l.id,
+        userId: l.userid,
+        productName: l.productname,
+        licenseKey: l.licensekey,
+        status: l.status,
+        createdAt: l.createdat,
+        updatedAt: l.updatedat,
+        licenseRequestId: l.licenserequestid,
         license_request: Array.isArray(l.license_request)
           ? l.license_request[0] || null
           : l.license_request,
@@ -120,6 +145,7 @@ export default function LicensesPage() {
             >
               <div>
                 <p className="font-medium">License ID: {l.id}</p>
+
                 <p className="text-sm text-slate-600">
                   Created:{" "}
                   {l.createdAt
@@ -127,14 +153,19 @@ export default function LicensesPage() {
                     : "—"}
                 </p>
 
-                {l.license_request?.requestKey && (
+                {l.license_request?.requestkey && (
                   <p className="text-xs text-slate-500 mt-1">
                     Request Key:{" "}
                     <span className="font-mono">
-                      {l.license_request.requestKey}
+                      {l.license_request.requestkey}
                     </span>
                   </p>
                 )}
+
+                <p className="text-xs text-slate-500 mt-1">
+                  License Key:{" "}
+                  <span className="font-mono">{l.licenseKey}</span>
+                </p>
               </div>
 
               <span

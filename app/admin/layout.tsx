@@ -23,6 +23,10 @@ const navItems = [
   { label: "Dashboard", href: "/admin", icon: HomeIcon },
   { label: "Licenses", href: "/admin/licenses", icon: KeyIcon },
   { label: "License Requests", href: "/admin/license-requests", icon: ClipboardDocumentListIcon },
+
+  // ⭐ NEW: Manual License Sender
+  { label: "Send License", href: "/admin/send-license", icon: KeyIcon },
+
   { label: "Payments", href: "/admin/payments", icon: CreditCardIcon },
   { label: "Annual Fees", href: "/admin/annual-fees", icon: CurrencyDollarIcon },
   { label: "Renewals", href: "/admin/renewals", icon: ClockIcon },
@@ -32,6 +36,7 @@ const navItems = [
   { label: "Support", href: "/admin/support", icon: ChatBubbleLeftRightIcon },
   { label: "Coupons", href: "/admin/coupons", icon: TagIcon },
 ];
+
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();

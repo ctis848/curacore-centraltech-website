@@ -1,3 +1,6 @@
+// -------------------------------
+// WELCOME EMAIL
+// -------------------------------
 export function welcomeEmailTemplate(name: string) {
   return `
   <div style="font-family: Arial, sans-serif; padding: 20px; background: #f7f7f7;">
@@ -23,6 +26,9 @@ export function welcomeEmailTemplate(name: string) {
   `;
 }
 
+// -------------------------------
+// PASSWORD RESET
+// -------------------------------
 export function passwordResetTemplate(resetLink: string) {
   return `
   <div style="font-family: Arial, sans-serif; padding: 20px; background: #f7f7f7;">
@@ -45,6 +51,9 @@ export function passwordResetTemplate(resetLink: string) {
   `;
 }
 
+// -------------------------------
+// PAYMENT SUCCESS
+// -------------------------------
 export function paymentSuccessTemplate(invoiceId: string, amount: number) {
   return `
   <div style="font-family: Arial, sans-serif; padding: 20px; background: #f7f7f7;">
@@ -65,6 +74,9 @@ export function paymentSuccessTemplate(invoiceId: string, amount: number) {
   `;
 }
 
+// -------------------------------
+// SUPPORT TICKET
+// -------------------------------
 export function supportTicketTemplate(subject: string, message: string) {
   return `
   <div style="font-family: Arial, sans-serif; padding: 20px; background: #f7f7f7;">
@@ -86,6 +98,9 @@ export function supportTicketTemplate(subject: string, message: string) {
   `;
 }
 
+// -------------------------------
+// INVOICE REMINDER
+// -------------------------------
 export function invoiceReminderTemplate(invoiceId: string, amount: number, dueDate: string) {
   return `
   <div style="font-family: Arial, sans-serif; padding: 20px; background: #f7f7f7;">
@@ -101,6 +116,61 @@ export function invoiceReminderTemplate(invoiceId: string, amount: number, dueDa
 
       <p style="margin-top: 30px; font-size: 12px; color: #666;">
         CentralTech Billing Team
+      </p>
+    </div>
+  </div>
+  `;
+}
+
+// -------------------------------
+// LICENSE APPROVED
+// -------------------------------
+export function licenseApprovedTemplate({
+  productName,
+  licenseKey,
+}: {
+  productName: string;
+  licenseKey: string;
+}) {
+  return `
+  <div style="font-family: Arial, sans-serif; padding: 20px; background: #f7f7f7;">
+    <div style="max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 10px;">
+      <h2 style="color: #16a34a;">Your License Has Been Approved</h2>
+      <p>Your license request for <strong>${productName}</strong> has been approved.</p>
+
+      <p><strong>Your License Key:</strong></p>
+      <p style="background: #f1f5f9; padding: 12px; border-radius: 6px; font-size: 18px; font-weight: bold;">
+        ${licenseKey}
+      </p>
+
+      <p style="margin-top: 20px;">Enter this key in your CentralCore software to activate your machine.</p>
+
+      <p style="margin-top: 30px; font-size: 12px; color: #666;">
+        CentralTech Licensing Department
+      </p>
+    </div>
+  </div>
+  `;
+}
+
+// -------------------------------
+// LICENSE REJECTED
+// -------------------------------
+export function licenseRejectedTemplate({
+  productName,
+}: {
+  productName: string;
+}) {
+  return `
+  <div style="font-family: Arial, sans-serif; padding: 20px; background: #f7f7f7;">
+    <div style="max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 10px;">
+      <h2 style="color: #dc2626;">License Request Rejected</h2>
+      <p>Your license request for <strong>${productName}</strong> could not be approved.</p>
+
+      <p>If you believe this is a mistake, please contact support.</p>
+
+      <p style="margin-top: 30px; font-size: 12px; color: #666;">
+        CentralTech Licensing Team
       </p>
     </div>
   </div>

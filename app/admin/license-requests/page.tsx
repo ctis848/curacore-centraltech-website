@@ -1,310 +1,209 @@
-"use client";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import Link from "next/link";
+import { StatusBadge } from "@/components/admin/StatusBadge";
 
-import { useEffect, useState, useMemo } from "react";
+export default async function AdminLicenseRequestsPage({
+  searchParams,
+}: {
+  searchParams: {
+    page?: string;
+    q?: string;
+    status?: string;
+    sort?: string;
+    dir?: string;
+  };
+}) {
+  const supabase = supabaseAdmin;
 
-type LicenseStatus = "PENDING" | "APPROVED" | "REJECTED";
+  // Pagination
+  const page = Number(searchParams.page || 1);
+  const pageSize = 10;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
 
-interface LicenseRequestRow {
-  id: string;
-  userId: string;
-  productName: string | null;
-  requestKey: string | null;
-  status: LicenseStatus;
-  requestedAt: string | null;
-  userEmail: string | null;
-  companyName: string | null;
-  manualKey?: string | null;
-}
+  // Search
+  const q = searchParams.q?.trim() || "";
 
-export default function LicenseRequestsPage() {
-  const [requests, setRequests] = useState<LicenseRequestRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<LicenseStatus | "ALL">("PENDING");
-  const [errorMsg, setErrorMsg] = useState("");
-  const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<keyof LicenseRequestRow>("requestedAt");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  // Filter
+  const status = searchParams.status || "";
 
-  useEffect(() => {
-    loadRequests();
-  }, [activeTab]);
+  // Sorting
+  const sort = searchParams.sort || "requestedAt";
+  const dir = searchParams.dir === "asc" ? "asc" : "desc";
 
-  async function loadRequests() {
-    setLoading(true);
-    setErrorMsg("");
+  // Base query
+  let query = supabase
+    .from("LicenseRequest")
+    .select(
+      `
+      id,
+      userId,
+      productName,
+      requestedAt,
+      status,
+      notes,
+      requestKey,
+      companyName,
+      userEmail
+    `,
+      { count: "exact" }
+    )
+    .order(sort, { ascending: dir === "asc" })
+    .range(from, to);
 
-    try {
-      const res = await fetch(`/api/admin/license-requests?status=${activeTab}`, {
-        cache: "no-store",
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        setErrorMsg(json.message || "Failed to load license requests.");
-        setRequests([]);
-      } else {
-        setRequests(json.data || []);
-      }
-    } catch (err) {
-      console.error("Load license requests error:", err);
-      setErrorMsg("Failed to load license requests.");
-      setRequests([]);
-    }
-
-    setLoading(false);
+  // Apply search
+  if (q) {
+    query = query.ilike("userEmail", `%${q}%`);
   }
 
-  async function handleApprove(id: string, manualKey?: string | null) {
-    if (!manualKey?.trim()) {
-      alert("Please enter a license key before approving.");
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/admin/license-requests/${id}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ manualKey: manualKey.trim() }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        alert(json.message || "Failed to approve request.");
-        return;
-      }
-
-      alert("License approved and email sent.");
-      loadRequests();
-    } catch (err) {
-      console.error("Approve error:", err);
-      alert("Failed to approve request.");
-    }
+  // Apply filter
+  if (status) {
+    query = query.eq("status", status);
   }
 
-  async function handleReject(id: string) {
-    if (!confirm("Are you sure you want to reject this request?")) return;
+  const { data: requests, count, error } = await query;
 
-    try {
-      const res = await fetch(`/api/admin/license-requests/${id}/reject`, {
-        method: "POST",
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        alert(json.message || "Failed to reject request.");
-        return;
-      }
-
-      alert("Request rejected.");
-      loadRequests();
-    } catch (err) {
-      console.error("Reject error:", err);
-      alert("Failed to reject request.");
-    }
+  if (error) {
+    console.error("Failed to load license requests:", error);
   }
 
-  // SEARCH + SORT + FILTER
-  const filtered = useMemo(() => {
-    const s = search.toLowerCase().trim();
-
-    let list = requests.filter((r) =>
-      activeTab === "ALL" ? true : r.status === activeTab
-    );
-
-    if (s) {
-      list = list.filter((r) =>
-        [
-          r.companyName,
-          r.userEmail,
-          r.userId,
-          r.productName,
-          r.requestKey,
-        ]
-          .filter(Boolean)
-          .some((v) => v!.toLowerCase().includes(s))
-      );
-    }
-
-    list.sort((a, b) => {
-      const A = (a[sortKey] || "").toString().toLowerCase();
-      const B = (b[sortKey] || "").toString().toLowerCase();
-
-      if (A < B) return sortDir === "asc" ? -1 : 1;
-      if (A > B) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
-
-    return list;
-  }, [requests, activeTab, search, sortKey, sortDir]);
-
-  function toggleSort(key: keyof LicenseRequestRow) {
-    if (sortKey === key) {
-      setSortDir(sortDir === "asc" ? "desc" : "asc");
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  }
+  const totalPages = Math.ceil((count || 0) / pageSize);
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-4">License Management</h1>
+    <div className="p-6 space-y-6">
+      <h1 className="text-2xl font-bold">License Requests</h1>
 
-      {/* TABS */}
-      <div className="flex gap-3 mb-4">
-        {["PENDING", "APPROVED", "REJECTED", "ALL"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab as any)}
-            className={`px-3 py-2 rounded ${
-              activeTab === tab ? "bg-emerald-600 text-white" : "bg-slate-200"
-            }`}
-          >
-            {tab}
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-3 bg-gray-50 p-4 rounded border">
+
+        {/* Search */}
+        <form className="flex gap-2">
+          <input
+            type="text"
+            name="q"
+            placeholder="Search by email..."
+            defaultValue={q}
+            className="border px-3 py-2 rounded text-sm"
+          />
+          <button className="px-4 py-2 bg-blue-600 text-white rounded text-sm">
+            Search
           </button>
-        ))}
+        </form>
+
+        {/* Status Filter */}
+        <form className="flex gap-2">
+          <select
+            name="status"
+            defaultValue={status}
+            className="border px-3 py-2 rounded text-sm"
+          >
+            <option value="">All Status</option>
+            <option value="PENDING">Pending</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+
+          <button className="px-3 py-2 bg-gray-700 text-white rounded text-sm">
+            Apply
+          </button>
+        </form>
+
+        {/* Sorting */}
+        <form className="flex gap-2">
+          <select
+            name="sort"
+            defaultValue={sort}
+            className="border px-3 py-2 rounded text-sm"
+          >
+            <option value="requestedAt">Requested Date</option>
+            <option value="productName">Product</option>
+            <option value="userEmail">Email</option>
+          </select>
+
+          <select
+            name="dir"
+            defaultValue={dir}
+            className="border px-3 py-2 rounded text-sm"
+          >
+            <option value="desc">Descending</option>
+            <option value="asc">Ascending</option>
+          </select>
+
+          <button className="px-3 py-2 bg-gray-700 text-white rounded text-sm">
+            Sort
+          </button>
+        </form>
+
+        {/* Export CSV */}
+        <Link
+          href="/api/admin/license-requests/export"
+          className="px-4 py-2 bg-green-600 text-white rounded text-sm"
+        >
+          Export CSV
+        </Link>
+
+        {/* Audit Log Viewer */}
+        <Link
+          href="/admin/audit-logs"
+          className="px-4 py-2 bg-gray-700 text-white rounded text-sm"
+        >
+          Audit Logs
+        </Link>
       </div>
 
-      {/* SEARCH */}
-      <input
-        type="text"
-        placeholder="Search company, email, product, key, user ID..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="px-3 py-2 border rounded w-full mb-4"
-      />
+      {/* Table */}
+      <table className="w-full border text-sm">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="p-2 border">Email</th>
+            <th className="p-2 border">Product</th>
+            <th className="p-2 border">Requested</th>
+            <th className="p-2 border">Status</th>
+            <th className="p-2 border">Actions</th>
+          </tr>
+        </thead>
 
-      {errorMsg && <p className="text-red-500 mb-3">{errorMsg}</p>}
+        <tbody>
+          {requests?.map((req) => (
+            <tr key={req.id}>
+              <td className="p-2 border">{req.userEmail}</td>
+              <td className="p-2 border">{req.productName}</td>
+              <td className="p-2 border">
+                {new Date(req.requestedAt).toLocaleString()}
+              </td>
+              <td className="p-2 border">
+                <StatusBadge status={req.status} />
+              </td>
+              <td className="p-2 border">
+                <Link
+                  href={`/admin/license-requests/${req.id}`}
+                  className="px-3 py-1 bg-blue-600 text-white rounded"
+                >
+                  Review
+                </Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : filtered.length === 0 ? (
-        <p className="text-gray-500">No requests found.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse bg-white shadow-sm rounded">
-            <thead className="sticky top-0 bg-slate-100 z-10">
-              <tr className="text-left">
-                {[
-                  ["companyName", "Company"],
-                  ["userEmail", "User Email"],
-                  ["userId", "User ID"],
-                  ["productName", "Product"],
-                  ["requestKey", "Request Key"],
-                  ["status", "Status"],
-                  ["requestedAt", "Requested"],
-                ].map(([key, label]) => (
-                  <th
-                    key={key}
-                    onClick={() => toggleSort(key as keyof LicenseRequestRow)}
-                    className="p-3 cursor-pointer select-none"
-                  >
-                    {label}{" "}
-                    {sortKey === key && (sortDir === "asc" ? "↑" : "↓")}
-                  </th>
-                ))}
-                <th className="p-3">Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filtered.map((req) => (
-                <tr key={req.id} className="border-t hover:bg-slate-50">
-                  <td className="p-3">{req.companyName || "—"}</td>
-                  <td className="p-3">{req.userEmail || "—"}</td>
-                  <td className="p-3">{req.userId}</td>
-                  <td className="p-3">{req.productName || "Unknown"}</td>
-
-                  {/* COPY-FRIENDLY REQUEST KEY */}
-                  <td className="p-3 font-mono text-xs break-all">
-                    <div className="flex items-center gap-2">
-                      <span className="select-text">
-                        {req.requestKey || "—"}
-                      </span>
-                      {req.requestKey && (
-                        <button
-                          onClick={() =>
-                            navigator.clipboard.writeText(req.requestKey!)
-                          }
-                          className="px-2 py-1 text-xs border rounded hover:bg-slate-100"
-                        >
-                          Copy
-                        </button>
-                      )}
-                    </div>
-                  </td>
-
-                  <td className="p-3">
-                    <span
-                      className={`px-2 py-1 text-xs rounded ${
-                        req.status === "PENDING"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : req.status === "APPROVED"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {req.status}
-                    </span>
-                  </td>
-
-                  <td className="p-3">
-                    {req.requestedAt
-                      ? new Date(req.requestedAt).toLocaleString()
-                      : "Invalid Date"}
-                  </td>
-
-                  {/* ACTIONS */}
-                  <td className="p-3">
-                    {req.status === "PENDING" ? (
-                      <div className="flex gap-2 items-center">
-                        <input
-                          type="text"
-                          placeholder="Manual key"
-                          className="border px-2 py-1 rounded text-sm w-40"
-                          value={req.manualKey || ""}
-                          onChange={(e) =>
-                            setRequests((prev) =>
-                              prev.map((r) =>
-                                r.id === req.id
-                                  ? { ...r, manualKey: e.target.value }
-                                  : r
-                              )
-                            )
-                          }
-                        />
-
-                        <button
-                          onClick={() =>
-                            handleApprove(req.id, req.manualKey)
-                          }
-                          className="px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
-                        >
-                          Approve
-                        </button>
-
-                        <button
-                          onClick={() => handleReject(req.id)}
-                          className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    ) : req.status === "APPROVED" ? (
-                      <span className="text-green-700 text-sm">Approved</span>
-                    ) : (
-                      <span className="text-red-700 text-sm">Rejected</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* Pagination */}
+      <div className="flex gap-2 mt-4">
+        {Array.from({ length: totalPages }).map((_, i) => {
+          const pageNum = i + 1;
+          return (
+            <Link
+              key={pageNum}
+              href={`?page=${pageNum}&q=${q}&status=${status}&sort=${sort}&dir=${dir}`}
+              className={`px-3 py-1 border rounded ${
+                pageNum === page ? "bg-blue-600 text-white" : ""
+              }`}
+            >
+              {pageNum}
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }

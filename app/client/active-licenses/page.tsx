@@ -8,12 +8,12 @@ type LicenseRow = {
   productName: string | null;
   licenseKey: string | null;
   status: string;
-  userid: string;
-  createdat: string;
-  expiresat: string | null;
+  user_id: string;
+  created_at: string;
+  expires_at: string | null;
   annualFeePercent: number | null;
   annualFeePaidUntil: string | null;
-  requestKey?: string | null; // ⭐ Added
+  requestKey?: string | null;
 };
 
 export default function ClientLicensesPage() {
@@ -27,7 +27,7 @@ export default function ClientLicensesPage() {
 
   const [activeTab, setActiveTab] = useState<"ACTIVE" | "PENDING">("ACTIVE");
 
-  const [sortField, setSortField] = useState<keyof LicenseRow>("createdat");
+  const [sortField, setSortField] = useState<keyof LicenseRow>("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const [page, setPage] = useState(1);
@@ -60,18 +60,32 @@ export default function ClientLicensesPage() {
           productName,
           licenseKey,
           status,
-          userid,
-          createdat,
-          expiresat,
+          user_id,
+          created_at,
+          expires_at,
           annualFeePercent,
-          annualFeePaidUntil
+          annualFeePaidUntil,
+          licenserequestid
         `)
-        .eq("userid", user.id)
+        .eq("user_id", user.id)
         .in("status", ["ACTIVE", "PAID", "NOT_DUE"])
-        .order("createdat", { ascending: false });
+        .order("created_at", { ascending: false });
 
-      setLicenses(data || []);
-      setFiltered(data || []);
+      const mapped = (data || []).map((l) => ({
+        id: l.id,
+        productName: l.productName,
+        licenseKey: l.licenseKey,
+        status: l.status,
+        user_id: l.user_id,
+        created_at: l.created_at,
+        expires_at: l.expires_at,
+        annualFeePercent: l.annualFeePercent,
+        annualFeePaidUntil: l.annualFeePaidUntil,
+        requestKey: null,
+      }));
+
+      setLicenses(mapped);
+      setFiltered(mapped);
       setLoading(false);
       return;
     }
@@ -97,12 +111,12 @@ export default function ClientLicensesPage() {
         productName: r.productName,
         licenseKey: null,
         status: "PENDING",
-        userid: r.userId,
-        createdat: r.requestedAt,
-        expiresat: null,
+        user_id: r.userId,
+        created_at: r.requestedAt,
+        expires_at: null,
         annualFeePercent: null,
         annualFeePaidUntil: null,
-        requestKey: r.requestKey, // ⭐ Added
+        requestKey: r.requestKey,
       }));
 
       setLicenses(pendingMapped);
@@ -134,7 +148,7 @@ export default function ClientLicensesPage() {
         (l.productName ?? "").toLowerCase().includes(s) ||
         (l.licenseKey ?? "").toLowerCase().includes(s) ||
         (l.status ?? "").toLowerCase().includes(s) ||
-        (l.requestKey ?? "").toLowerCase().includes(s) // ⭐ Added
+        (l.requestKey ?? "").toLowerCase().includes(s)
       );
     });
 
@@ -153,7 +167,7 @@ export default function ClientLicensesPage() {
   function downloadLicense(lic: LicenseRow) {
     const content = `PRODUCT=${lic.productName ?? ""}
 LICENSE_KEY=${lic.licenseKey ?? ""}
-USER=${lic.userid ?? ""}`;
+USER=${lic.user_id ?? ""}`;
 
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -168,7 +182,6 @@ USER=${lic.userid ?? ""}`;
 
   return (
     <div>
-      {/* Dynamic Headline */}
       <h1 className="text-2xl font-semibold mb-4">
         {activeTab === "ACTIVE" ? "Active Licenses" : "Pending License Requests"}
       </h1>
@@ -227,7 +240,6 @@ USER=${lic.userid ?? ""}`;
               <tr>
                 <th className="px-4 py-2">Product</th>
 
-                {/* ⭐ Show Request Key column ONLY in Pending tab */}
                 {activeTab === "PENDING" && (
                   <th className="px-4 py-2">Request Key</th>
                 )}
@@ -244,7 +256,6 @@ USER=${lic.userid ?? ""}`;
                 <tr key={lic.id} className="border-t hover:bg-slate-50">
                   <td className="px-4 py-2">{lic.productName ?? "N/A"}</td>
 
-                  {/* ⭐ Show Request Key value */}
                   {activeTab === "PENDING" && (
                     <td className="px-4 py-2 font-mono break-all">
                       {lic.requestKey ?? "N/A"}
@@ -270,7 +281,7 @@ USER=${lic.userid ?? ""}`;
                   </td>
 
                   <td className="px-4 py-2">
-                    {new Date(lic.createdat).toLocaleString()}
+                    {new Date(lic.created_at).toLocaleString()}
                   </td>
 
                   <td className="px-4 py-2 space-x-3">
@@ -290,7 +301,7 @@ USER=${lic.userid ?? ""}`;
                           Copy
                         </button>
 
-                        <button
+                          <button
                           onClick={() => downloadLicense(lic)}
                           className="text-green-600 hover:underline"
                         >

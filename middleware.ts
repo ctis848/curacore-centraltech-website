@@ -93,7 +93,7 @@ async function handleAuth(
     }
   }
 
-  // ⭐ FIXED: Prevent redirect loop on admin login page
+  // ⭐ Prevent redirect loop on admin login page
   if (isPublic && user) {
     const role = user.user_metadata?.role;
 
@@ -113,7 +113,7 @@ async function handleAuth(
   // Public routes allowed
   if (isPublic) return res;
 
-  // SUPERADMIN PROTECTED
+  // ⭐ SUPERADMIN PROTECTED
   if (pathname.startsWith("/superadmin")) {
     if (!user) return redirectTo("/superadmin/login");
 
@@ -123,7 +123,7 @@ async function handleAuth(
     return res;
   }
 
-  // ADMIN PROTECTED (pages + APIs)
+  // ⭐ ADMIN PROTECTED (pages + APIs)
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     // Must have Supabase user
     if (!user) return redirectTo("/auth/admin/login");
