@@ -7,13 +7,8 @@ export default function ApproveLicensePage() {
   const params = useSearchParams();
   const router = useRouter();
 
-<<<<<<< HEAD
   const id = params!.get("id");
   const requestKey = params!.get("key");
-=======
-  const id = params!.get("id");          // FIXED
-  const requestKey = params!.get("key"); // FIXED
->>>>>>> f30524c (Fix license approval pages and API routes)
 
   const [licenseKey, setLicenseKey] = useState("");
   const [msg, setMsg] = useState("");
@@ -23,22 +18,11 @@ export default function ApproveLicensePage() {
     setSending(true);
     setMsg("");
 
-<<<<<<< HEAD
-    // ⭐ FIXED: Call the correct backend route
     const res = await fetch(`/api/admin/license-requests/${id}/approve-send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        licenseKey, // optional — backend generates its own
-=======
-    const res = await fetch("/api/admin/send-license", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestId: id,
-        requestKey,
         licenseKey,
->>>>>>> f30524c (Fix license approval pages and API routes)
       }),
     });
 
@@ -48,10 +32,6 @@ export default function ApproveLicensePage() {
     if (res.ok) {
       setMsg("License sent successfully");
 
-<<<<<<< HEAD
-      // Approve the request (optional, backend already does this)
-=======
->>>>>>> f30524c (Fix license approval pages and API routes)
       await fetch(`/api/admin/license-requests/${id}/approve`, {
         method: "POST",
       });
@@ -85,7 +65,11 @@ export default function ApproveLicensePage() {
       </div>
 
       {msg && (
-        <p className={`text-sm ${msg.includes("success") ? "text-green-600" : "text-red-600"}`}>
+        <p
+          className={`text-sm ${
+            msg.includes("success") ? "text-green-600" : "text-red-600"
+          }`}
+        >
           {msg}
         </p>
       )}

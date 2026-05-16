@@ -3,22 +3,12 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET(
   req: Request,
-<<<<<<< HEAD
-  { params }: { params: { id: string } }
-) {
-  try {
-    const requestId = params.id;
-
-    const { data: request, error } = await supabaseAdmin
-=======
   context: { params: { id: string } }
 ) {
   try {
     const requestId = context.params.id;
-    const supabase = supabaseAdmin;
 
-    const { data: request, error } = await supabase
->>>>>>> f30524c (Fix license approval pages and API routes)
+    const { data: request, error } = await supabaseAdmin
       .from("LicenseRequest")
       .select("*")
       .eq("id", requestId)
