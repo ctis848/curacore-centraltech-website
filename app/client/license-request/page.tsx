@@ -1,33 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-const PRODUCT_PLANS = [
-  "Starter",
-  "Pro",
-  "Enterprise",
-];
+const PRODUCT_PLANS = ["Starter", "Pro", "Enterprise"];
 
 export default function ClientLicenseRequestPage() {
   const supabase = supabaseBrowser();
+
   const [requestKey, setRequestKey] = useState("");
   const [notes, setNotes] = useState("");
   const [productName, setProductName] = useState("");
+
+  const [companyName, setCompanyName] = useState(""); 
+  const [userEmail, setUserEmail] = useState("");     
+
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<null | { type: "error" | "success"; text: string }>(null);
+
+  // AUTO‑LOAD EMAIL + COMPANY NAME
+  useEffect(() => {
+    async function loadUserInfo() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) return;
+
+      // Auto-fill email safely
+      setUserEmail(session.user.email ?? "");
+
+      // Fetch full user row so we can debug
+      const { data: profile, error } = await supabase
+        .from("User")
+        .select("*")
+        .eq("id", session.user.id)
+        .single();
+
+      console.log("PROFILE RETURNED:", profile);
+      console.log("SUPABASE ERROR:", error);
+
+      // Correct column name: companyname
+      setCompanyName(profile?.companyname ?? "");
+    }
+
+    loadUserInfo();
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
+
+    if (!productName) {
+      setMsg({ type: "error", text: "Please select a Product Plan." });
+      return;
+    }
 
     if (!requestKey.trim()) {
       setMsg({ type: "error", text: "Please paste your License Request Key." });
       return;
     }
 
-    if (!productName) {
-      setMsg({ type: "error", text: "Please select a Product Plan." });
+    if (!companyName.trim()) {
+      setMsg({ type: "error", text: "Company name missing." });
+      return;
+    }
+
+    if (!userEmail.trim()) {
+      setMsg({ type: "error", text: "Email missing." });
       return;
     }
 
@@ -43,18 +83,26 @@ export default function ClientLicenseRequestPage() {
       return;
     }
 
-    const { error } = await supabase.from("LicenseRequest").insert({
-      id: crypto.randomUUID(),
-      userId: session.user.id,
-      requestKey: requestKey.trim(),
-      productName,
-      notes: notes || null,
-      status: "PENDING",
+    const userId = session.user.id;
+
+    // SEND TO ADMIN API
+    const res = await fetch("/api/admin/license-requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId,
+        userEmail,
+        companyName,
+        productName,
+        requestKey: requestKey.trim(),
+        notes: notes || null,
+      }),
     });
 
-    if (error) {
-      console.error("LicenseRequest insert error:", error);
-      setMsg({ type: "error", text: "Failed to send license request." });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setMsg({ type: "error", text: data.error || "Failed to send license request." });
       setSaving(false);
       return;
     }
@@ -74,6 +122,28 @@ export default function ClientLicenseRequestPage() {
         onSubmit={handleSubmit}
         className="bg-white rounded shadow p-4 max-w-xl space-y-4"
       >
+        {/* AUTO‑FILLED EMAIL */}
+        <div>
+          <label className="block mb-2 font-semibold">Your Email</label>
+          <input
+            type="text"
+            className="w-full p-2 border rounded bg-gray-100"
+            value={userEmail}
+            readOnly
+          />
+        </div>
+
+        {/* AUTO‑FILLED COMPANY NAME */}
+        <div>
+          <label className="block mb-2 font-semibold">Company Name</label>
+          <input
+            type="text"
+            className="w-full p-2 border rounded bg-gray-100"
+            value={companyName}
+            readOnly
+          />
+        </div>
+
         <div>
           <label className="block mb-2 font-semibold">Product Plan</label>
           <select

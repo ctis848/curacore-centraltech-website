@@ -1,69 +1,66 @@
+// app/api/admin/license-requests/[id]/approve/route.ts
+
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
+export async function POST(req: Request, context: { params: { id: string } }) {
+  try {
+    const requestId = context.params.id;
 
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  const requestId = params.id;
+    // 1. Load the license request
+    const { data: request, error: reqError } = await supabaseAdmin
+      .from("LicenseRequest")
+      .select("*")
+      .eq("id", requestId)
+      .single();
 
-  // Fetch the request
-  const { data: request, error } = await supabaseAdmin
-    .from("LicenseRequest")
-    .select("*")
-    .eq("id", requestId)
-    .single();
+    if (reqError || !request) {
+      return NextResponse.json(
+        { error: "License request not found" },
+        { status: 404 }
+      );
+    }
 
-  if (error || !request) {
-    return NextResponse.json({ error: "Request not found" }, { status: 404 });
+    // 2. Prevent double approval
+    if (request.status === "APPROVED") {
+      return NextResponse.json(
+        { error: "Request already approved" },
+        { status: 400 }
+      );
+    }
+
+    // 3. Mark request as approved
+    const { error: updateError } = await supabaseAdmin
+      .from("LicenseRequest")
+      .update({
+        status: "APPROVED",
+        approved_at: new Date().toISOString(),
+      })
+      .eq("id", requestId);
+
+    if (updateError) {
+      console.error("Approval update error:", updateError);
+      return NextResponse.json(
+        { error: "Failed to update request status" },
+        { status: 500 }
+      );
+    }
+
+    // 4. Insert audit log (FIXED)
+    await supabaseAdmin.from("AuditLog").insert({
+      id: crypto.randomUUID(),
+      action: "LICENSE_REQUEST_APPROVED",
+      details: `Approved license request for ${request.userEmail}`,
+      user_id: request.userId ?? null,
+      created_at: new Date().toISOString(),
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Request approved successfully",
+    });
+  } catch (err) {
+    console.error("Approval API Error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
-
-  // Generate license key (simple example)
-  const licenseKey = crypto.randomUUID();
-
-  // Insert license
-  await supabaseAdmin.from("License").insert({
-    id: crypto.randomUUID(),
-    userId: request.userId,
-    productName: request.productName,
-    licenseKey,
-    status: "ACTIVE",
-  });
-
-  // Update request status
-  await supabaseAdmin
-    .from("LicenseRequest")
-    .update({
-      status: "APPROVED",
-      processedAt: new Date().toISOString(),
-      processedBy: "ADMIN",
-    })
-    .eq("id", requestId);
-
-  // Audit log
-  await supabaseAdmin.from("AuditLog").insert({
-    id: crypto.randomUUID(),
-    action: "LICENSE_APPROVED",
-    details: `Approved license request for ${request.userEmail}`,
-    userId: request.userId,
-  });
-
-  // Send email
-  await resend.emails.send({
-    from: "CentralCore <noreply@centralcore.com>",
-    to: request.userEmail,
-    subject: "Your License Has Been Approved",
-    html: `
-      <p>Hello,</p>
-      <p>Your license request for <strong>${request.productName}</strong> has been approved.</p>
-      <p>Your license key:</p>
-      <pre>${licenseKey}</pre>
-      <p>Thank you.</p>
-    `,
-  });
-
-  return NextResponse.redirect("/admin/license-requests");
 }

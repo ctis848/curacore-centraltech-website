@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       await supabaseAdmin.auth.admin.createUser({
         email,
         password,
-        email_confirm: true, // ⭐ Auto-confirm user
+        email_confirm: true,
       });
 
     if (authError || !authUser?.user) {
@@ -29,12 +29,14 @@ export async function POST(req: Request) {
 
     const userId = authUser.user.id;
 
-    // 2. Create User profile (required for FK)
+    // 2. Create User profile (public.User)
     const { error: userProfileError } = await supabaseAdmin
       .from("User")
       .insert({
         id: userId,
         email,
+        companyname: companyName, // ⭐ FIXED — matches your DB schema
+        created_at: new Date().toISOString(),
       });
 
     if (userProfileError) {
@@ -44,12 +46,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Create company record
+    // 3. Create company record (companies table)
     const { error: companyError } = await supabaseAdmin
       .from("companies")
       .insert({
         user_id: userId,
-        name: companyName,
+        name: companyName, // ⭐ This is correct for your companies table
+        created_at: new Date().toISOString(),
       });
 
     if (companyError) {

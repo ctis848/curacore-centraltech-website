@@ -6,8 +6,6 @@ export default function SendLicensePage() {
   const [email, setEmail] = useState("");
   const [productName, setProductName] = useState("");
   const [requestKey, setRequestKey] = useState("");
-  const [licenseKey, setLicenseKey] = useState("");
-  const [mode, setMode] = useState("manual"); // manual | brevo
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
 
@@ -15,19 +13,13 @@ export default function SendLicensePage() {
     setMsg("");
     setLoading(true);
 
-    let endpoint = "/api/admin/send-license";
-    let payload: any = { email, productName };
+    const payload = {
+      email,
+      productName,
+      requestKey,
+    };
 
-    if (mode === "manual") {
-      payload.requestKey = requestKey;
-    }
-
-    if (mode === "brevo") {
-      endpoint = "/api/admin/brevo/send-license";
-      payload.licenseKey = licenseKey;
-    }
-
-    const res = await fetch(endpoint, {
+    const res = await fetch("/api/admin/send-license", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -41,7 +33,6 @@ export default function SendLicensePage() {
       setEmail("");
       setProductName("");
       setRequestKey("");
-      setLicenseKey("");
     } else {
       setMsg(data.error || "Failed to send license");
     }
@@ -72,37 +63,14 @@ export default function SendLicensePage() {
           <option value="Enterprise">Enterprise</option>
         </select>
 
-        {/* Request Key (Manual Mode) */}
-        {mode === "manual" && (
-          <textarea
-            className="w-full p-2 border rounded"
-            rows={4}
-            placeholder="Request Key"
-            value={requestKey}
-            onChange={(e) => setRequestKey(e.target.value)}
-          />
-        )}
-
-        {/* License Key (Brevo Mode) */}
-        {mode === "brevo" && (
-          <textarea
-            className="w-full p-2 border rounded"
-            rows={4}
-            placeholder="License Key"
-            value={licenseKey}
-            onChange={(e) => setLicenseKey(e.target.value)}
-          />
-        )}
-
-        {/* Sending Mode */}
-        <select
+        {/* Request Key */}
+        <textarea
           className="w-full p-2 border rounded"
-          value={mode}
-          onChange={(e) => setMode(e.target.value)}
-        >
-          <option value="manual">Send via Resend (Default)</option>
-          <option value="brevo">Send via Brevo</option>
-        </select>
+          rows={4}
+          placeholder="Request Key"
+          value={requestKey}
+          onChange={(e) => setRequestKey(e.target.value)}
+        />
 
         {/* Message */}
         {msg && (

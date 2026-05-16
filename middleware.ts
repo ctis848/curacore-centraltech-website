@@ -5,9 +5,7 @@ import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next({
-    request: {
-      headers: req.headers,
-    },
+    request: { headers: req.headers },
   });
 
   // Allow CORS preflight + static assets
@@ -17,6 +15,11 @@ export async function middleware(req: NextRequest) {
     req.nextUrl.pathname.startsWith("/favicon") ||
     req.nextUrl.pathname.startsWith("/assets")
   ) {
+    return res;
+  }
+
+  // ⭐ EXCLUDE ALL API ROUTES
+  if (req.nextUrl.pathname.startsWith("/api")) {
     return res;
   }
 
@@ -40,11 +43,7 @@ export async function middleware(req: NextRequest) {
   return handleAuth(req, res, supabase);
 }
 
-async function handleAuth(
-  req: NextRequest,
-  res: NextResponse,
-  supabase: ReturnType<typeof createServerClient>
-) {
+async function handleAuth(req: NextRequest, res: NextResponse, supabase: any) {
   const { pathname } = req.nextUrl;
 
   // PUBLIC ROUTES
@@ -72,7 +71,7 @@ async function handleAuth(
     return NextResponse.redirect(url);
   };
 
-  // ⭐ Read admin session cookie
+  // Admin session cookie
   const adminSessionCookie = req.cookies.get("admin_session")?.value;
   let adminSession: any = null;
 
@@ -80,7 +79,6 @@ async function handleAuth(
     try {
       adminSession = JSON.parse(adminSessionCookie);
 
-      // Expired admin session → logout
       if (Date.now() > adminSession.expiresAt) {
         const logout = redirectTo("/auth/admin/login");
         logout.cookies.set("admin_session", "", { maxAge: 0 });
@@ -93,27 +91,10 @@ async function handleAuth(
     }
   }
 
-  // ⭐ Prevent redirect loop on admin login page
-  if (isPublic && user) {
-    const role = user.user_metadata?.role;
-
-    // Only redirect if admin session cookie exists AND is valid
-    if (pathname.startsWith("/auth/admin")) {
-      if (adminSession && (role === "ADMIN" || role === "SUPERADMIN")) {
-        return redirectTo("/admin");
-      }
-    }
-
-    // Superadmin login redirect
-    if (pathname.startsWith("/superadmin/login") && role === "SUPERADMIN") {
-      return redirectTo("/superadmin");
-    }
-  }
-
   // Public routes allowed
   if (isPublic) return res;
 
-  // ⭐ SUPERADMIN PROTECTED
+  // SUPERADMIN PROTECTED
   if (pathname.startsWith("/superadmin")) {
     if (!user) return redirectTo("/superadmin/login");
 
@@ -123,19 +104,16 @@ async function handleAuth(
     return res;
   }
 
-  // ⭐ ADMIN PROTECTED (pages + APIs)
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
-    // Must have Supabase user
+  // ADMIN PROTECTED (pages only — NOT APIs)
+  if (pathname.startsWith("/admin")) {
     if (!user) return redirectTo("/auth/admin/login");
 
     const role = user.user_metadata?.role;
 
-    // Must have admin role
     if (role !== "ADMIN" && role !== "SUPERADMIN") {
       return redirectTo("/unauthorized");
     }
 
-    // Must have valid admin session cookie
     if (!adminSession) {
       return redirectTo("/auth/admin/login");
     }
@@ -143,15 +121,15 @@ async function handleAuth(
     return res;
   }
 
-  // Everything else is allowed (client portal)
+  // Everything else allowed
   return res;
 }
 
+// ⭐ UPDATED MATCHER — API ROUTES REMOVED
 export const config = {
   matcher: [
     "/superadmin/:path*",
     "/admin/:path*",
-    "/api/admin/:path*",
     "/auth/:path*",
     "/client",
     "/client/",

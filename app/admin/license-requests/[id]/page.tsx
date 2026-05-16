@@ -1,145 +1,134 @@
-import { supabaseAdmin } from "@/lib/supabase/admin";
-import Link from "next/link";
-import { StatusBadge } from "@/components/admin/StatusBadge";
+"use client";
 
-export default async function AdminLicenseRequestDetailPage({
+import { use, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+export default function LicenseRequestApprovalPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const supabase = supabaseAdmin;
-  const requestId = params.id;
+  const router = useRouter();
 
-  const { data: request, error } = await supabase
-    .from("LicenseRequest")
-    .select(
-      `
-      id,
-      userId,
-      productName,
-      requestedAt,
-      status,
-      notes,
-      requestKey,
-      companyName,
-      userEmail
-    `
-    )
-    .eq("id", requestId)
-    .single();
+  // Unwrap params (Next.js 15+)
+  const { id: requestId } = use(params);
 
-  if (error || !request) {
-    return (
-      <div className="p-6">
-        <h1 className="text-xl font-semibold">License Request</h1>
-        <p className="text-red-600 mt-2">Request not found.</p>
-        <Link
-          href="/admin/license-requests"
-          className="mt-4 inline-block px-4 py-2 bg-gray-700 text-white rounded"
-        >
-          Back
-        </Link>
-      </div>
+  const [loading, setLoading] = useState(true);
+  const [request, setRequest] = useState<any>(null);
+  const [msg, setMsg] = useState("");
+  const [sending, setSending] = useState(false);
+
+  // Load request details
+  useEffect(() => {
+    async function loadRequest() {
+      const res = await fetch(`/api/admin/license-requests/${requestId}`);
+      const data = await res.json();
+
+      if (res.ok) {
+        setRequest(data);
+      } else {
+        setMsg(data.error || "Failed to load request");
+      }
+
+      setLoading(false);
+    }
+
+    loadRequest();
+  }, [requestId]);
+
+  // ⭐ THIS FUNCTION MUST BE INSIDE THE COMPONENT
+  async function approveRequest() {
+    if (!request) return;
+
+    setSending(true);
+    setMsg("");
+
+    const payload = {
+      email: request.userEmail,
+      productName: request.productName,
+      requestKey: request.requestKey,
+    };
+
+    // ⭐ FIXED — correct backend route
+    const res = await fetch(
+      `/api/admin/license-requests/${requestId}/approve-send`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
     );
+
+    const data = await res.json();
+    setSending(false);
+
+    if (res.ok) {
+      setMsg("License approved and sent successfully");
+
+      await fetch(`/api/admin/license-requests/${requestId}/approve`, {
+        method: "POST",
+      });
+
+      setTimeout(() => router.push("/admin/license-requests"), 1500);
+    } else {
+      setMsg(data.error || "Failed to approve request");
+    }
+  }
+
+  if (loading) {
+    return <div className="p-6">Loading request...</div>;
+  }
+
+  if (!request) {
+    return <div className="p-6 text-red-600">Request not found</div>;
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-semibold">License Request Detail</h1>
+    <div className="p-6 max-w-2xl space-y-6">
+      <h1 className="text-2xl font-bold">Approve License Request</h1>
 
-      {/* Request + User Info */}
-      <section className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-800 mb-2">
-            Request Information
-          </h2>
+      <div className="space-y-4 border p-4 rounded">
+        <p><strong>Email:</strong> {request.userEmail}</p>
+        <p><strong>Product:</strong> {request.productName}</p>
 
-          <p className="text-xs text-slate-500 mb-1">
-            Request ID: {request.id}
-          </p>
-
-          <p className="text-sm">
-            <span className="font-medium">Product:</span>{" "}
-            {request.productName}
-          </p>
-
-          <p className="text-sm mt-1">
-            <span className="font-medium">Status:</span>{" "}
-            <StatusBadge status={request.status} />
-          </p>
-
-          <p className="text-sm mt-1">
-            <span className="font-medium">Requested:</span>{" "}
-            {new Date(request.requestedAt).toLocaleString()}
-          </p>
-
-          {request.notes && (
-            <p className="text-sm mt-2">
-              <span className="font-medium">Notes:</span> {request.notes}
-            </p>
-          )}
+        <div>
+          <p><strong>Request Key:</strong></p>
+          <textarea
+            className="w-full p-2 border rounded"
+            rows={4}
+            readOnly
+            value={request.requestKey}
+          />
         </div>
 
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-800 mb-2">
-            Client Information
-          </h2>
-
-          <p className="text-sm">
-            <span className="font-medium">Email:</span>{" "}
-            {request.userEmail}
-          </p>
-
-          <p className="text-sm mt-1">
-            <span className="font-medium">Company:</span>{" "}
-            {request.companyName || "N/A"}
-          </p>
+        <div>
+          <p><strong>Notes:</strong></p>
+          <textarea
+            className="w-full p-2 border rounded bg-gray-50"
+            rows={3}
+            readOnly
+            value={request.notes || "No notes provided"}
+          />
         </div>
-      </section>
+      </div>
 
-      {/* Request Key */}
-      <section className="rounded-xl border bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-slate-800 mb-2">
-          License Request Key
-        </h2>
-
-        <textarea
-          className="w-full p-3 border rounded text-xs font-mono"
-          rows={6}
-          readOnly
-          value={request.requestKey}
-        />
-      </section>
-
-      {/* Actions */}
-      {request.status === "PENDING" && (
-        <section className="flex gap-3">
-          <form
-            action={`/api/admin/license-requests/${request.id}/approve`}
-            method="POST"
-          >
-            <button className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-sm">
-              Approve & Send License
-            </button>
-          </form>
-
-          <form
-            action={`/api/admin/license-requests/${request.id}/reject`}
-            method="POST"
-          >
-            <button className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm">
-              Reject Request
-            </button>
-          </form>
-        </section>
+      {msg && (
+        <p
+          className={`text-sm ${
+            msg.includes("success") ? "text-green-600" : "text-red-600"
+          }`}
+        >
+          {msg}
+        </p>
       )}
 
-      <Link
-        href="/admin/license-requests"
-        className="inline-block px-4 py-2 bg-gray-700 text-white rounded"
+      <button
+        onClick={approveRequest}
+        disabled={sending}
+        className="px-4 py-2 bg-emerald-600 text-white rounded w-full"
       >
-        Back
-      </Link>
+        {sending ? "Approving..." : "Approve & Send License"}
+      </button>
     </div>
   );
 }

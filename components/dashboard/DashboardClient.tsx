@@ -12,7 +12,7 @@ export default function DashboardClient() {
 
   useEffect(() => {
     async function load() {
-      // Load session user
+      // 1. Load session user
       const { data: userData } = await supabase.auth.getUser();
       const currentUser = userData?.user;
 
@@ -23,12 +23,16 @@ export default function DashboardClient() {
 
       setUser(currentUser);
 
-      // Load client profile (if you have a Client table)
-      const { data: profileData } = await supabase
-        .from("Client")
-        .select("*")
-        .eq("userId", currentUser.id)
+      // 2. Load profile from public.User table
+      const { data: profileData, error } = await supabase
+        .from("User")
+        .select("full_name, companyname, phone")
+        .eq("id", currentUser.id)
         .single();
+
+      if (error) {
+        console.error("Profile load error:", error);
+      }
 
       setProfile(profileData || null);
       setLoading(false);
@@ -62,9 +66,9 @@ export default function DashboardClient() {
 
         {profile && (
           <>
-            <p><strong>Name:</strong> {profile.fullName}</p>
-            <p><strong>Company:</strong> {profile.companyName}</p>
-            <p><strong>Phone:</strong> {profile.phone}</p>
+            <p><strong>Name:</strong> {profile.full_name || "—"}</p>
+            <p><strong>Company:</strong> {profile.companyname || "—"}</p>
+            <p><strong>Phone:</strong> {profile.phone || "—"}</p>
           </>
         )}
       </div>

@@ -1,3 +1,5 @@
+// app/api/admin/send-license/route.ts
+
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/send";
@@ -5,45 +7,115 @@ import { licenseApprovedTemplate } from "@/lib/email/templates";
 
 export async function POST(req: Request) {
   try {
-    const { email, productName, requestKey } = await req.json();
+    const { requestId, requestKey, licenseKey } = await req.json();
 
-    if (!email || !productName || !requestKey) {
+    if (!requestId || !requestKey || !licenseKey) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    const supabase = supabaseAdmin; // FIXED: no parentheses
+    const supabase = supabaseAdmin;
 
-    // 1. Find user by email
-    const { data: user, error: userError } = await supabase
-      .from("User")
-      .select("id, tenantId, email")
-      .eq("email", email)
+    // 1. Load the license request
+    const { data: request, error: reqError } = await supabase
+      .from("LicenseRequest")
+      .select("userEmail, companyname, productName")
+      .eq("id", requestId)
       .single();
 
-    if (userError || !user) {
+    if (reqError || !request) {
+      console.error("LicenseRequest load error:", reqError);
       return NextResponse.json(
-        { error: "User not found" },
+        { error: "Request not found" },
         { status: 404 }
       );
     }
 
-    // 2. Generate license key
-    const licenseKey = crypto.randomUUID().replace(/-/g, "").toUpperCase();
+    const email = request.userEmail;
+    const productName = request.productName;
 
-    // 3. Insert license into License table
+    if (!email) {
+      return NextResponse.json(
+        { error: "Request has no email" },
+        { status: 400 }
+      );
+    }
+
+    // 2. Find user in auth.users
+    const { data: authList, error: authListError } =
+      await supabase.auth.admin.listUsers();
+
+    if (authListError || !authList) {
+      console.error("Auth list error:", authListError);
+      return NextResponse.json(
+        { error: "Failed to load users" },
+        { status: 500 }
+      );
+    }
+
+    const authUser = authList.users.find((u) => u.email === email);
+
+    if (!authUser) {
+      return NextResponse.json(
+        { error: "User not found in auth" },
+        { status: 404 }
+      );
+    }
+
+    // 3. Load or create profile in public.User
+    let { data: userRow, error: userError } = await supabase
+      .from("User")
+      .select("id, tenant_id, email")
+      .eq("id", authUser.id)
+      .single();
+
+    if (userError && userError.code !== "PGRST116") {
+      console.error("User profile query error:", userError);
+    }
+
+    if (!userRow) {
+      const { data: newProfile, error: profileError } = await supabase
+        .from("User")
+        .insert({
+          id: authUser.id,
+          email: authUser.email,
+          tenant_id: null,
+          created_at: new Date().toISOString(),
+        })
+        .select("id, tenant_id, email")
+        .single();
+
+      if (profileError || !newProfile) {
+        console.error("Profile creation error:", profileError);
+        return NextResponse.json(
+          { error: "Failed to create user profile" },
+          { status: 500 }
+        );
+      }
+
+      userRow = newProfile;
+    }
+
+    const profile = userRow as {
+      id: string;
+      tenant_id: string | null;
+      email: string;
+    };
+
+    // 4. Insert license
     const { data: license, error: licError } = await supabase
       .from("License")
       .insert({
         id: crypto.randomUUID(),
-        userId: user.id,
-        tenantId: user.tenantId,
+        user_id: profile.id,
+        tenant_id: profile.tenant_id,
         productName,
         requestKey,
         licenseKey,
         status: "ACTIVE",
+        created_at: new Date().toISOString(),
       })
       .select("*")
       .single();
@@ -56,20 +128,21 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4. Insert audit log
+    // 5. Insert audit log
     await supabase.from("AuditLog").insert({
       id: crypto.randomUUID(),
       action: "LICENSE_SENT",
-      details: `License sent to ${user.email} for ${productName}`,
-      userId: user.id,
+      details: `License sent to ${profile.email} for ${productName}`,
+      user_id: profile.id,
+      created_at: new Date().toISOString(),
     });
 
-    // 5. Send email to client
+    // 6. Send email
     await sendEmail({
-      to: user.email,
+      to: profile.email,
       subject: "Your License Key",
       html: licenseApprovedTemplate({
-        productName: productName ?? "Unknown Product",
+        productName,
         licenseKey,
       }),
     });
@@ -79,6 +152,7 @@ export async function POST(req: Request) {
       message: "License sent successfully",
       license,
     });
+
   } catch (err) {
     console.error("Send License Error:", err);
     return NextResponse.json(

@@ -1,54 +1,54 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { Resend } from "resend";
+import { sendEmail } from "@/lib/email/send";
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
+type Params = {
+  params: { id: string };
+};
 
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  const requestId = params.id;
+export async function POST(_req: Request, { params }: Params) {
+  const { id } = params;
 
-  const { data: request, error } = await supabaseAdmin
+  // Load request to get email + product
+  const { data: reqRow, error: loadError } = await supabaseAdmin
     .from("LicenseRequest")
-    .select("*")
-    .eq("id", requestId)
+    .select("userEmail, productName")
+    .eq("id", id)
     .single();
 
-  if (error || !request) {
-    return NextResponse.json({ error: "Request not found" }, { status: 404 });
+  if (loadError || !reqRow) {
+    console.error("Load request error:", loadError);
+    return NextResponse.json(
+      { error: "Request not found" },
+      { status: 404 }
+    );
   }
 
-  // Update request status
-  await supabaseAdmin
+  const { error: updateError } = await supabaseAdmin
     .from("LicenseRequest")
-    .update({
-      status: "REJECTED",
-      processedAt: new Date().toISOString(),
-      processedBy: "ADMIN",
-    })
-    .eq("id", requestId);
+    .update({ status: "REJECTED" })
+    .eq("id", id);
 
-  // Audit log
-  await supabaseAdmin.from("AuditLog").insert({
-    id: crypto.randomUUID(),
-    action: "LICENSE_REJECTED",
-    details: `Rejected license request for ${request.userEmail}`,
-    userId: request.userId,
-  });
+  if (updateError) {
+    console.error("Reject update error:", updateError);
+    return NextResponse.json(
+      { error: "Failed to reject request" },
+      { status: 500 }
+    );
+  }
 
-  // Send email
-  await resend.emails.send({
-    from: "CentralCore <noreply@centralcore.com>",
-    to: request.userEmail,
-    subject: "Your License Request Was Rejected",
-    html: `
-      <p>Hello,</p>
-      <p>Your license request for <strong>${request.productName}</strong> has been rejected.</p>
-      <p>If you believe this is an error, please contact support.</p>
-    `,
-  });
+  // Email notification to client: request rejected
+  if (reqRow.userEmail) {
+    await sendEmail({
+      to: reqRow.userEmail,
+      subject: "License Request Rejected",
+      html: `
+        <p>Hello,</p>
+        <p>Your license request for <strong>${reqRow.productName}</strong> has been rejected.</p>
+        <p>If you believe this is an error, please contact support.</p>
+      `,
+    });
+  }
 
-  return NextResponse.redirect("/admin/license-requests");
+  return NextResponse.json({ success: true });
 }
