@@ -1,20 +1,30 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
-import { sendEmail } from "@/lib/sendEmail";
 
-export async function GET() {
+export async function POST() {
   try {
     const supabase = supabaseServer();
 
     // 1️⃣ Load all companies with renewal dates
     const { data: companies, error } = await supabase
       .from("companies")
-      .select("id, company_name, annual_fee, renewal_date");
+      .select("id, name, annual_price, renewal_date");
 
-    if (error || !companies) {
+    if (error) {
+      console.error("SUPABASE COMPANIES ERROR:", error);
       return NextResponse.json(
-        { error: "Failed to load companies" },
+        { error: "Failed to load companies", details: error.message },
         { status: 500 }
+      );
+    }
+
+    if (!companies || companies.length === 0) {
+      return NextResponse.json(
+        { error: "No companies found" },
+        { status: 404 }
       );
     }
 
@@ -25,7 +35,7 @@ export async function GET() {
 
       const renewalDate = new Date(company.renewal_date);
       const diffDays = Math.ceil(
-        (renewalDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        (renewalDate.getTime() - today.getTime()) / 86400000
       );
 
       // 2️⃣ Determine if reminder should be sent
@@ -51,44 +61,66 @@ export async function GET() {
       if (existingReminder) continue;
 
       // 4️⃣ Get all users in this company
-      const { data: profiles } = await supabase
+      const { data: profiles, error: profileError } = await supabase
         .from("Profile")
         .select("userid, fullname")
         .eq("company_id", company.id);
 
+      if (profileError) {
+        console.error("PROFILE LOAD ERROR:", profileError);
+        continue;
+      }
+
       if (!profiles) continue;
 
-      // 5️⃣ Send email to each user
+      // 5️⃣ Send Brevo email to each user
       for (const profile of profiles) {
-        const { data: authUser } = await supabase.auth.admin.getUserById(
-          profile.userid
-        );
+        const { data: authUser, error: authError } =
+          await supabase.auth.admin.getUserById(profile.userid);
+
+        if (authError) {
+          console.error("AUTH USER ERROR:", authError);
+          continue;
+        }
 
         const email = authUser?.user?.email;
         if (!email) continue;
 
-        await sendEmail({
-          to: email,
-          subject: `Annual Renewal Reminder — ${company.company_name}`,
-          html: `
-            <p>Dear ${profile.fullname},</p>
-            <p>This is a reminder that your annual maintenance fee for <strong>${company.company_name}</strong> is due soon.</p>
-            <p><strong>Renewal Date:</strong> ${renewalDate.toDateString()}</p>
-            <p><strong>Annual Fee:</strong> ₦${company.annual_fee.toLocaleString()}</p>
-            <p>Please log in to your client portal to complete your renewal.</p>
-            <p><a href="https://ctistech.com/client/renew-annual">Renew Now</a></p>
-            <br/>
-            <p>Thank you.</p>
-          `,
-        });
+        // 🔥 Use your Brevo notification API
+        await fetch(
+          `${process.env.NEXT_PUBLIC_SITE_URL}/api/notifications/annual-reminder`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              companyName: company.name, // UPDATED
+              companyEmail: email,
+              contactName: profile.fullname,
+              dueDate: renewalDate.toISOString().split("T")[0],
+              planName: "Annual Maintenance Fee",
+              amountDue: company.annual_price, // UPDATED
+              paymentLink: `${process.env.NEXT_PUBLIC_SITE_URL}/client/renew-annual`,
+              type:
+                diffDays === 30
+                  ? "30days"
+                  : diffDays === 7
+                  ? "7days"
+                  : "7days",
+            }),
+          }
+        );
       }
 
       // 6️⃣ Log reminder
-      await supabase.from("reminder_logs").insert({
+      const { error: logError } = await supabase.from("reminder_logs").insert({
         company_id: company.id,
         reminder_date: reminderDate,
         sent_at: new Date().toISOString(),
       });
+
+      if (logError) {
+        console.error("REMINDER LOG INSERT ERROR:", logError);
+      }
     }
 
     return NextResponse.json({ success: true });

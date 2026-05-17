@@ -1,22 +1,20 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
-import { sendEmail } from "@/lib/sendEmail";
 
-export async function GET() {
+export async function POST() {
   try {
     const supabase = supabaseServer();
 
-    // Fetch licenses that have unpaid service fees
     const { data: licenses, error } = await supabase
       .from("licenses")
       .select("id, renewal_due_date, service_fee_paid, user_id")
       .eq("service_fee_paid", false);
 
     if (error || !licenses) {
-      return NextResponse.json(
-        { error: "Failed to load licenses" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Failed to load licenses" }, { status: 500 });
     }
 
     const today = new Date();
@@ -25,25 +23,31 @@ export async function GET() {
       if (!license.renewal_due_date) continue;
 
       const due = new Date(license.renewal_due_date);
-      const diff = Math.ceil(
-        (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-      );
+      const diff = Math.ceil((due.getTime() - today.getTime()) / 86400000);
 
       if (diff === 7) {
-        // Fetch user email separately
         const { data: userData } = await supabase
           .from("auth.users")
           .select("email")
           .eq("id", license.user_id)
           .single();
 
-        const email = userData?.email ?? "";
+        const email = userData?.email;
         if (!email) continue;
 
-        await sendEmail({
-          to: email,
-          subject: "Your Annual Service Fee is Due Soon",
-          html: `Your 20% annual service fee for license ${license.id} is due in 7 days.`,
+        await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/notifications/annual-reminder`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            companyName: "Customer",
+            companyEmail: email,
+            contactName: "Customer",
+            dueDate: license.renewal_due_date,
+            planName: "Annual Service Fee",
+            amountDue: 0,
+            paymentLink: `${process.env.NEXT_PUBLIC_SITE_URL}/pay/service-fee/${license.id}`,
+            type: "7days",
+          }),
         });
       }
     }

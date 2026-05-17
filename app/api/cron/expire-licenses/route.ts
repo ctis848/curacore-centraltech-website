@@ -1,11 +1,13 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export async function GET() {
+export async function POST() {
   try {
-    // Mark all expired ACTIVE licenses as EXPIRED
     const result = await prisma.license.updateMany({
       where: {
         expiresAt: { lt: new Date() },

@@ -1,20 +1,19 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
-export async function GET() {
+export async function POST() {
   try {
     const supabase = supabaseServer();
 
-    // Fetch all licenses
     const { data: licenses, error } = await supabase
       .from("licenses")
       .select("id, user_id, auto_renew, renewal_due_date, service_fee_paid");
 
     if (error) {
-      return NextResponse.json(
-        { error: "Failed to load licenses" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Failed to load licenses" }, { status: 500 });
     }
 
     const today = new Date();
@@ -23,13 +22,9 @@ export async function GET() {
       if (!license.auto_renew || !license.renewal_due_date) continue;
 
       const due = new Date(license.renewal_due_date);
-      const diff = Math.ceil(
-        (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-      );
+      const diff = Math.ceil((due.getTime() - today.getTime()) / 86400000);
 
-      // If renewal is due today and fee not paid → revoke auto-renew
       if (diff === 0 && !license.service_fee_paid) {
-        // Log renewal history
         await supabase.from("license_renewal_history").insert({
           license_id: license.id,
           user_id: license.user_id,
@@ -37,11 +32,7 @@ export async function GET() {
           metadata: {},
         });
 
-        // Disable license
-        await supabase
-          .from("licenses")
-          .update({ active: false }) // adjust if your schema uses a different field
-          .eq("id", license.id);
+        await supabase.from("licenses").update({ active: false }).eq("id", license.id);
       }
     }
 

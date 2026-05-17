@@ -1,25 +1,22 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-// simple email stub
-async function sendEmail(to: string, subject: string, body: string) {
-  console.log("EMAIL:", to, subject);
-}
-
-export async function GET() {
+export async function POST() {
   try {
     const now = new Date();
     const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    // Find licenses expiring within 7 days
     const licenses = await prisma.license.findMany({
       where: {
         status: "ACTIVE",
         expiresAt: { gte: now, lte: in7Days },
       },
-      include: { user: true }, // FIXED: lowercase relation
+      include: { user: true },
     });
 
     let createdInvoices = 0;
@@ -27,12 +24,11 @@ export async function GET() {
     for (const l of licenses) {
       if (!l.user?.email) continue;
 
-      // Create renewal invoice
       const invoice = await prisma.invoice.create({
         data: {
           userId: l.userId,
           licenseId: l.id,
-          amount: l.annualFeePercent ?? 0, // adjust to real pricing
+          amount: l.annualFeePercent ?? 0,
           currency: "NGN",
           status: "PENDING",
           description: `Renewal for license ${l.licenseKey}`,
@@ -41,14 +37,20 @@ export async function GET() {
 
       createdInvoices++;
 
-      // Send email
-      await sendEmail(
-        l.user.email,
-        "Your CentralCore EMR license renewal",
-        `Your license ${l.licenseKey} will expire on ${l.expiresAt?.toDateString()}.\n\nA renewal invoice (${invoice.id}) has been created.`
-      );
+      // Send Brevo email via your notification API
+      await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/notifications/payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: l.user.name ?? "Customer",
+          companyEmail: l.user.email,
+          amount: invoice.amount,
+          paymentDate: new Date().toISOString(),
+          paymentRef: invoice.id,
+          paymentLink: `${process.env.NEXT_PUBLIC_SITE_URL}/pay/${invoice.id}`,
+        }),
+      });
 
-      // Optional: create notification
       await prisma.notification.create({
         data: {
           userId: l.userId,
