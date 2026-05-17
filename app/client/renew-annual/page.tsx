@@ -26,9 +26,12 @@ export default function RenewAnnualPage() {
     setLoading(true);
     setError("");
 
+    // ⭐ FIX: Use getSession() instead of getUser()
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const user = session?.user;
 
     if (!user) {
       setError("You must be logged in.");
@@ -37,13 +40,13 @@ export default function RenewAnnualPage() {
     }
 
     // 1️⃣ Get company_id from user_companies
-    const { data: membership } = await supabase
+    const { data: membership, error: membershipError } = await supabase
       .from("user_companies")
       .select("company_id")
       .eq("user_id", user.id)
       .single();
 
-    if (!membership?.company_id) {
+    if (membershipError || !membership?.company_id) {
       setError("Company not found for this user.");
       setLoading(false);
       return;
@@ -62,7 +65,7 @@ export default function RenewAnnualPage() {
       return;
     }
 
-    // ⭐ FIX: Auto‑advance renewal date if expired
+    // ⭐ Auto‑advance renewal date if expired
     const today = new Date();
     let renewal = new Date(companyData.renewal_date);
 

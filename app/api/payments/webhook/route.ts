@@ -43,7 +43,6 @@ export async function GET(req: NextRequest) {
     }
 
     const tx = verifyData.data;
-
     if (tx.status !== "success") {
       return NextResponse.json(
         { success: false, error: "Transaction not successful" },
@@ -78,51 +77,18 @@ export async function GET(req: NextRequest) {
     }
 
     // ----------------------------------------------------
-    // INVOICE PAYMENT FLOW
-    // ----------------------------------------------------
-    if (metadata.invoiceId) {
-      await supabase
-        .from("Invoice")
-        .update({
-          status: "PAID",
-          paidAt: new Date().toISOString(),
-          transactionId: tx.id,
-        })
-        .eq("id", metadata.invoiceId);
-    }
-
-    // ----------------------------------------------------
     // NEW LICENSE PURCHASE FLOW
     // ----------------------------------------------------
     if (metadata.type === "NEW_LICENSE_PURCHASE" && userId) {
       const quantity = Number(metadata.quantity) || 0;
-      const annualFeeFromBuyPage = Number(metadata.annualFee) || 0;
-
-      const { data: billing } = await supabase
-        .from("ClientBilling")
-        .select("annual_fee")
-        .eq("userId", userId)
-        .maybeSingle();
-
-      const existingAnnual = billing?.annual_fee ?? 0;
-      const newAnnualFee = existingAnnual + annualFeeFromBuyPage;
-
-      await supabase
-        .from("ClientBilling")
-        .update({
-          annual_fee: newAnnualFee,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("userId", userId);
 
       await supabase.from("AnnualPaymentHistory").insert({
-        userId,
+        userid: userId,
         amount: tx.amount / 100,
         reference: tx.reference,
         status: tx.status.toUpperCase(),
-        paidAt: new Date().toISOString(),
-        licenseCount: quantity,
-        description: "Additional License Purchase (20% Annual Fee Applied)",
+        paidat: new Date().toISOString(),
+        licensecount: quantity
       });
     }
 
@@ -153,17 +119,17 @@ export async function GET(req: NextRequest) {
         .eq("userId", userId);
 
       await supabase.from("AnnualPaymentHistory").insert({
-        userId,
+        userid: userId,
         amount: tx.amount / 100,
         reference: tx.reference,
         status: tx.status.toUpperCase(),
-        paidAt: new Date().toISOString(),
-        description: "Annual Subscription Renewal",
+        paidat: new Date().toISOString(),
+        licensecount: metadata.licenseCount ?? 0
       });
     }
 
     // ----------------------------------------------------
-    // SEND RECEIPT EMAIL TO CUSTOMER
+    // SEND RECEIPT EMAIL
     // ----------------------------------------------------
     await sendReceiptEmail({
       to: tx.customer?.email,
@@ -174,7 +140,7 @@ export async function GET(req: NextRequest) {
     });
 
     // ----------------------------------------------------
-    // ⭐ SEND PAYMENT NOTIFICATION TO ADMIN (info@ctistech.com)
+    // ADMIN NOTIFICATION
     // ----------------------------------------------------
     if (BREVO_API_KEY) {
       await fetch("https://api.brevo.com/v3/smtp/email", {

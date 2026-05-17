@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
           .eq("id", companyId);
       }
 
-      // 2. Update ClientBilling (your existing logic)
+      // 2. Update ClientBilling
       const annualFeeFromBuyPage = Number(metadata.annualFee);
 
       const { data: billing } = await supabase
@@ -110,15 +110,14 @@ export async function GET(req: NextRequest) {
         })
         .eq("userId", userId);
 
-      // 3. Insert into AnnualPaymentHistory
+      // 3. Insert into AnnualPaymentHistory (correct column names)
       await supabase.from("AnnualPaymentHistory").insert({
-        userId,
+        userid: userId,
         amount: tx.amount / 100,
         reference: tx.reference,
         status: tx.status.toUpperCase(),
-        paidAt: new Date().toISOString(),
-        licenseCount: purchased,
-        description: "Additional License Purchase (20% Annual Fee Applied)",
+        paidat: new Date().toISOString(),
+        licensecount: purchased
       });
     }
 
@@ -148,18 +147,19 @@ export async function GET(req: NextRequest) {
         })
         .eq("userId", userId);
 
+      // Insert into AnnualPaymentHistory (correct column names)
       await supabase.from("AnnualPaymentHistory").insert({
-        userId,
+        userid: userId,
         amount: tx.amount / 100,
         reference: tx.reference,
         status: tx.status.toUpperCase(),
-        paidAt: new Date().toISOString(),
-        description: "Annual Subscription Renewal",
+        paidat: new Date().toISOString(),
+        licensecount: metadata.licenseCount ?? 0
       });
     }
 
     // ----------------------------------------------------
-    // SEND RECEIPT EMAIL TO CUSTOMER
+    // SEND RECEIPT EMAIL
     // ----------------------------------------------------
     await sendReceiptEmail({
       to: tx.customer.email,

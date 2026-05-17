@@ -16,8 +16,11 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@getbrevo/brevo": "^5.0.4",
     "@heroicons/react": "^2.2.0",
+    "@mui/x-data-grid": "^7.6.2",
     "@neondatabase/serverless": "^1.0.2",
     "@netlify/plugin-nextjs": "^5.15.9",
     "@paystack/inline-js": "^2.22.7",
@@ -43,7 +46,7 @@
     "dotenv": "^17.3.1",
     "framer-motion": "^12.35.0",
     "jsonwebtoken": "^9.0.3",
-    "jspdf": "^4.2.0",
+    "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.576.0",
     "next": "^16.1.6",
@@ -67,7 +70,8 @@
     "resend": "^6.9.4",
     "stripe": "^17.5.0",
     "tailwind-merge": "^3.5.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@netlify/functions": "^2.0.0",
