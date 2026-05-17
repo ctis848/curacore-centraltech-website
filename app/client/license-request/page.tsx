@@ -12,8 +12,8 @@ export default function ClientLicenseRequestPage() {
   const [notes, setNotes] = useState("");
   const [productName, setProductName] = useState("");
 
-  const [companyName, setCompanyName] = useState(""); 
-  const [userEmail, setUserEmail] = useState("");     
+  const [companyName, setCompanyName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<null | { type: "error" | "success"; text: string }>(null);
@@ -27,21 +27,31 @@ export default function ClientLicenseRequestPage() {
 
       if (!session) return;
 
-      // Auto-fill email safely
+      // Auto-fill email
       setUserEmail(session.user.email ?? "");
 
-      // Fetch full user row so we can debug
-      const { data: profile, error } = await supabase
-        .from("User")
-        .select("*")
-        .eq("id", session.user.id)
-        .single();
+      const userId = session.user.id;
 
-      console.log("PROFILE RETURNED:", profile);
-      console.log("SUPABASE ERROR:", error);
+      // ⭐ FIX: USE user_companies (NOT team_members)
+      const { data: membership } = await supabase
+        .from("user_companies")
+        .select("company_id")
+        .eq("user_id", userId)
+        .maybeSingle();
 
-      // Correct column name: companyname
-      setCompanyName(profile?.companyname ?? "");
+      if (!membership?.company_id) {
+        console.log("No company_id found for user in user_companies");
+        return;
+      }
+
+      // ⭐ Load company name
+      const { data: company } = await supabase
+        .from("companies")
+        .select("name")
+        .eq("id", membership.company_id)
+        .maybeSingle();
+
+      setCompanyName(company?.name ?? "");
     }
 
     loadUserInfo();

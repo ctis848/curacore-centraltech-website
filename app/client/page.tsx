@@ -13,11 +13,14 @@ export default function ClientDashboardPage() {
 
   useEffect(() => {
     async function loadDashboard() {
+      // ⭐ FIX: Use getSession() instead of getUser()
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
 
+      const user = session?.user;
       if (!user) return;
+
       const userId = user.id;
 
       // 1️⃣ Get company_id
