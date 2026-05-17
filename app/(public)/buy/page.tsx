@@ -1,35 +1,34 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function BuyLicensePage() {
-  const router = useRouter();
-
   const [plan, setPlan] = useState<'starter' | 'pro' | 'enterprise'>('starter');
   const [quantity, setQuantity] = useState(1);
-  const [fullName, setFullName] = useState('');
+
   const [email, setEmail] = useState('');
+  const [companyName, setCompanyName] = useState('');
+
   const [loading, setLoading] = useState(false);
 
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
   const [couponError, setCouponError] = useState('');
 
-  // Coupons
+  // -------------------------------
+  // PRICING LOGIC
+  // -------------------------------
   const coupons: Record<string, number> = {
     CENTRAL10: 10,
     HOSPITAL20: 20,
   };
 
-  // Plan prices
   const planPrices: Record<string, number> = {
     starter: 250000,
     pro: 350000,
     enterprise: 550000,
   };
 
-  // ⭐ Annual fee = 20% of license price × quantity
   const annualFees: Record<string, number> = {
     starter: planPrices.starter * 0.2 * quantity,
     pro: planPrices.pro * 0.2 * quantity,
@@ -38,7 +37,6 @@ export default function BuyLicensePage() {
 
   const VAT_RATE = 0.075;
 
-  // Pricing calculations
   const baseAmount = planPrices[plan] * quantity;
   const discountPercent = appliedCoupon?.discount ?? 0;
   const discountAmount = (baseAmount * discountPercent) / 100;
@@ -65,28 +63,14 @@ export default function BuyLicensePage() {
     }
   }
 
-  async function activateLicense(reference: string) {
-    try {
-      await fetch('/api/licenses/activate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reference,
-          plan,
-          quantity,
-          email,
-          fullName,
-        }),
-      });
-    } catch (err) {
-      console.error('License activation error:', err);
-    }
-  }
-
-  // ⭐ Redirect Paystack Checkout
+  // -------------------------------
+  // PAYMENT HANDLER
+  // -------------------------------
   async function handlePayment() {
-    if (!fullName.trim() || !email.trim()) {
-      alert('Please fill in full name and email');
+    if (loading) return;
+
+    if (!email.trim() || !companyName.trim()) {
+      alert('Please fill in company name and email');
       return;
     }
 
@@ -99,23 +83,28 @@ export default function BuyLicensePage() {
         body: JSON.stringify({
           amount: Math.round(totalAmount),
           email,
+          companyName,
           plan,
           quantity,
-          fullName,
           annualFee: annualFees[plan],
-
-          // ⭐ REQUIRED FIELD — FIXES THE ERROR
           type: "NEW_LICENSE_PURCHASE",
         }),
       });
 
       const data = await res.json();
 
-      if (!res.ok || !data.authorization_url) {
-        alert(data.error || 'Unable to start payment.');
+      if (!res.ok) {
+        alert(data.error || "Unable to start payment.");
         setLoading(false);
         return;
       }
+
+      if (!data.authorization_url) {
+        alert("Payment initialized but no authorization URL returned.");
+        setLoading(false);
+        return;
+      }
+
 
       window.location.href = data.authorization_url;
 
@@ -126,6 +115,9 @@ export default function BuyLicensePage() {
     }
   }
 
+  // -------------------------------
+  // UI STARTS HERE
+  // -------------------------------
   return (
     <div className="min-h-screen bg-gray-50 pt-28 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
@@ -360,18 +352,17 @@ export default function BuyLicensePage() {
             </p>
           </div>
 
-          {/* Full Name */}
+          {/* Company Name */}
           <div className="space-y-4">
             <label className="block text-xl font-semibold text-gray-800">
-              Full Name
+              Company / Hospital Name
             </label>
             <input
               type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Enter your full name"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="Enter company or hospital name"
               className="w-full p-4 text-lg border border-gray-300 rounded-xl"
-              required
             />
           </div>
 
@@ -386,16 +377,21 @@ export default function BuyLicensePage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
               className="w-full p-4 text-lg border border-gray-300 rounded-xl"
-              required
             />
           </div>
 
           {/* Pay Button */}
           <button
             onClick={handlePayment}
-            disabled={loading || !fullName.trim() || !email.trim()}
+            disabled={
+              loading ||
+              !email.trim() ||
+              !companyName.trim()
+            }
             className={`w-full py-5 text-xl font-bold rounded-xl text-white transition-all transform hover:scale-[1.02] ${
-              loading || !fullName.trim() || !email.trim()
+              loading ||
+              !email.trim() ||
+              !companyName.trim()
                 ? 'bg-gray-400 cursor-not-allowed'
                 : 'bg-teal-600 hover:bg-teal-700 shadow-lg hover:shadow-xl'
             }`}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 interface Company {
+  id: string;
   name: string;
   annual_price: number;
   renewal_date: string;
@@ -26,7 +27,7 @@ export default function RenewAnnualPage() {
     setLoading(true);
     setError("");
 
-    // ⭐ FIX: Use getSession() instead of getUser()
+    // Get session
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -52,10 +53,10 @@ export default function RenewAnnualPage() {
       return;
     }
 
-    // 2️⃣ Load company details
+    // 2️⃣ Load company details (⭐ include ID)
     const { data: companyData, error: companyError } = await supabase
       .from("companies")
-      .select("name, annual_price, renewal_date, license_count")
+      .select("id, name, annual_price, renewal_date, license_count")
       .eq("id", membership.company_id)
       .single();
 
@@ -65,7 +66,7 @@ export default function RenewAnnualPage() {
       return;
     }
 
-    // ⭐ Auto‑advance renewal date if expired
+    // Auto‑advance renewal date if expired
     const today = new Date();
     let renewal = new Date(companyData.renewal_date);
 
@@ -81,29 +82,30 @@ export default function RenewAnnualPage() {
     setLoading(false);
   }
 
+  // ⭐ FIXED — Now calls /api/license/renew instead of create-checkout
   async function processPayment() {
     if (!company) return;
 
     setProcessing(true);
 
     try {
-      const res = await fetch("/api/payments/create-checkout", {
+      const res = await fetch("/api/license/renew", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: company.annual_price,
-          type: "ANNUAL_RENEWAL",
+          id: company.id, // ⭐ REQUIRED
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok || !data.authorization_url) {
-        alert(data.error || "Unable to start payment.");
+        alert(data.error || "Unable to start renewal payment.");
         setProcessing(false);
         return;
       }
 
+      // Redirect to Paystack
       window.location.href = data.authorization_url;
     } catch (err) {
       console.error("Payment error:", err);

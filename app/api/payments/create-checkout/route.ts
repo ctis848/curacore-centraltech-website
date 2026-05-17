@@ -5,142 +5,95 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email/send";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
 const PAYSTACK_BASE = "https://api.paystack.co";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const invoiceId = body?.invoiceId as string | undefined;
-    const amount = body?.amount as number | undefined;
-    const type = body?.type as
-      | "ANNUAL_RENEWAL"
-      | "NEW_LICENSE_PURCHASE"
-      | undefined;
-
-    const isNewPurchase = !invoiceId && type === "NEW_LICENSE_PURCHASE";
-
-    if (!isNewPurchase && !invoiceId && type !== "ANNUAL_RENEWAL") {
-      return NextResponse.json(
-        { error: "invoiceId or valid type is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!PAYSTACK_SECRET_KEY) {
-      return NextResponse.json(
-        { error: "PAYSTACK_SECRET_KEY is not configured" },
-        { status: 500 }
-      );
-    }
-
-    const supabase = supabaseServer();
-
-    const { data: sessionData } = await supabase.auth.getUser();
-    const user = sessionData.user;
-
-    if (!user && !isNewPurchase) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    let email: string | undefined = user?.email || body.email;
-
-    let finalAmount = amount;
-    let metadata: any = { userId: user?.id || null };
+    // 🔥 LOG 1 — Raw body received
+    console.log("🔥 CHECKOUT BODY RECEIVED:", JSON.stringify(body, null, 2));
 
     // -------------------------------
-    // INVOICE PAYMENT
+    // Extract fields safely
     // -------------------------------
-    if (invoiceId) {
-      const { data: invoice, error: invoiceError } = await supabase
-        .from("Invoice")
-        .select("*")
-        .eq("id", invoiceId)
-        .single();
+    const email = String(body?.email || "").trim();
+    const companyName = String(body?.companyName || "").trim();
+    const plan = String(body?.plan || "").trim();
+    const quantity = Number(body?.quantity || 0);
+    const annualFee = Number(body?.annualFee || 0);
+    const amount = Number(body?.amount || 0);
+    const type = String(body?.type || "").trim();
 
-      if (invoiceError || !invoice) {
-        return NextResponse.json(
-          { error: "Invoice not found" },
-          { status: 404 }
-        );
-      }
+    // 🔥 LOG 2 — Validation values
+    console.log("🔥 VALIDATION VALUES:", {
+      email,
+      companyName,
+      plan,
+      quantity,
+      annualFee,
+      amount,
+      type,
+    });
 
-      if (invoice.userId !== user?.id) {
-        return NextResponse.json(
-          { error: "You cannot pay another user's invoice" },
-          { status: 403 }
-        );
-      }
+    // -------------------------------
+    // Validate required fields
+    // -------------------------------
+    if (!email || !email.includes("@")) {
+      return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
+    }
 
-      if (invoice.status === "PAID") {
-        return NextResponse.json(
-          { error: "Invoice already paid" },
-          { status: 400 }
-        );
-      }
+    if (!companyName) {
+      return NextResponse.json({ error: "Company name is required" }, { status: 400 });
+    }
 
-      email = invoice.email;
-      finalAmount = invoice.amount;
+    if (!plan) {
+      return NextResponse.json({ error: "Plan is required" }, { status: 400 });
+    }
 
-      metadata = {
-        invoiceId: invoice.id,
-        userId: user?.id || null,
-        description: "Invoice Payment",
-        type: "INVOICE_PAYMENT",
-      };
+    if (!quantity || isNaN(quantity) || quantity <= 0) {
+      return NextResponse.json({ error: "Valid quantity is required" }, { status: 400 });
+    }
+
+    if (!annualFee || isNaN(annualFee) || annualFee <= 0) {
+      return NextResponse.json({ error: "Valid annual fee is required" }, { status: 400 });
+    }
+
+    if (!amount || isNaN(amount) || amount <= 0) {
+      return NextResponse.json({ error: "Valid amount is required" }, { status: 400 });
+    }
+
+    if (!type) {
+      return NextResponse.json({ error: "Payment type is required" }, { status: 400 });
     }
 
     // -------------------------------
-    // NEW LICENSE PURCHASE
+    // Prepare metadata
     // -------------------------------
-    if (isNewPurchase) {
-      if (!amount || isNaN(amount)) {
-        return NextResponse.json(
-          { error: "Amount is required for new license purchase" },
-          { status: 400 }
-        );
-      }
-
-      finalAmount = Math.round(amount);
-
-      metadata = {
-        userId: user?.id || null,
-        description: "New License Purchase",
-        type: "NEW_LICENSE_PURCHASE",
-        plan: body.plan,
-        quantity: body.quantity,
-        fullName: body.fullName,
-        email: body.email,
-        annualFee: body.annualFee,
-      };
-    }
-
-    // -------------------------------
-    // ANNUAL RENEWAL
-    // -------------------------------
-    if (type === "ANNUAL_RENEWAL" && !invoiceId && !isNewPurchase) {
-      if (!amount || isNaN(amount)) {
-        return NextResponse.json(
-          { error: "Amount is required for annual renewal" },
-          { status: 400 }
-        );
-      }
-
-      finalAmount = Math.round(amount);
-
-      metadata = {
-        userId: user?.id || null,
-        description: "Annual Subscription Renewal",
-        type: "ANNUAL_RENEWAL",
-      };
-    }
+    const metadata = {
+      type,
+      email,
+      companyName,
+      plan,
+      quantity,
+      annualFee,
+      description: "New License Purchase",
+    };
 
     // -------------------------------
     // Generate reference
     // -------------------------------
-    const reference = `CC-${Date.now()}-${Math.floor(
-      Math.random() * 100000
-    )}`;
+    const reference = `CC-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+
+    // 🔥 LOG 3 — Paystack payload
+    console.log("🔥 PAYSTACK PAYLOAD:", {
+      email,
+      amount: amount * 100,
+      metadata,
+      reference,
+      callback_url: `${APP_URL}/payment/callback?reference=${reference}`,
+    });
 
     // -------------------------------
     // Initialize Paystack
@@ -153,44 +106,58 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         email,
-        amount: (finalAmount ?? 0) * 100,
+        amount: amount * 100,
         currency: "NGN",
         reference,
         metadata,
-        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/callback`,
+        callback_url: `${APP_URL}/payment/callback?reference=${reference}`,
       }),
     });
 
-    const data = await response.json();
+    const raw = await response.text();
 
-    if (!response.ok || !data.status) {
+    // 🔥 LOG 4 — Raw Paystack response
+    console.log("🔥 RAW PAYSTACK RESPONSE:", raw);
+
+    // -------------------------------
+    // Detect HTML response (Paystack error)
+    // -------------------------------
+    if (raw.startsWith("<")) {
       return NextResponse.json(
-        { error: data.message || "Failed to initialize Paystack transaction" },
+        { error: "Paystack returned HTML. Payload invalid." },
         { status: 400 }
       );
     }
 
     // -------------------------------
-    // Optional: notify user
+    // Parse JSON safely
     // -------------------------------
-    if (email) {
-      await sendEmail({
-        to: email,
-        subject: "Payment Initiated",
-        html: `
-          <h2>Your payment is being processed</h2>
-          <p>Description: <strong>${metadata.description}</strong></p>
-          <p>Amount: <strong>₦${(finalAmount ?? 0).toLocaleString()}</strong></p>
-          <p>Reference: <strong>${reference}</strong></p>
-        `,
-      });
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (err) {
+      return NextResponse.json(
+        { error: "Paystack returned invalid JSON" },
+        { status: 400 }
+      );
+    }
+
+    // -------------------------------
+    // Paystack rejected the request
+    // -------------------------------
+    if (!response.ok || !data.status) {
+      return NextResponse.json(
+        { error: data.message || "Paystack rejected the request" },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({
       authorization_url: data.data.authorization_url,
     });
+
   } catch (error) {
-    console.error("Paystack error:", error);
+    console.error("🔥 SERVER CRASH:", error);
     return NextResponse.json(
       { error: "Something went wrong initializing payment" },
       { status: 500 }

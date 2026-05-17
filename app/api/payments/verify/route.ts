@@ -1,205 +1,216 @@
-import { NextRequest, NextResponse } from "next/server";
+export const runtime = "nodejs";
+
+import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
-import { sendReceiptEmail } from "@/lib/email/sendReceiptEmail";
+import { sendEmail } from "@/lib/email/send";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
-const BREVO_API_KEY = process.env.BREVO_API_KEY!;
+const PAYSTACK_BASE = "https://api.paystack.co";
 
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   try {
-    const reference = req.nextUrl.searchParams.get("reference");
+    const { searchParams } = new URL(req.url);
+    const reference = searchParams.get("reference");
 
     if (!reference) {
-      return NextResponse.json(
-        { success: false, error: "Missing reference" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing reference" }, { status: 400 });
     }
 
-    // ----------------------------------------------------
-    // VERIFY WITH PAYSTACK
-    // ----------------------------------------------------
+    console.log("🔥 VERIFYING REFERENCE:", reference);
+
     const verifyRes = await fetch(
-      `https://api.paystack.co/transaction/verify/${reference}`,
+      `${PAYSTACK_BASE}/transaction/verify/${reference}`,
       {
         headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
       }
     );
 
-    const verifyData = await verifyRes.json();
+    const raw = await verifyRes.text();
+    console.log("🔥 RAW PAYSTACK VERIFY RESPONSE:", raw);
 
-    if (!verifyData.status || !verifyData.data) {
+    if (raw.startsWith("<")) {
       return NextResponse.json(
-        { success: false, error: "Verification failed" },
+        { error: "Paystack returned HTML instead of JSON" },
         { status: 400 }
       );
     }
 
-    const tx = verifyData.data;
-    const metadata = tx.metadata || {};
-    const userId = metadata.user_id;
-    const companyId = metadata.company_id;
+    const data = JSON.parse(raw);
 
+    if (!data.status || data.data.status !== "success") {
+      return NextResponse.json(
+        { error: "Payment verification failed" },
+        { status: 400 }
+      );
+    }
+
+    const trx = data.data;
+    const meta = trx.metadata || {};
     const supabase = supabaseServer();
 
-    // ----------------------------------------------------
-    // IDEMPOTENCY CHECK
-    // ----------------------------------------------------
-    const { data: existing } = await supabase
-      .from("Payment")
-      .select("id")
-      .eq("reference", tx.reference)
-      .maybeSingle();
+    console.log("🔥 METADATA RECEIVED:", meta);
 
-    if (!existing) {
-      await supabase.from("Payment").insert({
-        userid: userId,
-        amount: tx.amount / 100,
-        currency: tx.currency,
-        status: tx.status.toUpperCase(),
-        reference: tx.reference,
-        gateway: "PAYSTACK",
-        created_at: new Date().toISOString(),
-      });
-    }
+    // ============================================================
+    // ⭐ 1. HANDLE ANNUAL RENEWAL
+    // ============================================================
+    if (meta.type === "ANNUAL_RENEWAL") {
+      console.log("🔥 PROCESSING ANNUAL RENEWAL");
 
-    // ----------------------------------------------------
-    // ⭐ NEW LICENSE PURCHASE FLOW (20% RULE)
-    // ----------------------------------------------------
-    if (metadata.type === "NEW_LICENSE_PURCHASE") {
-      const purchased = Number(metadata.plan);
-
-      // 1. Update company license + annual fee
+      // 1️⃣ Load company
       const { data: company } = await supabase
         .from("companies")
-        .select("license_count, annual_price")
-        .eq("id", companyId)
+        .select("*")
+        .eq("id", meta.companyId)
         .single();
 
-      if (company) {
-        const newLicenseCount = company.license_count + purchased;
-        const newAnnualFee = newLicenseCount * 0.20;
-
-        await supabase
-          .from("companies")
-          .update({
-            license_count: newLicenseCount,
-            annual_price: newAnnualFee,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", companyId);
+      if (!company) {
+        return NextResponse.json(
+          { error: "Company not found for renewal" },
+          { status: 404 }
+        );
       }
 
-      // 2. Update ClientBilling
-      const annualFeeFromBuyPage = Number(metadata.annualFee);
+      // 2️⃣ Load license OR create one if missing
+      let { data: license } = await supabase
+        .from("License")
+        .select("*")
+        .eq("companyId", company.id)
+        .maybeSingle();
 
-      const { data: billing } = await supabase
-        .from("ClientBilling")
-        .select("annual_fee")
-        .eq("userId", userId)
-        .single();
+      if (!license) {
+        console.log("🔥 NO LICENSE FOUND — creating one automatically");
 
-      const existingAnnual = billing?.annual_fee ?? 0;
-      const newAnnualFeeBilling = existingAnnual + annualFeeFromBuyPage;
+        const { data: newLicense } = await supabase
+          .from("License")
+          .insert({
+            companyId: company.id,
+            expiresAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          })
+          .select()
+          .single();
 
-      await supabase
-        .from("ClientBilling")
-        .update({
-          annual_fee: newAnnualFeeBilling,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("userId", userId);
+        license = newLicense;
+      }
 
-      // 3. Insert into AnnualPaymentHistory (correct column names)
-      await supabase.from("AnnualPaymentHistory").insert({
-        userid: userId,
-        amount: tx.amount / 100,
-        reference: tx.reference,
-        status: tx.status.toUpperCase(),
-        paidat: new Date().toISOString(),
-        licensecount: purchased
-      });
-    }
-
-    // ----------------------------------------------------
-    // ANNUAL SUBSCRIPTION RENEWAL FLOW
-    // ----------------------------------------------------
-    if (metadata.type === "ANNUAL_RENEWAL") {
-      const { data: billing } = await supabase
-        .from("ClientBilling")
-        .select("next_renewal_date")
-        .eq("userId", userId)
-        .single();
-
-      const currentDate = billing?.next_renewal_date
-        ? new Date(billing.next_renewal_date)
-        : new Date();
-
-      const newRenewalDate = new Date(
-        currentDate.setFullYear(currentDate.getFullYear() + 1)
+      // 3️⃣ Extend expiration by 1 year
+      const now = new Date();
+      const newExpiry = new Date(
+        now.getTime() + 365 * 24 * 60 * 60 * 1000
       ).toISOString();
 
       await supabase
-        .from("ClientBilling")
+        .from("License")
         .update({
-          next_renewal_date: newRenewalDate,
-          updated_at: new Date().toISOString(),
+          expiresAt: newExpiry,
+          updatedAt: now.toISOString(),
         })
-        .eq("userId", userId);
+        .eq("id", license.id);
 
-      // Insert into AnnualPaymentHistory (correct column names)
+      // 4️⃣ Update company renewal date
+      const nextRenewal = new Date(
+        now.getTime() + 365 * 24 * 60 * 60 * 1000
+      ).toISOString();
+
+      await supabase
+        .from("companies")
+        .update({ renewal_date: nextRenewal })
+        .eq("id", company.id);
+
+      // 5️⃣ Log renewal history
       await supabase.from("AnnualPaymentHistory").insert({
-        userid: userId,
-        amount: tx.amount / 100,
-        reference: tx.reference,
-        status: tx.status.toUpperCase(),
-        paidat: new Date().toISOString(),
-        licensecount: metadata.licenseCount ?? 0
+        companyId: company.id,
+        amount: trx.amount / 100,
+        reference,
+        status: "success",
+        paidat: trx.paid_at,
+        licensecount: company.license_count,
       });
+
+      // 6️⃣ Send renewal email
+      sendEmail({
+        to: meta.email,
+        subject: "Annual Renewal Successful",
+        html: `
+          <h2>Your Annual Renewal is Complete</h2>
+          <p><strong>Company:</strong> ${meta.companyName}</p>
+          <p><strong>Amount Paid:</strong> ₦${(trx.amount / 100).toLocaleString()}</p>
+          <p><strong>Next Renewal Date:</strong> ${new Date(
+            nextRenewal
+          ).toLocaleDateString()}</p>
+          <p><strong>Reference:</strong> ${reference}</p>
+        `,
+      }).catch((e) => console.error("🔥 EMAIL ERROR:", e));
+
+      return NextResponse.json({ success: true });
     }
 
-    // ----------------------------------------------------
-    // SEND RECEIPT EMAIL
-    // ----------------------------------------------------
-    await sendReceiptEmail({
-      to: tx.customer.email,
-      amount: tx.amount / 100,
-      currency: tx.currency,
-      reference: tx.reference,
-      licenseId: metadata.licenseId ?? null,
+    // ============================================================
+    // ⭐ 2. HANDLE NEW LICENSE PURCHASE (unchanged)
+    // ============================================================
+    const { data: existing } = await supabase
+      .from("Clients")
+      .select("*")
+      .eq("email", meta.email)
+      .maybeSingle();
+
+    let clientId;
+
+    if (existing) {
+      const newTotal = (existing.totalLicenses || 0) + Number(meta.quantity || 0);
+
+      const { data: updated } = await supabase
+        .from("Clients")
+        .update({
+          totalLicenses: newTotal,
+          companyName: meta.companyName,
+        })
+        .eq("id", existing.id)
+        .select()
+        .single();
+
+      clientId = updated?.id || existing.id;
+    } else {
+      const { data: created } = await supabase
+        .from("Clients")
+        .insert({
+          email: meta.email,
+          companyName: meta.companyName,
+          totalLicenses: meta.quantity,
+        })
+        .select()
+        .single();
+
+      clientId = created?.id;
+    }
+
+    await supabase.from("LicensePurchases").insert({
+      clientId,
+      plan: meta.plan,
+      quantity: meta.quantity,
+      amount: trx.amount / 100,
+      reference,
     });
 
-    // ----------------------------------------------------
-    // SEND PAYMENT NOTIFICATION TO ADMIN
-    // ----------------------------------------------------
-    if (BREVO_API_KEY) {
-      await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "api-key": BREVO_API_KEY,
-        },
-        body: JSON.stringify({
-          sender: { name: "CTIS Tech", email: "no-reply@ctistech.com" },
-          to: [{ email: "info@ctistech.com" }],
-          subject: "New Payment Received",
-          htmlContent: `
-            <h2>New Payment Notification</h2>
-            <p><strong>Customer:</strong> ${tx.customer.email}</p>
-            <p><strong>Amount:</strong> ${tx.amount / 100} ${tx.currency}</p>
-            <p><strong>Reference:</strong> ${tx.reference}</p>
-            <p><strong>Status:</strong> ${tx.status.toUpperCase()}</p>
-            <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
-          `,
-        }),
-      });
-    }
+    sendEmail({
+      to: meta.email,
+      subject: "Your CentralCore License Receipt",
+      html: `
+        <h2>Payment Successful</h2>
+        <p><strong>Company:</strong> ${meta.companyName}</p>
+        <p><strong>Plan:</strong> ${meta.plan}</p>
+        <p><strong>Quantity:</strong> ${meta.quantity}</p>
+        <p><strong>Amount Paid:</strong> ₦${(trx.amount / 100).toLocaleString()}</p>
+        <p><strong>Reference:</strong> ${reference}</p>
+      `,
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("Verify error:", err);
+    console.error("🔥 VERIFY ROUTE CRASH:", err);
     return NextResponse.json(
-      { success: false, error: "Server error" },
+      { error: "Verification failed" },
       { status: 500 }
     );
   }
