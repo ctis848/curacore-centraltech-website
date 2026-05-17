@@ -2,13 +2,23 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import type { Invoice } from "@/types/client";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 type SortColumn = "id" | "amount" | "status" | "createdAt" | "currency";
 type SortDirection = "asc" | "desc";
+
+// UI-safe Invoice type
+interface Invoice {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+  paidAt?: string | null;
+  description?: string | null;
+}
 
 export default function InvoicesPage() {
   const supabase = supabaseBrowser();
@@ -17,7 +27,6 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
-
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [currencyFilter, setCurrencyFilter] = useState("ALL");
   const [minAmount, setMinAmount] = useState("");
@@ -39,6 +48,8 @@ export default function InvoicesPage() {
   }, []);
 
   async function loadInvoices() {
+    setLoading(true);
+
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -52,14 +63,39 @@ export default function InvoicesPage() {
 
     const { data, error } = await supabase
       .from("Invoice")
-      .select("*")
+      .select(
+        `
+        id,
+        amount,
+        status,
+        currency,
+        description,
+        created_at,
+        paid_at,
+        userId
+      `
+      )
       .eq("userId", user.id)
-      .order("createdAt", { ascending: false });
+      .order("created_at", { ascending: false });
 
-    if (!error) {
-      setInvoices(data as Invoice[]);
+    if (error) {
+      console.error("Error loading invoices:", error);
+      setInvoices([]);
+      setLoading(false);
+      return;
     }
 
+    const normalized: Invoice[] = (data ?? []).map((inv: any) => ({
+      id: inv.id,
+      amount: Number(inv.amount ?? 0),
+      status: inv.status ?? "PENDING",
+      currency: inv.currency ?? "NGN",
+      description: inv.description ?? null,
+      createdAt: inv.created_at ?? "",
+      paidAt: inv.paid_at ?? null,
+    }));
+
+    setInvoices(normalized);
     setLoading(false);
   }
 
@@ -80,6 +116,8 @@ export default function InvoicesPage() {
   function applyDateFilter(created: string) {
     if (!created) return false;
     const createdDate = new Date(created).getTime();
+    if (Number.isNaN(createdDate)) return false;
+
     if (dateFrom) {
       const from = new Date(dateFrom).getTime();
       if (createdDate < from) return false;
@@ -142,8 +180,8 @@ export default function InvoicesPage() {
     });
 
     rows.sort((a, b) => {
-      const A = (a[sortField] ?? "").toString().toLowerCase();
-      const B = (b[sortField] ?? "").toString().toLowerCase();
+      const A = String((a as any)[sortField] ?? "").toLowerCase();
+      const B = String((b as any)[sortField] ?? "").toLowerCase();
 
       if (A < B) return sortDir === "asc" ? -1 : 1;
       if (A > B) return sortDir === "asc" ? 1 : -1;
@@ -212,7 +250,7 @@ export default function InvoicesPage() {
         Currency: inv.currency,
         Status: inv.status,
         Created: inv.createdAt,
-        Paid: inv.paidAt,
+        Paid: inv.paidAt ?? "",
       }))
     );
 
@@ -462,7 +500,9 @@ export default function InvoicesPage() {
                 </td>
 
                 <td className="px-4 py-3">
-                  {new Date(inv.createdAt).toLocaleDateString()}
+                  {inv.createdAt
+                    ? new Date(inv.createdAt).toLocaleDateString()
+                    : "—"}
                 </td>
 
                 <td className="px-4 py-3">
@@ -502,19 +542,47 @@ export default function InvoicesPage() {
         </button>
       </div>
 
-      {/* MODAL */}
+            {/* MODAL */}
       {selected && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center">
           <div className="bg-white p-6 rounded shadow-lg w-full max-w-lg">
             <h2 className="text-xl font-bold mb-4">Invoice Details</h2>
 
-            <p><strong>Invoice ID:</strong> {selected.id}</p>
-            <p><strong>Amount:</strong> {selected.amount.toLocaleString()}</p>
-            <p><strong>Currency:</strong> {selected.currency}</p>
-            <p><strong>Status:</strong> {selected.status}</p>
-            <p><strong>Created:</strong> {new Date(selected.createdAt).toLocaleDateString()}</p>
-            <p><strong>Paid:</strong> {selected.paidAt ? new Date(selected.paidAt).toLocaleDateString() : "Not Paid"}</p>
-            <p><strong>Description:</strong> {selected.description || "—"}</p>
+            <p>
+              <strong>Invoice ID:</strong> {selected.id}
+            </p>
+
+            <p>
+              <strong>Amount:</strong>{" "}
+              {selected.amount.toLocaleString()}
+            </p>
+
+            <p>
+              <strong>Currency:</strong> {selected.currency}
+            </p>
+
+            <p>
+              <strong>Status:</strong> {selected.status}
+            </p>
+
+            <p>
+              <strong>Created:</strong>{" "}
+              {selected.createdAt
+                ? new Date(selected.createdAt).toLocaleDateString()
+                : "—"}
+            </p>
+
+            <p>
+              <strong>Paid:</strong>{" "}
+              {selected.paidAt
+                ? new Date(selected.paidAt).toLocaleDateString()
+                : "Not Paid"}
+            </p>
+
+            <p>
+              <strong>Description:</strong>{" "}
+              {selected.description || "—"}
+            </p>
 
             <div className="mt-6 text-right">
               <button
