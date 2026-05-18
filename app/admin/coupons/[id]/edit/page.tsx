@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-// Coupon type
 interface Coupon {
   id: string;
   code: string;
@@ -16,9 +15,11 @@ interface Coupon {
   created_at: string;
 }
 
-export default function EditCouponPage({ params }: { params: { id: string } }) {
+export default function EditCouponPage(props: { params: Promise<{ id: string }> }) {
+  const { id } = use(props.params);   // ⭐ FIX: unwrap async params
   const router = useRouter();
-  const couponId = params.id;
+
+  const couponId = id;
 
   const [coupon, setCoupon] = useState<Coupon | null>(null);
   const [loading, setLoading] = useState(true);

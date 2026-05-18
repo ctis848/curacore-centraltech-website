@@ -12,15 +12,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const expires_at = new Date(expires).toISOString();
+    // ⭐ FIX: Use correct field name `expires`
+    const expiresISO = new Date(expires).toISOString();
 
     const { data, error } = await supabaseAdmin
       .from("coupons")
       .update({
-        code,
+        code: code.trim().toUpperCase(),   // ⭐ Always uppercase
         type,
         value: Number(value),
-        expires_at,
+        expires: expiresISO,               // ⭐ FIXED
         max_uses: Number(max_uses),
         active
       })
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
       code: data.code,
       type: data.type,
       value: Number(data.value),
-      expires: data.expires_at,
+      expires: data.expires,              // ⭐ FIXED
       max_uses: data.max_uses,
       used: data.used,
       active: data.active,

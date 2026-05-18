@@ -1,31 +1,27 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-
-type MsgType = { type: "error" | "success"; text: string } | null;
+import { useParams, useRouter } from "next/navigation";
 
 export default function ApproveLicensePage() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-
-  const id = searchParams?.get("id") ?? "";
-  const key = searchParams?.get("key") ?? "";
+  const params = useParams();
+  const id = typeof params?.id === "string" ? params.id : "";
 
   const [request, setRequest] = useState<any>(null);
   const [licenseKey, setLicenseKey] = useState("");
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState<MsgType>(null);
+  const [msg, setMsg] = useState<{ type: "error" | "success"; text: string } | null>(null);
 
   useEffect(() => {
     if (!id) return;
 
-    async function load() {
-      const res = await fetch(`/api/admin/license-requests/${id}?key=${key}`);
+    async function loadRequest() {
+      const res = await fetch(`/api/admin/license-requests/${id}`);
       const data = await res.json();
 
       if (!res.ok) {
-        setMsg({ type: "error", text: data.error });
+        setMsg({ type: "error", text: data.error || "Failed to load request" });
         setLoading(false);
         return;
       }
@@ -34,8 +30,38 @@ export default function ApproveLicensePage() {
       setLoading(false);
     }
 
-    load();
-  }, [id, key]);
+    loadRequest();
+  }, [id]);
+
+  async function handleApprove() {
+    if (!id) return;
+
+    setMsg(null);
+
+    if (!licenseKey.trim()) {
+      setMsg({ type: "error", text: "License key is required." });
+      return;
+    }
+
+    const res = await fetch(`/api/admin/license-requests/${id}/approve-send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ licenseKey }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setMsg({ type: "error", text: data.error || "Failed to approve request." });
+      return;
+    }
+
+    setMsg({ type: "success", text: "License approved and sent successfully." });
+
+    setTimeout(() => {
+      router.push("/admin/license-requests");
+    }, 1500);
+  }
 
   if (!id) return <p className="text-red-600">Invalid request ID.</p>;
   if (loading) return <p>Loading...</p>;
@@ -51,7 +77,7 @@ export default function ApproveLicensePage() {
           className="w-full p-2 border rounded bg-gray-100"
           rows={3}
           readOnly
-          value={key ?? ""}
+          value={request.requestKey}
         />
       </div>
 
@@ -62,6 +88,7 @@ export default function ApproveLicensePage() {
           rows={3}
           value={licenseKey}
           onChange={(e) => setLicenseKey(e.target.value)}
+          placeholder="Paste the manual license key here..."
         />
       </div>
 
@@ -72,25 +99,8 @@ export default function ApproveLicensePage() {
       )}
 
       <button
-        onClick={async () => {
-          const res = await fetch(`/api/admin/license-requests/${id}/approve-send`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ licenseKey }),
-          });
-
-          const data = await res.json();
-
-          if (!res.ok) {
-            setMsg({ type: "error", text: data.error });
-            return;
-          }
-
-          setMsg({ type: "success", text: "License approved and sent." });
-
-          setTimeout(() => router.push("/admin/license-requests"), 1500);
-        }}
-        className="px-4 py-2 bg-emerald-600 text-white rounded"
+        onClick={handleApprove}
+        className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
       >
         Approve & Send License
       </button>

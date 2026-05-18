@@ -18,10 +18,10 @@ export async function GET() {
     // Transform DB → Frontend shape
     const transformed = (data || []).map((c) => ({
       id: c.id,
-      code: c.code,
+      code: c.code,                     // already uppercase
       type: c.type,
       value: Number(c.value),
-      expires: c.expires_at,
+      expires: c.expires,               // ⭐ FIXED (was expires_at)
       max_uses: c.max_uses,
       used: c.used,
       active: c.active,

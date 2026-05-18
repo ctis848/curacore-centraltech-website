@@ -13,9 +13,6 @@ type LicenseRow = {
   status: string;
   user_id: string;
   created_at: string;
-  expires_at: string | null;
-  annualFeePercent: number | null;
-  annualFeePaidUntil: string | null;
   requestKey?: string | null;
 };
 
@@ -55,6 +52,7 @@ export default function ClientLicensesPage() {
   useEffect(() => {
     if (!user?.id) return;
     loadLicenses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeTab]);
 
   async function loadLicenses() {
@@ -62,34 +60,28 @@ export default function ClientLicensesPage() {
 
     if (activeTab === "ACTIVE") {
       const { data } = await supabase
-        .from("License")
+        .from("LicenseRequest")
         .select(`
           id,
           productName,
           licenseKey,
           status,
-          user_id,
-          created_at,
-          expires_at,
-          annualFeePercent,
-          annualFeePaidUntil,
-          licenserequestid
+          userId,
+          requestedAt,
+          requestKey
         `)
-        .eq("user_id", user.id)
-        .in("status", ["ACTIVE", "PAID", "NOT_DUE"])
-        .order("created_at", { ascending: false });
+        .eq("userId", user.id)
+        .eq("status", "APPROVED")
+        .order("requestedAt", { ascending: false });
 
       const mapped: LicenseRow[] = (data || []).map((l: any) => ({
         id: l.id,
         productName: l.productName,
         licenseKey: l.licenseKey,
         status: l.status,
-        user_id: l.user_id,
-        created_at: l.created_at,
-        expires_at: l.expires_at,
-        annualFeePercent: l.annualFeePercent,
-        annualFeePaidUntil: l.annualFeePaidUntil,
-        requestKey: null,
+        user_id: l.userId,
+        created_at: l.requestedAt,
+        requestKey: l.requestKey,
       }));
 
       setLicenses(mapped);
@@ -120,9 +112,6 @@ export default function ClientLicensesPage() {
         status: "PENDING",
         user_id: r.userId,
         created_at: r.requestedAt,
-        expires_at: null,
-        annualFeePercent: null,
-        annualFeePaidUntil: null,
         requestKey: r.requestKey,
       }));
 

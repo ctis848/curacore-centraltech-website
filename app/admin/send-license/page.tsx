@@ -1,22 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+
+type MsgType = { type: "error" | "success"; text: string } | null;
 
 export default function SendLicensePage() {
+  // Declare searchParams ONCE — and force non-null
+  const searchParams = useSearchParams()!;
+
   const [email, setEmail] = useState("");
-  const [productName, setProductName] = useState("");
-  const [requestKey, setRequestKey] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [licenseKey, setLicenseKey] = useState("");
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useState<MsgType>(null);
+
+  // Auto-fill from URL
+  useEffect(() => {
+    const emailParam = searchParams.get("email") ?? "";
+    const companyParam = searchParams.get("company") ?? "";
+
+    setEmail(emailParam);
+    setCompanyName(companyParam);
+  }, [searchParams]);
 
   async function handleSend() {
-    setMsg("");
+    setMsg(null);
     setLoading(true);
 
     const payload = {
       email,
-      productName,
-      requestKey,
+      companyName,
+      licenseKey,
+      createdAt: new Date().toISOString(),
     };
 
     const res = await fetch("/api/admin/send-license", {
@@ -28,14 +44,13 @@ export default function SendLicensePage() {
     const data = await res.json();
     setLoading(false);
 
-    if (res.ok) {
-      setMsg("License sent successfully");
-      setEmail("");
-      setProductName("");
-      setRequestKey("");
-    } else {
-      setMsg(data.error || "Failed to send license");
+    if (!res.ok) {
+      setMsg({ type: "error", text: data.error || "Failed to save license" });
+      return;
     }
+
+    setMsg({ type: "success", text: "License saved successfully" });
+    setLicenseKey("");
   }
 
   return (
@@ -43,7 +58,6 @@ export default function SendLicensePage() {
       <h1 className="text-2xl font-bold">Send License Manually</h1>
 
       <div className="space-y-4">
-        {/* Email */}
         <input
           className="w-full p-2 border rounded"
           placeholder="Client Email"
@@ -51,45 +65,37 @@ export default function SendLicensePage() {
           onChange={(e) => setEmail(e.target.value)}
         />
 
-        {/* Product */}
-        <select
+        <input
           className="w-full p-2 border rounded"
-          value={productName}
-          onChange={(e) => setProductName(e.target.value)}
-        >
-          <option value="">Select Product</option>
-          <option value="Starter">Starter</option>
-          <option value="Pro">Pro</option>
-          <option value="Enterprise">Enterprise</option>
-        </select>
+          placeholder="Company Name"
+          value={companyName}
+          onChange={(e) => setCompanyName(e.target.value)}
+        />
 
-        {/* Request Key */}
         <textarea
           className="w-full p-2 border rounded"
           rows={4}
-          placeholder="Request Key"
-          value={requestKey}
-          onChange={(e) => setRequestKey(e.target.value)}
+          placeholder="Paste License Key"
+          value={licenseKey}
+          onChange={(e) => setLicenseKey(e.target.value)}
         />
 
-        {/* Message */}
         {msg && (
           <p
             className={`text-sm ${
-              msg.includes("success") ? "text-green-600" : "text-red-600"
+              msg.type === "success" ? "text-green-600" : "text-red-600"
             }`}
           >
-            {msg}
+            {msg.text}
           </p>
         )}
 
-        {/* Button */}
         <button
           onClick={handleSend}
           disabled={loading}
           className="px-4 py-2 bg-emerald-600 text-white rounded w-full"
         >
-          {loading ? "Sending..." : "Send License"}
+          {loading ? "Saving..." : "Save License"}
         </button>
       </div>
     </div>

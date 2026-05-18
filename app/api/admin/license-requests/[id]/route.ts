@@ -1,32 +1,29 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { supabaseServer } from "@/lib/supabase/server";
 
-export async function GET(
-  req: Request,
-  context: { params: { id: string } }
-) {
-  try {
-    const requestId = context.params.id;
+export async function GET(req: Request, { params }: { params: { id: string } }) {
+  const supabase = supabaseServer();
 
-    const { data: request, error } = await supabaseAdmin
-      .from("LicenseRequest")
-      .select("*")
-      .eq("id", requestId)
-      .single();
+  const { searchParams } = new URL(req.url);
+  const requestKey = searchParams.get("key");
 
-    if (error || !request) {
-      return NextResponse.json(
-        { error: "License request not found" },
-        { status: 404 }
-      );
-    }
+  const query = supabase
+    .from("LicenseRequest")
+    .select("*")
+    .eq("id", params.id);
 
-    return NextResponse.json(request);
-  } catch (err) {
-    console.error("Load Request Error:", err);
+  if (requestKey) {
+    query.eq("requestKey", requestKey);
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error || !data) {
     return NextResponse.json(
-      { error: "Server error" },
-      { status: 500 }
+      { error: "Request not found" },
+      { status: 404 }
     );
   }
+
+  return NextResponse.json(data);
 }

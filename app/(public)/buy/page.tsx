@@ -12,22 +12,36 @@ export default function BuyLicensePage() {
   const [loading, setLoading] = useState(false);
 
   const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState('');
 
   // -------------------------------
   // PRICING LOGIC
   // -------------------------------
-  const coupons: Record<string, number> = {
-    CENTRAL10: 10,
-    HOSPITAL20: 20,
-  };
-
   const planPrices: Record<string, number> = {
     starter: 250000,
     pro: 350000,
     enterprise: 550000,
   };
+
+  const VAT_RATE = 0.075;
+
+  const baseAmount = planPrices[plan] * quantity;
+
+  // ⭐ NEW: Real discount logic using backend coupon object
+  let discountAmount = 0;
+
+  if (appliedCoupon) {
+    if (appliedCoupon.type === 'percentage') {
+      discountAmount = (baseAmount * appliedCoupon.value) / 100;
+    } else if (appliedCoupon.type === 'fixed') {
+      discountAmount = appliedCoupon.value;
+    }
+  }
+
+  const subtotal = baseAmount - discountAmount;
+  const vatAmount = subtotal * VAT_RATE;
+  const totalAmount = subtotal + vatAmount;
 
   const annualFees: Record<string, number> = {
     starter: planPrices.starter * 0.2 * quantity,
@@ -35,32 +49,40 @@ export default function BuyLicensePage() {
     enterprise: planPrices.enterprise * 0.2 * quantity,
   };
 
-  const VAT_RATE = 0.075;
-
-  const baseAmount = planPrices[plan] * quantity;
-  const discountPercent = appliedCoupon?.discount ?? 0;
-  const discountAmount = (baseAmount * discountPercent) / 100;
-  const subtotal = baseAmount - discountAmount;
-  const vatAmount = subtotal * VAT_RATE;
-  const totalAmount = subtotal + vatAmount;
-
   const formatNaira = (num: number) =>
     num.toLocaleString('en-NG', { style: 'currency', currency: 'NGN' });
 
   const increaseQty = () => setQuantity((prev) => Math.min(prev + 1, 50));
   const decreaseQty = () => setQuantity((prev) => Math.max(prev - 1, 1));
 
-  function applyCoupon() {
+  // -------------------------------
+  // REAL COUPON VALIDATION
+  // -------------------------------
+  async function applyCoupon() {
     const code = couponCode.trim().toUpperCase();
     if (!code) return;
 
-    if (coupons[code]) {
-      setAppliedCoupon({ code, discount: coupons[code] });
-      setCouponError('');
-    } else {
-      setAppliedCoupon(null);
-      setCouponError('Invalid coupon code');
+    setCouponError('');
+    setAppliedCoupon(null);
+
+    const res = await fetch('/api/coupons/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        couponCode: code,
+        amount: baseAmount, // license fee only
+      }),
+    });
+
+    const json = await res.json();
+
+    if (!json.valid) {
+      setCouponError(json.reason || 'Invalid coupon code');
+      return;
     }
+
+    // ⭐ Store full coupon object from backend
+    setAppliedCoupon(json.coupon);
   }
 
   // -------------------------------
@@ -81,33 +103,32 @@ export default function BuyLicensePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: Math.round(totalAmount),
+          amount: Math.round(totalAmount), // ⭐ FINAL AMOUNT AFTER DISCOUNT
           email,
           companyName,
           plan,
           quantity,
           annualFee: annualFees[plan],
-          type: "NEW_LICENSE_PURCHASE",
+          type: 'NEW_LICENSE_PURCHASE',
+          couponCode: appliedCoupon?.code || null, // ⭐ SEND COUPON TO BACKEND
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "Unable to start payment.");
+        alert(data.error || 'Unable to start payment.');
         setLoading(false);
         return;
       }
 
       if (!data.authorization_url) {
-        alert("Payment initialized but no authorization URL returned.");
+        alert('Payment initialized but no authorization URL returned.');
         setLoading(false);
         return;
       }
 
-
       window.location.href = data.authorization_url;
-
     } catch (err) {
       console.error('Payment error:', err);
       alert('Unable to start payment.');
@@ -145,13 +166,13 @@ export default function BuyLicensePage() {
               {/* Starter */}
               <div
                 onClick={() => {
-                  setPlan("starter");
+                  setPlan('starter');
                   setQuantity(1);
                 }}
                 className={`cursor-pointer p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
-                  plan === "starter"
-                    ? "border-teal-600 bg-teal-50 shadow-xl"
-                    : "border-gray-300 hover:border-teal-400"
+                  plan === 'starter'
+                    ? 'border-teal-600 bg-teal-50 shadow-xl'
+                    : 'border-gray-300 hover:border-teal-400'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -175,13 +196,13 @@ export default function BuyLicensePage() {
               {/* Pro */}
               <div
                 onClick={() => {
-                  setPlan("pro");
+                  setPlan('pro');
                   setQuantity(1);
                 }}
                 className={`relative cursor-pointer p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
-                  plan === "pro"
-                    ? "border-teal-600 bg-teal-50 shadow-xl"
-                    : "border-gray-300 hover:border-teal-400"
+                  plan === 'pro'
+                    ? 'border-teal-600 bg-teal-50 shadow-xl'
+                    : 'border-gray-300 hover:border-teal-400'
                 }`}
               >
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-teal-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
@@ -209,13 +230,13 @@ export default function BuyLicensePage() {
               {/* Enterprise */}
               <div
                 onClick={() => {
-                  setPlan("enterprise");
+                  setPlan('enterprise');
                   setQuantity(1);
                 }}
                 className={`cursor-pointer p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
-                  plan === "enterprise"
-                    ? "border-teal-600 bg-teal-50 shadow-xl"
-                    : "border-gray-300 hover:border-teal-400"
+                  plan === 'enterprise'
+                    ? 'border-teal-600 bg-teal-50 shadow-xl'
+                    : 'border-gray-300 hover:border-teal-400'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -308,7 +329,10 @@ export default function BuyLicensePage() {
 
             {appliedCoupon && (
               <p className="text-sm text-teal-700">
-                Applied <strong>{appliedCoupon.code}</strong> — {appliedCoupon.discount}% off
+                Applied <strong>{appliedCoupon.code}</strong> —{' '}
+                {appliedCoupon.type === 'percentage'
+                  ? `${appliedCoupon.value}% off`
+                  : `₦${appliedCoupon.value} off`}
               </p>
             )}
 
@@ -326,7 +350,7 @@ export default function BuyLicensePage() {
 
             {discountAmount > 0 && (
               <div className="flex justify-between text-lg text-green-700">
-                <span>Discount ({discountPercent}%)</span>
+                <span>Discount</span>
                 <span>-{formatNaira(discountAmount)}</span>
               </div>
             )}

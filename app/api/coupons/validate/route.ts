@@ -12,11 +12,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Fetch coupon
+    // Fetch coupon (always uppercase)
     const { data: c, error } = await supabaseAdmin
       .from("coupons")
       .select("*")
-      .eq("code", couponCode.toUpperCase())
+      .eq("code", couponCode.trim().toUpperCase())
       .single();
 
     if (error || !c) {
@@ -29,13 +29,16 @@ export async function POST(req: Request) {
     }
 
     // Check expiry
-    if (new Date(c.expires_at) < new Date()) {
+    if (new Date(c.expires) < new Date()) {
       return NextResponse.json({ valid: false, reason: "Coupon has expired" });
     }
 
     // Check usage limit
     if (c.used >= c.max_uses) {
-      return NextResponse.json({ valid: false, reason: "Coupon usage limit reached" });
+      return NextResponse.json({
+        valid: false,
+        reason: "Coupon usage limit reached",
+      });
     }
 
     // Calculate discount
@@ -47,7 +50,6 @@ export async function POST(req: Request) {
       discount = Number(c.value);
     }
 
-    // Ensure discount does not exceed amount
     if (discount > amount) discount = amount;
 
     const finalAmount = Number(amount) - discount;
@@ -56,12 +58,16 @@ export async function POST(req: Request) {
       valid: true,
       discount,
       finalAmount,
+
+      // ⭐ Return coupon in a UI‑friendly format
       coupon: {
         id: c.id,
         code: c.code,
-        type: c.type,
-        value: Number(c.value),
-        expires: c.expires_at,
+        type: c.type,          // "percentage" | "fixed"
+        value: Number(c.value), // discount value
+        discountType: c.type,   // ⭐ NEW
+        discountValue: Number(c.value), // ⭐ NEW
+        expires: c.expires,
         max_uses: c.max_uses,
         used: c.used,
         active: c.active,

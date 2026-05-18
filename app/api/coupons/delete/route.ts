@@ -27,13 +27,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Transform DB → Frontend shape
+    // ⭐ FIX: Use correct field name `expires`
     const transformed = {
       id: data.id,
       code: data.code,
       type: data.type,
       value: Number(data.value),
-      expires: data.expires_at,
+      expires: data.expires,     // ✔ FIXED
       max_uses: data.max_uses,
       used: data.used,
       active: data.active,
