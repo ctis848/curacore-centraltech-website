@@ -1,32 +1,16 @@
-// FILE: app/admin/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import type {
-  LicenseRow,
-  LicenseRequestRow,
-  InvoiceRow,
-  TicketRow,
-} from "@/types/admin";
-
-type AdminStats = {
-  totalActiveLicenses: number;
-  totalInactiveLicenses: number;
-  totalExpiredAnnualFee: number;
-  totalPayments: number;
-  totalPlansPurchased: number;
-  pendingLicenseRequests: number;
-  openSupportTickets: number;
-};
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const supabase = supabaseBrowser();
 
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<AdminStats>({
+
+  const [stats, setStats] = useState({
     totalActiveLicenses: 0,
     totalInactiveLicenses: 0,
     totalExpiredAnnualFee: 0,
@@ -36,9 +20,9 @@ export default function AdminDashboardPage() {
     openSupportTickets: 0,
   });
 
-  const [pendingRequests, setPendingRequests] = useState<LicenseRequestRow[]>([]);
-  const [dueAnnualFees, setDueAnnualFees] = useState<LicenseRow[]>([]);
-  const [recentTickets, setRecentTickets] = useState<TicketRow[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [dueAnnualFees, setDueAnnualFees] = useState<any[]>([]);
+  const [recentTickets, setRecentTickets] = useState<any[]>([]);
 
   useEffect(() => {
     async function loadAdminData() {
@@ -55,32 +39,93 @@ export default function AdminDashboardPage() {
           return;
         }
 
-        // 2. Fetch core data
+        // 2. Fetch all required data
         const [licensesRes, invoicesRes, requestsRes, ticketsRes] =
           await Promise.all([
-            supabase.from("License").select(
-              "id,userId,productName,licenseKey,expiresAt,status,annualFeePercent,annualFeePaidUntil"
-            ),
-            supabase.from("Invoice").select("id,userId,amount,status,createdAt"),
-            supabase
-              .from("LicenseRequest")
-              .select("id,userId,productName,requestKey,status,createdAt"),
-            supabase
-              .from("SupportTicket")
-              .select("id,userId,subject,status,createdAt"),
+            supabase.from("License").select(`
+              id,
+              user_id,
+              status,
+              expires_at,
+              created_at,
+              "productName",
+              "licenseKey",
+              "annualFeePercent",
+              "annualFeePaidUntil"
+            `),
+
+            supabase.from("invoices").select(`
+              id,
+              amount,
+              status,
+              created_at,
+              company_id
+            `),
+
+            supabase.from("LicenseRequest").select(`
+              id,
+              "userId",
+              "productName",
+              "requestedAt",
+              status,
+              "requestKey",
+              "licenseKey"
+            `),
+
+            supabase.from("support_tickets").select(`
+              id,
+              user_id,
+              subject,
+              message,
+              status,
+              created_at
+            `),
           ]);
 
-        const licenses = (licensesRes.data || []) as LicenseRow[];
-        const invoices = (invoicesRes.data || []) as InvoiceRow[];
+        // ⭐ MAP LICENSES
+        const licenses = (licensesRes.data || []).map((l: any) => ({
+          id: l.id,
+          userId: l.user_id,
+          status: l.status,
+          expiresAt: l.expires_at,
+          createdAt: l.created_at,
+          productName: l.productName,
+          licenseKey: l.licenseKey,
+          annualFeePercent: l.annualFeePercent,
+          annualFeePaidUntil: l.annualFeePaidUntil,
+        }));
 
-        // ⭐ FIX: Map createdAt → requestedAt to satisfy LicenseRequestRow
+        // ⭐ MAP INVOICES
+        const invoices = (invoicesRes.data || []).map((i: any) => ({
+          id: i.id,
+          userId: i.company_id,
+          amount: i.amount,
+          status: i.status,
+          createdAt: i.created_at,
+        }));
+
+        // ⭐ MAP LICENSE REQUESTS
         const requests = (requestsRes.data || []).map((r: any) => ({
-          ...r,
-          requestedAt: r.requestedAt ?? r.createdAt ?? null,
-        })) as LicenseRequestRow[];
+          id: r.id,
+          userId: r.userId,
+          productName: r.productName,
+          requestedAt: r.requestedAt,
+          status: r.status,
+          requestKey: r.requestKey,
+          licenseKey: r.licenseKey,
+        }));
 
-        const tickets = (ticketsRes.data || []) as TicketRow[];
+        // ⭐ MAP SUPPORT TICKETS
+        const tickets = (ticketsRes.data || []).map((t: any) => ({
+          id: t.id,
+          userId: t.user_id,
+          subject: t.subject,
+          message: t.message,
+          status: t.status,
+          createdAt: t.created_at,
+        }));
 
+        // ⭐ COMPUTE STATS
         const totalActiveLicenses = licenses.filter(
           (l) => l.status === "ACTIVE"
         ).length;
@@ -95,6 +140,7 @@ export default function AdminDashboardPage() {
         }).length;
 
         const totalPayments = invoices.length;
+
         const totalPlansPurchased = invoices.filter(
           (i) => i.status === "PAID"
         ).length;
@@ -107,7 +153,8 @@ export default function AdminDashboardPage() {
           (t) => t.status === "OPEN"
         ).length;
 
-        const dueAnnualFees = licenses.filter((l) => {
+        // ⭐ Annual fee due soon (30 days)
+        const dueAnnualFeesList = licenses.filter((l) => {
           if (!l.annualFeePaidUntil) return true;
           const dueDate = new Date(l.annualFeePaidUntil);
           const now = new Date();
@@ -116,16 +163,17 @@ export default function AdminDashboardPage() {
           return diff <= 30;
         });
 
-        // ⭐ FIX: Use requestedAt instead of createdAt
+        // ⭐ Pending requests sorted
         const pendingRequestsList = requests
           .filter((r) => r.status === "PENDING")
           .sort(
             (a, b) =>
-              new Date(a.requestedAt || "").getTime() -
-              new Date(b.requestedAt || "").getTime()
+              new Date(a.requestedAt).getTime() -
+              new Date(b.requestedAt).getTime()
           )
           .slice(0, 5);
 
+        // ⭐ Recent open tickets
         const recentTicketsList = tickets
           .filter((t) => t.status === "OPEN")
           .sort(
@@ -135,6 +183,7 @@ export default function AdminDashboardPage() {
           )
           .slice(0, 5);
 
+        // ⭐ UPDATE STATE
         setStats({
           totalActiveLicenses,
           totalInactiveLicenses,
@@ -146,7 +195,7 @@ export default function AdminDashboardPage() {
         });
 
         setPendingRequests(pendingRequestsList);
-        setDueAnnualFees(dueAnnualFees);
+        setDueAnnualFees(dueAnnualFeesList);
         setRecentTickets(recentTicketsList);
       } finally {
         setLoading(false);
@@ -216,6 +265,7 @@ export default function AdminDashboardPage() {
         <p className="text-sm text-slate-600">Loading admin data...</p>
       ) : (
         <>
+          {/* CARDS */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {cards.map((card) => (
               <div
@@ -235,7 +285,9 @@ export default function AdminDashboardPage() {
             ))}
           </div>
 
+          {/* LISTS */}
           <section className="grid gap-4 md:grid-cols-2">
+            {/* Pending Requests */}
             <div className="rounded-xl border bg-white p-4 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-800 mb-2">
                 Pending License Requests
@@ -273,6 +325,7 @@ export default function AdminDashboardPage() {
               )}
             </div>
 
+            {/* Annual Fee Due */}
             <div className="rounded-xl border bg-white p-4 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-800 mb-2">
                 Annual 20% Fee Due Soon
@@ -306,6 +359,7 @@ export default function AdminDashboardPage() {
             </div>
           </section>
 
+          {/* Support Tickets */}
           <section className="rounded-xl border bg-white p-4 shadow-sm">
             <h3 className="text-sm font-semibold text-slate-800 mb-2">
               Open Support Tickets
