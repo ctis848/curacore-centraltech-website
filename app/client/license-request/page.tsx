@@ -32,7 +32,7 @@ export default function ClientLicenseRequestPage() {
 
       const userId = session.user.id;
 
-      // ⭐ FIX: USE user_companies (NOT team_members)
+      // Load company membership
       const { data: membership } = await supabase
         .from("user_companies")
         .select("company_id")
@@ -44,7 +44,7 @@ export default function ClientLicenseRequestPage() {
         return;
       }
 
-      // ⭐ Load company name
+      // Load company name
       const { data: company } = await supabase
         .from("companies")
         .select("name")
@@ -95,8 +95,8 @@ export default function ClientLicenseRequestPage() {
 
     const userId = session.user.id;
 
-    // SEND TO ADMIN API
-    const res = await fetch("/api/admin/license-requests", {
+    // ⭐ FIXED: Correct API endpoint for Client Portal
+    const res = await fetch("/api/client/license-requests", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
