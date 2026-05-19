@@ -1,10 +1,10 @@
-// FILE: app/admin/layout.tsx
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactNode, ElementType } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+
 import {
   HomeIcon,
   KeyIcon,
@@ -17,141 +17,208 @@ import {
   UserGroupIcon,
   BuildingOfficeIcon,
   TagIcon,
+  Bars3Icon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 
-const navItems = [
+// -----------------------------
+// TYPES
+// -----------------------------
+type NavSection = { section: string };
+type NavItem = {
+  label: string;
+  href: string;
+  icon: ElementType;
+  roles?: string[];
+  logout?: boolean;
+};
+type NavEntry = NavSection | NavItem;
+
+// -----------------------------
+// ROLE
+// -----------------------------
+const userRole = "superadmin";
+
+// -----------------------------
+// NAV ITEMS (Logout moved after Coupons)
+// -----------------------------
+const navItems: NavEntry[] = [
+  { section: "General" },
   { label: "Dashboard", href: "/admin", icon: HomeIcon },
+
+  { section: "Licensing" },
   { label: "Licenses", href: "/admin/licenses", icon: KeyIcon },
   { label: "License Requests", href: "/admin/license-requests", icon: ClipboardDocumentListIcon },
+  { label: "Send License", href: "/admin/send-license", icon: KeyIcon, roles: ["admin", "superadmin"] },
 
-  // ⭐ NEW: Manual License Sender
-  { label: "Send License", href: "/admin/send-license", icon: KeyIcon },
-
+  { section: "Finance" },
   { label: "Payments", href: "/admin/payments", icon: CreditCardIcon },
   { label: "Annual Fees", href: "/admin/annual-fees", icon: CurrencyDollarIcon },
   { label: "Renewals", href: "/admin/renewals", icon: ClockIcon },
   { label: "Renewal Analytics", href: "/admin/renewals/analytics", icon: ChartBarIcon },
+
+  { section: "Management" },
   { label: "Tenants", href: "/admin/tenants", icon: BuildingOfficeIcon },
-  { label: "Users", href: "/admin/users", icon: UserGroupIcon },
+  { label: "Users", href: "/admin/users", icon: UserGroupIcon, roles: ["superadmin"] },
   { label: "Support", href: "/admin/support", icon: ChatBubbleLeftRightIcon },
   { label: "Coupons", href: "/admin/coupons", icon: TagIcon },
+
+  // ⭐ Logout moved here
+  { label: "Logout", href: "/api/auth/admin-logout", icon: XMarkIcon, logout: true },
 ];
 
+// -----------------------------
+// FILTER BY ROLE
+// -----------------------------
+const visibleItems = navItems.filter((item) => {
+  if ("section" in item) return true;
+  if (!item.roles) return true;
+  return item.roles.includes(userRole);
+});
 
+// -----------------------------
+// COMPONENT
+// -----------------------------
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // ⭐ FIXED: Safe null-check so Netlify build passes
   const isActive = (href: string) => {
-    if (!pathname) return false; // pathname can be null during SSR
+    if (!pathname) return false;
     if (href === "/admin") return pathname === "/admin";
     return pathname.startsWith(href);
   };
 
   return (
     <div className="min-h-screen flex bg-slate-100">
-      {/* SIDEBAR (Desktop) */}
-      <aside className="w-64 bg-white border-r hidden md:flex flex-col">
-        <div className="px-6 py-4 border-b">
-          <h1 className="text-xl font-bold text-slate-900">CentralCore Admin</h1>
-          <p className="text-xs text-slate-500">Management Console</p>
+
+      {/* SIDEBAR (DESKTOP) */}
+      <aside
+        className={`hidden md:flex flex-col border-r bg-white sticky top-0 h-screen transition-all duration-300
+          ${collapsed ? "w-20" : "w-64"}
+        `}
+      >
+        {/* ⭐ STICKY HEADER WITH SINGLE HAMBURGER */}
+        <div className="px-4 py-4 border-b flex items-center justify-between sticky top-0 bg-white z-20">
+          {!collapsed && (
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">CentralCore Admin</h1>
+              <p className="text-xs text-slate-500">Management Console</p>
+            </div>
+          )}
+
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="p-2 rounded hover:bg-slate-100"
+          >
+            <Bars3Icon className="w-6 h-6" />
+          </button>
         </div>
 
-        <nav className="flex-1 px-4 py-4 space-y-1">
-          {navItems.map((item) => {
+        {/* NAVIGATION */}
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {visibleItems.map((item, index) => {
+            if ("section" in item) {
+              return (
+                <div key={`section-${index}`} className="mt-4 mb-1">
+                  {!collapsed ? (
+                    <div className="text-xs font-semibold text-slate-500 px-3">
+                      {item.section}
+                    </div>
+                  ) : (
+                    <div className="h-6"></div>
+                  )}
+                </div>
+              );
+            }
+
             const active = isActive(item.href);
             const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition
-                  ${active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}
+            const content = (
+              <div
+                className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition-all duration-200
+                  ${active ? "bg-slate-900 text-white shadow-md scale-[1.02]" : "text-slate-700 hover:bg-slate-100"}
                 `}
               >
                 <Icon className="w-5 h-5" />
-                {item.label}
+                {!collapsed && item.label}
+              </div>
+            );
+
+            if (item.logout) {
+              return (
+                <form key={item.href} action="/api/auth/admin-logout" method="post">
+                  <button className="w-full text-left">{content}</button>
+                </form>
+              );
+            }
+
+            return (
+              <Link key={item.href} href={item.href}>
+                {content}
               </Link>
             );
           })}
         </nav>
-
-        <form
-          action="/api/auth/admin-logout"
-          method="post"
-          className="px-4 py-4 border-t"
-        >
-          <button className="w-full text-left px-3 py-2 rounded text-sm font-medium text-red-600 hover:bg-red-50">
-            Logout
-          </button>
-        </form>
       </aside>
 
       {/* MOBILE SIDEBAR */}
-      <div className="md:hidden">
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          className="absolute top-3 left-3 z-50 bg-white border rounded px-3 py-1 shadow"
-          aria-label="Toggle admin menu"
-        >
-          ☰
-        </button>
+      {mobileOpen && (
+        <aside className="fixed inset-y-0 left-0 w-64 bg-white border-r shadow-lg z-40 flex flex-col md:hidden">
+          <div className="px-6 py-4 border-b flex justify-between items-center sticky top-0 bg-white">
+            <h1 className="text-lg font-bold text-slate-900">Admin Menu</h1>
+            <button onClick={() => setMobileOpen(false)}>✕</button>
+          </div>
 
-        {open && (
-          <aside className="fixed inset-y-0 left-0 w-64 bg-white border-r shadow-lg z-40 flex flex-col">
-            <div className="px-6 py-4 border-b flex justify-between items-center">
-              <h1 className="text-lg font-bold text-slate-900">Admin Menu</h1>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close menu">
-                ✕
-              </button>
-            </div>
-
-            <nav className="flex-1 px-4 py-4 space-y-1">
-              {navItems.map((item) => {
-                const active = isActive(item.href);
-                const Icon = item.icon;
-
+          <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+            {visibleItems.map((item, index) => {
+              if ("section" in item) {
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition
-                      ${active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}
-                    `}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {item.label}
-                  </Link>
+                  <div key={`m-section-${index}`} className="text-xs font-semibold text-slate-500 mt-4 mb-1 px-3">
+                    {item.section}
+                  </div>
                 );
-              })}
-            </nav>
+              }
 
-            <form
-              action="/api/auth/admin-logout"
-              method="post"
-              className="px-4 py-4 border-t"
-            >
-              <button className="w-full text-left px-3 py-2 rounded text-sm font-medium text-red-600 hover:bg-red-50">
-                Logout
-              </button>
-            </form>
-          </aside>
-        )}
-      </div>
+              const active = isActive(item.href);
+              const Icon = item.icon;
+
+              if (item.logout) {
+                return (
+                  <form key={item.href} action="/api/auth/admin-logout" method="post">
+                    <button
+                      onClick={() => setMobileOpen(false)}
+                      className="flex w-full items-center gap-3 px-3 py-2 rounded text-sm text-red-600 hover:bg-red-50"
+                    >
+                      <Icon className="w-5 h-5" />
+                      {item.label}
+                    </button>
+                  </form>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition
+                    ${active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}
+                  `}
+                >
+                  <Icon className="w-5 h-5" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </aside>
+      )}
 
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col">
-        <header className="bg-white border-b px-4 py-3 flex items-center justify-between md:hidden">
-          <h1 className="text-lg font-semibold text-slate-900">CentralCore Admin</h1>
-          <form action="/api/auth/admin-logout" method="post">
-            <button className="text-red-600 text-sm font-medium">Logout</button>
-          </form>
-        </header>
-
         <main className="p-6">{children}</main>
       </div>
     </div>
