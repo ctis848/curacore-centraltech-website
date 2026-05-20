@@ -1,3 +1,5 @@
+// app/api/payments/webhook/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { sendReceiptEmail } from "@/lib/email/sendReceiptEmail";
@@ -5,95 +7,116 @@ import { sendReceiptEmail } from "@/lib/email/sendReceiptEmail";
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
 const BREVO_API_KEY = process.env.BREVO_API_KEY!;
 
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const reference = req.nextUrl.searchParams.get("reference");
+    const body = await req.json();
+    const event = body?.event;
+    const tx = body?.data;
 
-    if (!reference) {
-      return NextResponse.json(
-        { success: false, error: "Missing reference" },
-        { status: 400 }
-      );
+    if (!event || !tx) {
+      return NextResponse.json({ success: false, error: "Invalid webhook" });
     }
 
-    if (!PAYSTACK_SECRET_KEY) {
-      return NextResponse.json(
-        { success: false, error: "PAYSTACK_SECRET_KEY not configured" },
-        { status: 500 }
-      );
+    if (event !== "charge.success") {
+      return NextResponse.json({ success: true, message: "Ignored event" });
     }
 
-    // ----------------------------------------------------
-    // VERIFY WITH PAYSTACK
-    // ----------------------------------------------------
-    const verifyRes = await fetch(
-      `https://api.paystack.co/transaction/verify/${reference}`,
-      {
-        headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
-      }
-    );
-
-    const verifyData = await verifyRes.json();
-
-    if (!verifyData.status || !verifyData.data) {
-      return NextResponse.json(
-        { success: false, error: "Verification failed" },
-        { status: 400 }
-      );
-    }
-
-    const tx = verifyData.data;
-    if (tx.status !== "success") {
-      return NextResponse.json(
-        { success: false, error: "Transaction not successful" },
-        { status: 400 }
-      );
-    }
-
+    const reference = tx.reference;
+    const email = tx.customer?.email;
+    const amount = tx.amount / 100;
     const metadata = tx.metadata || {};
-    const userId = metadata.userId as string | undefined;
 
     const supabase = supabaseServer();
 
     // ----------------------------------------------------
     // IDEMPOTENCY CHECK
     // ----------------------------------------------------
-    const { data: existing } = await supabase
+    const { data: existingPayment } = await supabase
       .from("Payment")
       .select("id")
-      .eq("reference", tx.reference)
+      .eq("reference", reference)
       .maybeSingle();
 
-    if (!existing) {
-      await supabase.from("Payment").insert({
-        userid: userId ?? null,
-        amount: tx.amount / 100,
+    if (existingPayment) {
+      return NextResponse.json({ success: true, message: "Already processed" });
+    }
+
+    // ----------------------------------------------------
+    // CHECK IF USER EXISTS
+    // ----------------------------------------------------
+    const { data: existingUser } = await supabase
+      .from("auth.users")
+      .select("id, email")
+      .eq("email", email)
+      .maybeSingle();
+
+    const userId = existingUser?.id ?? null;
+
+    // ----------------------------------------------------
+    // INSERT PAYMENT RECORD
+    // ----------------------------------------------------
+    const { data: payment } = await supabase
+      .from("Payment")
+      .insert({
+        userid: userId,
+        email,
+        amount,
         currency: tx.currency,
-        status: tx.status.toUpperCase(),
-        reference: tx.reference,
+        status: "SUCCESS",
+        reference,
         gateway: "PAYSTACK",
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    // ----------------------------------------------------
+    // CREATE INVOICE
+    // ----------------------------------------------------
+    await supabase.from("Invoice").insert({
+      payment_id: payment.id,
+      userid: userId,
+      email,
+      amount,
+      reference,
+      created_at: new Date().toISOString(),
+    });
+
+    // ----------------------------------------------------
+    // LICENSE PURCHASE FLOW
+    // ----------------------------------------------------
+    if (metadata.type === "NEW_LICENSE_PURCHASE") {
+      const quantity = Number(metadata.quantity) || 0;
+
+      // Increase license count
+      if (userId) {
+        const { data: client } = await supabase
+          .from("Clients")
+          .select("totalLicenses")
+          .eq("userid", userId)
+          .maybeSingle();
+
+        const newTotal = (client?.totalLicenses || 0) + quantity;
+
+        await supabase
+          .from("Clients")
+          .update({ totalLicenses: newTotal })
+          .eq("userid", userId);
+      }
+
+      // Insert license purchase history
+      await supabase.from("LicensePurchases").insert({
+        userid: userId,
+        email,
+        quantity,
+        amount,
+        reference,
         created_at: new Date().toISOString(),
       });
     }
 
     // ----------------------------------------------------
-    // NEW LICENSE PURCHASE FLOW
-    // ----------------------------------------------------
-    if (metadata.type === "NEW_LICENSE_PURCHASE" && userId) {
-      const quantity = Number(metadata.quantity) || 0;
-
-      await supabase.from("AnnualPaymentHistory").insert({
-        userid: userId,
-        amount: tx.amount / 100,
-        reference: tx.reference,
-        status: tx.status.toUpperCase(),
-        paidat: new Date().toISOString(),
-        licensecount: quantity
-      });
-    }
-
-    // ----------------------------------------------------
-    // ANNUAL SUBSCRIPTION RENEWAL FLOW
+    // ANNUAL RENEWAL FLOW
     // ----------------------------------------------------
     if (metadata.type === "ANNUAL_RENEWAL" && userId) {
       const { data: billing } = await supabase
@@ -102,29 +125,29 @@ export async function GET(req: NextRequest) {
         .eq("userId", userId)
         .maybeSingle();
 
-      const currentDate = billing?.next_renewal_date
+      const current = billing?.next_renewal_date
         ? new Date(billing.next_renewal_date)
         : new Date();
 
-      const newRenewalDate = new Date(
-        currentDate.setFullYear(currentDate.getFullYear() + 1)
+      const nextRenewal = new Date(
+        current.setFullYear(current.getFullYear() + 1)
       ).toISOString();
 
       await supabase
         .from("ClientBilling")
         .update({
-          next_renewal_date: newRenewalDate,
+          next_renewal_date: nextRenewal,
           updated_at: new Date().toISOString(),
         })
         .eq("userId", userId);
 
       await supabase.from("AnnualPaymentHistory").insert({
         userid: userId,
-        amount: tx.amount / 100,
-        reference: tx.reference,
-        status: tx.status.toUpperCase(),
+        amount,
+        reference,
+        status: "SUCCESS",
         paidat: new Date().toISOString(),
-        licensecount: metadata.licenseCount ?? 0
+        licensecount: metadata.licenseCount ?? 0,
       });
     }
 
@@ -132,11 +155,11 @@ export async function GET(req: NextRequest) {
     // SEND RECEIPT EMAIL
     // ----------------------------------------------------
     await sendReceiptEmail({
-      to: tx.customer?.email,
-      amount: tx.amount / 100,
+      to: email,
+      amount,
       currency: tx.currency,
-      reference: tx.reference,
-      licenseId: metadata.licenseId ?? null,
+      reference,
+      licenseId: metadata.licenseId ?? null, // REQUIRED BY ReceiptPayload
     });
 
     // ----------------------------------------------------
@@ -155,11 +178,10 @@ export async function GET(req: NextRequest) {
           subject: "New Payment Received",
           htmlContent: `
             <h2>New Payment Notification</h2>
-            <p><strong>Customer:</strong> ${tx.customer?.email}</p>
-            <p><strong>Amount:</strong> ${tx.amount / 100} ${tx.currency}</p>
-            <p><strong>Reference:</strong> ${tx.reference}</p>
-            <p><strong>Status:</strong> ${tx.status.toUpperCase()}</p>
-            <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Amount:</strong> ${amount} ${tx.currency}</p>
+            <p><strong>Reference:</strong> ${reference}</p>
+            <p><strong>Status:</strong> SUCCESS</p>
           `,
         }),
       });
@@ -167,10 +189,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("Verify error:", err);
-    return NextResponse.json(
-      { success: false, error: "Server error" },
-      { status: 500 }
-    );
+    console.error("WEBHOOK ERROR:", err);
+    return NextResponse.json({ success: false, error: "Server error" });
   }
 }

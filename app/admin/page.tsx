@@ -48,10 +48,10 @@ export default function AdminDashboardPage() {
               status,
               expires_at,
               created_at,
-              "productName",
-              "licenseKey",
-              "annualFeePercent",
-              "annualFeePaidUntil"
+              productName,
+              licenseKey,
+              annualFeePercent,
+              annualFeePaidUntil
             `),
 
             supabase.from("invoices").select(`
@@ -64,12 +64,12 @@ export default function AdminDashboardPage() {
 
             supabase.from("LicenseRequest").select(`
               id,
-              "userId",
-              "productName",
-              "requestedAt",
+              userId,
+              productName,
+              requestedAt,
               status,
-              "requestKey",
-              "licenseKey"
+              requestKey,
+              licenseKey
             `),
 
             supabase.from("support_tickets").select(`

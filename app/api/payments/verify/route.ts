@@ -1,3 +1,5 @@
+// app/api/payments/verify/route.ts
+
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -13,17 +15,21 @@ export async function GET(req: Request) {
     const reference = searchParams.get("reference");
 
     if (!reference) {
-      return NextResponse.json({ success: false, error: "Missing reference" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Missing reference" },
+        { status: 400 }
+      );
     }
 
     console.log("🔥 VERIFYING PAYMENT:", reference);
 
-    // ============================================================
     // 1️⃣ VERIFY WITH PAYSTACK
-    // ============================================================
-    const verifyRes = await fetch(`${PAYSTACK_BASE}/transaction/verify/${reference}`, {
-      headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
-    });
+    const verifyRes = await fetch(
+      `${PAYSTACK_BASE}/transaction/verify/${reference}`,
+      {
+        headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+      }
+    );
 
     const raw = await verifyRes.text();
     console.log("🔥 RAW PAYSTACK RESPONSE:", raw);
@@ -50,21 +56,19 @@ export async function GET(req: Request) {
 
     console.log("🔥 METADATA:", meta);
 
-    const customerEmail = meta.email;
+    // SAFETY FIX: Prevent crash if email missing
+    const customerEmail = meta.email ?? trx.customer?.email ?? null;
+
     const amountPaid = trx.amount / 100;
 
-    // ============================================================
-    // 2️⃣ CHECK IF USER EXISTS (for callback redirect)
-    // ============================================================
+    // 2️⃣ CHECK IF USER EXISTS
     const { data: existingUser } = await supabase
       .from("auth.users")
       .select("id, email")
       .eq("email", customerEmail)
       .maybeSingle();
 
-    // ============================================================
     // 3️⃣ HANDLE ANNUAL RENEWAL
-    // ============================================================
     if (meta.type === "ANNUAL_RENEWAL") {
       console.log("🔥 PROCESSING ANNUAL RENEWAL");
 
@@ -81,7 +85,6 @@ export async function GET(req: Request) {
         );
       }
 
-      // Load or create license
       let { data: license } = await supabase
         .from("License")
         .select("*")
@@ -89,8 +92,6 @@ export async function GET(req: Request) {
         .maybeSingle();
 
       if (!license) {
-        console.log("🔥 NO LICENSE FOUND — creating new license");
-
         const { data: newLicense } = await supabase
           .from("License")
           .insert({
@@ -105,9 +106,10 @@ export async function GET(req: Request) {
         license = newLicense;
       }
 
-      // Extend expiration
       const now = new Date();
-      const newExpiry = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      const newExpiry = new Date(
+        now.getTime() + 365 * 24 * 60 * 60 * 1000
+      ).toISOString();
 
       await supabase
         .from("License")
@@ -117,15 +119,15 @@ export async function GET(req: Request) {
         })
         .eq("id", license.id);
 
-      // Update company renewal date
-      const nextRenewal = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      const nextRenewal = new Date(
+        now.getTime() + 365 * 24 * 60 * 60 * 1000
+      ).toISOString();
 
       await supabase
         .from("companies")
         .update({ renewal_date: nextRenewal })
         .eq("id", company.id);
 
-      // Log renewal
       await supabase.from("AnnualPaymentHistory").insert({
         companyId: company.id,
         amount: amountPaid,
@@ -135,7 +137,6 @@ export async function GET(req: Request) {
         licensecount: company.license_count,
       });
 
-      // Send email
       sendEmail({
         to: customerEmail,
         subject: "Annual Renewal Successful",
@@ -143,7 +144,9 @@ export async function GET(req: Request) {
           <h2>Your Annual Renewal is Complete</h2>
           <p><strong>Company:</strong> ${meta.companyName}</p>
           <p><strong>Amount Paid:</strong> ₦${amountPaid.toLocaleString()}</p>
-          <p><strong>Next Renewal Date:</strong> ${new Date(nextRenewal).toLocaleDateString()}</p>
+          <p><strong>Next Renewal Date:</strong> ${new Date(
+            nextRenewal
+          ).toLocaleDateString()}</p>
           <p><strong>Reference:</strong> ${reference}</p>
         `,
       }).catch((e) => console.error("🔥 EMAIL ERROR:", e));
@@ -155,9 +158,7 @@ export async function GET(req: Request) {
       });
     }
 
-    // ============================================================
     // 4️⃣ HANDLE NEW LICENSE PURCHASE
-    // ============================================================
     const { data: existingClient } = await supabase
       .from("Clients")
       .select("*")
@@ -167,7 +168,8 @@ export async function GET(req: Request) {
     let clientId;
 
     if (existingClient) {
-      const newTotal = (existingClient.totalLicenses || 0) + Number(meta.quantity || 0);
+      const newTotal =
+        (existingClient.totalLicenses || 0) + Number(meta.quantity || 0);
 
       const { data: updated } = await supabase
         .from("Clients")

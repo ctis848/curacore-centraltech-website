@@ -1,13 +1,15 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 export default function PaymentCallbackPage() {
   const params = useSearchParams();
   const router = useRouter();
 
-  const [status, setStatus] = useState<'verifying' | 'success' | 'failed'>('verifying');
+  const [status, setStatus] = useState<"verifying" | "success" | "failed">(
+    "verifying"
+  );
   const [reference, setReference] = useState<string | null>(null);
 
   // NEW STATES
@@ -15,11 +17,11 @@ export default function PaymentCallbackPage() {
   const [customerEmail, setCustomerEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    const ref = params?.get('reference') ?? null;
+    const ref = params?.get("reference") ?? null;
     setReference(ref);
 
     if (!ref) {
-      setStatus('failed');
+      setStatus("failed");
       return;
     }
 
@@ -33,14 +35,14 @@ export default function PaymentCallbackPage() {
 
       if (res.ok && data.success) {
         setExistingUser(data.existingUser);
-        setCustomerEmail(data.email);
-        setStatus('success');
+        setCustomerEmail(data.email ?? null);
+        setStatus("success");
       } else {
-        setStatus('failed');
+        setStatus("failed");
       }
     } catch (err) {
       console.error("VERIFY ERROR:", err);
-      setStatus('failed');
+      setStatus("failed");
     }
   }
 
@@ -57,7 +59,7 @@ export default function PaymentCallbackPage() {
     const blob = await res.blob();
     const url = window.URL.createObjectURL(blob);
 
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `CentralCore-Receipt-${reference}.pdf`;
     a.click();
@@ -68,7 +70,7 @@ export default function PaymentCallbackPage() {
   // -------------------------------
   // LOADING STATE
   // -------------------------------
-  if (status === 'verifying') {
+  if (status === "verifying") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center">
         <div className="animate-spin rounded-full h-20 w-20 border-t-4 border-teal-600 border-solid"></div>
@@ -80,10 +82,12 @@ export default function PaymentCallbackPage() {
   // -------------------------------
   // FAILED STATE
   // -------------------------------
-  if (status === 'failed') {
+  if (status === "failed") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center">
-        <h1 className="text-3xl font-bold text-red-600">Payment Verification Failed</h1>
+        <h1 className="text-3xl font-bold text-red-600">
+          Payment Verification Failed
+        </h1>
         <p className="mt-4 text-gray-700">We could not verify your payment.</p>
 
         <button
@@ -94,7 +98,7 @@ export default function PaymentCallbackPage() {
         </button>
 
         <button
-          onClick={() => router.push('/buy')}
+          onClick={() => router.push("/buy")}
           className="mt-4 px-6 py-3 bg-gray-300 text-gray-800 rounded-xl hover:bg-gray-400"
         >
           Go Back
@@ -117,12 +121,18 @@ export default function PaymentCallbackPage() {
             strokeWidth="2"
             viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M5 13l4 4L19 7"
+            />
           </svg>
         </div>
       </div>
 
-      <h1 className="text-3xl font-bold text-green-600 mt-6">Payment Successful</h1>
+      <h1 className="text-3xl font-bold text-green-600 mt-6">
+        Payment Successful
+      </h1>
       <p className="mt-4 text-gray-700">Your payment has been received.</p>
 
       <button
@@ -136,9 +146,10 @@ export default function PaymentCallbackPage() {
       <button
         onClick={() => {
           if (existingUser) {
-            router.push('/login'); // Existing client → Login
+            router.push("/login");
           } else {
-            router.push(`/signup?email=${customerEmail}`); // New client → Signup
+            const emailParam = customerEmail ? `?email=${customerEmail}` : "";
+            router.push(`/signup${emailParam}`);
           }
         }}
         className="mt-4 px-6 py-3 bg-gray-300 text-gray-800 rounded-xl hover:bg-gray-400"
