@@ -28,14 +28,15 @@ export default function BuyLicensePage() {
 
   const baseAmount = planPrices[plan] * quantity;
 
-  // ⭐ NEW: Real discount logic using backend coupon object
+  // ⭐ FIXED: Correct discount logic
   let discountAmount = 0;
 
   if (appliedCoupon) {
     if (appliedCoupon.type === 'percentage') {
       discountAmount = (baseAmount * appliedCoupon.value) / 100;
     } else if (appliedCoupon.type === 'fixed') {
-      discountAmount = appliedCoupon.value;
+      // ⭐ FIX: Multiply fixed coupon by quantity
+      discountAmount = appliedCoupon.value * quantity;
     }
   }
 
@@ -70,7 +71,7 @@ export default function BuyLicensePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         couponCode: code,
-        amount: baseAmount, // license fee only
+        amount: baseAmount,
       }),
     });
 
@@ -81,7 +82,6 @@ export default function BuyLicensePage() {
       return;
     }
 
-    // ⭐ Store full coupon object from backend
     setAppliedCoupon(json.coupon);
   }
 
@@ -103,14 +103,14 @@ export default function BuyLicensePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: Math.round(totalAmount), // ⭐ FINAL AMOUNT AFTER DISCOUNT
+          amount: Math.round(totalAmount),
           email,
           companyName,
           plan,
           quantity,
           annualFee: annualFees[plan],
           type: 'NEW_LICENSE_PURCHASE',
-          couponCode: appliedCoupon?.code || null, // ⭐ SEND COUPON TO BACKEND
+          couponCode: appliedCoupon?.code || null,
         }),
       });
 
@@ -332,7 +332,7 @@ export default function BuyLicensePage() {
                 Applied <strong>{appliedCoupon.code}</strong> —{' '}
                 {appliedCoupon.type === 'percentage'
                   ? `${appliedCoupon.value}% off`
-                  : `₦${appliedCoupon.value} off`}
+                  : `₦${appliedCoupon.value} off × ${quantity}`}
               </p>
             )}
 
