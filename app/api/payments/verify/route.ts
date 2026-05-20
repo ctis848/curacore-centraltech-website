@@ -13,24 +13,24 @@ export async function GET(req: Request) {
     const reference = searchParams.get("reference");
 
     if (!reference) {
-      return NextResponse.json({ error: "Missing reference" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Missing reference" }, { status: 400 });
     }
 
-    console.log("🔥 VERIFYING REFERENCE:", reference);
+    console.log("🔥 VERIFYING PAYMENT:", reference);
 
-    const verifyRes = await fetch(
-      `${PAYSTACK_BASE}/transaction/verify/${reference}`,
-      {
-        headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
-      }
-    );
+    // ============================================================
+    // 1️⃣ VERIFY WITH PAYSTACK
+    // ============================================================
+    const verifyRes = await fetch(`${PAYSTACK_BASE}/transaction/verify/${reference}`, {
+      headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+    });
 
     const raw = await verifyRes.text();
-    console.log("🔥 RAW PAYSTACK VERIFY RESPONSE:", raw);
+    console.log("🔥 RAW PAYSTACK RESPONSE:", raw);
 
     if (raw.startsWith("<")) {
       return NextResponse.json(
-        { error: "Paystack returned HTML instead of JSON" },
+        { success: false, error: "Paystack returned HTML instead of JSON" },
         { status: 400 }
       );
     }
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
 
     if (!data.status || data.data.status !== "success") {
       return NextResponse.json(
-        { error: "Payment verification failed" },
+        { success: false, error: "Payment verification failed" },
         { status: 400 }
       );
     }
@@ -48,15 +48,26 @@ export async function GET(req: Request) {
     const meta = trx.metadata || {};
     const supabase = supabaseServer();
 
-    console.log("🔥 METADATA RECEIVED:", meta);
+    console.log("🔥 METADATA:", meta);
+
+    const customerEmail = meta.email;
+    const amountPaid = trx.amount / 100;
 
     // ============================================================
-    // ⭐ 1. HANDLE ANNUAL RENEWAL
+    // 2️⃣ CHECK IF USER EXISTS (for callback redirect)
+    // ============================================================
+    const { data: existingUser } = await supabase
+      .from("auth.users")
+      .select("id, email")
+      .eq("email", customerEmail)
+      .maybeSingle();
+
+    // ============================================================
+    // 3️⃣ HANDLE ANNUAL RENEWAL
     // ============================================================
     if (meta.type === "ANNUAL_RENEWAL") {
       console.log("🔥 PROCESSING ANNUAL RENEWAL");
 
-      // 1️⃣ Load company
       const { data: company } = await supabase
         .from("companies")
         .select("*")
@@ -65,12 +76,12 @@ export async function GET(req: Request) {
 
       if (!company) {
         return NextResponse.json(
-          { error: "Company not found for renewal" },
+          { success: false, error: "Company not found for renewal" },
           { status: 404 }
         );
       }
 
-      // 2️⃣ Load license OR create one if missing
+      // Load or create license
       let { data: license } = await supabase
         .from("License")
         .select("*")
@@ -78,7 +89,7 @@ export async function GET(req: Request) {
         .maybeSingle();
 
       if (!license) {
-        console.log("🔥 NO LICENSE FOUND — creating one automatically");
+        console.log("🔥 NO LICENSE FOUND — creating new license");
 
         const { data: newLicense } = await supabase
           .from("License")
@@ -94,11 +105,9 @@ export async function GET(req: Request) {
         license = newLicense;
       }
 
-      // 3️⃣ Extend expiration by 1 year
+      // Extend expiration
       const now = new Date();
-      const newExpiry = new Date(
-        now.getTime() + 365 * 24 * 60 * 60 * 1000
-      ).toISOString();
+      const newExpiry = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
 
       await supabase
         .from("License")
@@ -108,57 +117,57 @@ export async function GET(req: Request) {
         })
         .eq("id", license.id);
 
-      // 4️⃣ Update company renewal date
-      const nextRenewal = new Date(
-        now.getTime() + 365 * 24 * 60 * 60 * 1000
-      ).toISOString();
+      // Update company renewal date
+      const nextRenewal = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
 
       await supabase
         .from("companies")
         .update({ renewal_date: nextRenewal })
         .eq("id", company.id);
 
-      // 5️⃣ Log renewal history
+      // Log renewal
       await supabase.from("AnnualPaymentHistory").insert({
         companyId: company.id,
-        amount: trx.amount / 100,
+        amount: amountPaid,
         reference,
         status: "success",
         paidat: trx.paid_at,
         licensecount: company.license_count,
       });
 
-      // 6️⃣ Send renewal email
+      // Send email
       sendEmail({
-        to: meta.email,
+        to: customerEmail,
         subject: "Annual Renewal Successful",
         html: `
           <h2>Your Annual Renewal is Complete</h2>
           <p><strong>Company:</strong> ${meta.companyName}</p>
-          <p><strong>Amount Paid:</strong> ₦${(trx.amount / 100).toLocaleString()}</p>
-          <p><strong>Next Renewal Date:</strong> ${new Date(
-            nextRenewal
-          ).toLocaleDateString()}</p>
+          <p><strong>Amount Paid:</strong> ₦${amountPaid.toLocaleString()}</p>
+          <p><strong>Next Renewal Date:</strong> ${new Date(nextRenewal).toLocaleDateString()}</p>
           <p><strong>Reference:</strong> ${reference}</p>
         `,
       }).catch((e) => console.error("🔥 EMAIL ERROR:", e));
 
-      return NextResponse.json({ success: true });
+      return NextResponse.json({
+        success: true,
+        existingUser: !!existingUser,
+        email: customerEmail,
+      });
     }
 
     // ============================================================
-    // ⭐ 2. HANDLE NEW LICENSE PURCHASE (unchanged)
+    // 4️⃣ HANDLE NEW LICENSE PURCHASE
     // ============================================================
-    const { data: existing } = await supabase
+    const { data: existingClient } = await supabase
       .from("Clients")
       .select("*")
-      .eq("email", meta.email)
+      .eq("email", customerEmail)
       .maybeSingle();
 
     let clientId;
 
-    if (existing) {
-      const newTotal = (existing.totalLicenses || 0) + Number(meta.quantity || 0);
+    if (existingClient) {
+      const newTotal = (existingClient.totalLicenses || 0) + Number(meta.quantity || 0);
 
       const { data: updated } = await supabase
         .from("Clients")
@@ -166,16 +175,16 @@ export async function GET(req: Request) {
           totalLicenses: newTotal,
           companyName: meta.companyName,
         })
-        .eq("id", existing.id)
+        .eq("id", existingClient.id)
         .select()
         .single();
 
-      clientId = updated?.id || existing.id;
+      clientId = updated?.id || existingClient.id;
     } else {
       const { data: created } = await supabase
         .from("Clients")
         .insert({
-          email: meta.email,
+          email: customerEmail,
           companyName: meta.companyName,
           totalLicenses: meta.quantity,
         })
@@ -189,28 +198,32 @@ export async function GET(req: Request) {
       clientId,
       plan: meta.plan,
       quantity: meta.quantity,
-      amount: trx.amount / 100,
+      amount: amountPaid,
       reference,
     });
 
     sendEmail({
-      to: meta.email,
+      to: customerEmail,
       subject: "Your CentralCore License Receipt",
       html: `
         <h2>Payment Successful</h2>
         <p><strong>Company:</strong> ${meta.companyName}</p>
         <p><strong>Plan:</strong> ${meta.plan}</p>
         <p><strong>Quantity:</strong> ${meta.quantity}</p>
-        <p><strong>Amount Paid:</strong> ₦${(trx.amount / 100).toLocaleString()}</p>
+        <p><strong>Amount Paid:</strong> ₦${amountPaid.toLocaleString()}</p>
         <p><strong>Reference:</strong> ${reference}</p>
       `,
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      existingUser: !!existingUser,
+      email: customerEmail,
+    });
   } catch (err) {
     console.error("🔥 VERIFY ROUTE CRASH:", err);
     return NextResponse.json(
-      { error: "Verification failed" },
+      { success: false, error: "Verification failed" },
       { status: 500 }
     );
   }
