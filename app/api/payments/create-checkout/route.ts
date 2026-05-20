@@ -1,7 +1,6 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email/send";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
@@ -25,6 +24,7 @@ export async function POST(request: Request) {
     const annualFee = Number(body?.annualFee || 0);
     const amount = Number(body?.amount || 0);
     const type = String(body?.type || "").trim();
+    const couponCode = body?.couponCode || null;
 
     // 🔥 LOG 2 — Validation values
     console.log("🔥 VALIDATION VALUES:", {
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       annualFee,
       amount,
       type,
+      couponCode,
     });
 
     // -------------------------------
@@ -78,6 +79,7 @@ export async function POST(request: Request) {
       plan,
       quantity,
       annualFee,
+      couponCode,
       description: "New License Purchase",
     };
 
@@ -86,14 +88,23 @@ export async function POST(request: Request) {
     // -------------------------------
     const reference = `CC-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
-    // 🔥 LOG 3 — Paystack payload
-    console.log("🔥 PAYSTACK PAYLOAD:", {
+    // -------------------------------
+    // PAYSTACK PAYLOAD (WITH ALL CHANNELS ENABLED)
+    // -------------------------------
+    const paystackPayload = {
       email,
-      amount: amount * 100,
-      metadata,
+      amount: amount * 100, // Paystack requires kobo
+      currency: "NGN",
       reference,
+      metadata,
       callback_url: `${APP_URL}/payment/callback?reference=${reference}`,
-    });
+
+      // ⭐ ENABLE ALL PAYMENT CHANNELS
+      channels: ["card", "bank", "bank_transfer", "ussd", "qr"],
+    };
+
+    // 🔥 LOG 3 — Paystack payload
+    console.log("🔥 PAYSTACK PAYLOAD:", paystackPayload);
 
     // -------------------------------
     // Initialize Paystack
@@ -104,14 +115,7 @@ export async function POST(request: Request) {
         Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        email,
-        amount: amount * 100,
-        currency: "NGN",
-        reference,
-        metadata,
-        callback_url: `${APP_URL}/payment/callback?reference=${reference}`,
-      }),
+      body: JSON.stringify(paystackPayload),
     });
 
     const raw = await response.text();
@@ -152,6 +156,9 @@ export async function POST(request: Request) {
       );
     }
 
+    // -------------------------------
+    // SUCCESS — Return authorization URL
+    // -------------------------------
     return NextResponse.json({
       authorization_url: data.data.authorization_url,
     });

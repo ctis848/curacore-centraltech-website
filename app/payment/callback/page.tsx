@@ -10,6 +10,10 @@ export default function PaymentCallbackPage() {
   const [status, setStatus] = useState<'verifying' | 'success' | 'failed'>('verifying');
   const [reference, setReference] = useState<string | null>(null);
 
+  // NEW STATES
+  const [existingUser, setExistingUser] = useState<boolean | null>(null);
+  const [customerEmail, setCustomerEmail] = useState<string | null>(null);
+
   useEffect(() => {
     const ref = params?.get('reference') ?? null;
     setReference(ref);
@@ -27,8 +31,9 @@ export default function PaymentCallbackPage() {
       const res = await fetch(`/api/payments/verify?reference=${ref}`);
       const data = await res.json();
 
-      // Your verify route returns: { success: true }
       if (res.ok && data.success) {
+        setExistingUser(data.existingUser);
+        setCustomerEmail(data.email);
         setStatus('success');
       } else {
         setStatus('failed');
@@ -118,7 +123,7 @@ export default function PaymentCallbackPage() {
       </div>
 
       <h1 className="text-3xl font-bold text-green-600 mt-6">Payment Successful</h1>
-      <p className="mt-4 text-gray-700">Your license has been activated.</p>
+      <p className="mt-4 text-gray-700">Your payment has been received.</p>
 
       <button
         onClick={downloadReceipt}
@@ -127,11 +132,18 @@ export default function PaymentCallbackPage() {
         Download Receipt
       </button>
 
+      {/* NEW LOGIC BUTTON */}
       <button
-        onClick={() => router.push('/dashboard')}
+        onClick={() => {
+          if (existingUser) {
+            router.push('/login'); // Existing client → Login
+          } else {
+            router.push(`/signup?email=${customerEmail}`); // New client → Signup
+          }
+        }}
         className="mt-4 px-6 py-3 bg-gray-300 text-gray-800 rounded-xl hover:bg-gray-400"
       >
-        Go to Dashboard
+        {existingUser ? "Go to Login" : "Complete Signup"}
       </button>
     </div>
   );
