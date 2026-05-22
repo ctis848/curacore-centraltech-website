@@ -27,24 +27,18 @@ export default function ClientLicenseRequestPage() {
 
       if (!session) return;
 
-      // Auto-fill email
       setUserEmail(session.user.email ?? "");
 
       const userId = session.user.id;
 
-      // Load company membership
       const { data: membership } = await supabase
         .from("user_companies")
         .select("company_id")
         .eq("user_id", userId)
         .maybeSingle();
 
-      if (!membership?.company_id) {
-        console.log("No company_id found for user in user_companies");
-        return;
-      }
+      if (!membership?.company_id) return;
 
-      // Load company name
       const { data: company } = await supabase
         .from("companies")
         .select("name")
@@ -95,7 +89,6 @@ export default function ClientLicenseRequestPage() {
 
     const userId = session.user.id;
 
-    // ⭐ FIXED: Correct API endpoint for Client Portal
     const res = await fetch("/api/client/license-requests", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -125,39 +118,45 @@ export default function ClientLicenseRequestPage() {
   }
 
   return (
-    <div>
-      <h1 className="text-xl font-bold mb-4">Send License Request Key</h1>
+    <div className="p-6 max-w-3xl mx-auto space-y-8">
 
+      {/* Title */}
+      <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+        Send License Request Key
+      </h1>
+
+      {/* Form Container */}
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded shadow p-4 max-w-xl space-y-4"
+        className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 space-y-6"
       >
         {/* AUTO‑FILLED EMAIL */}
-        <div>
-          <label className="block mb-2 font-semibold">Your Email</label>
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-slate-700">Your Email</label>
           <input
             type="text"
-            className="w-full p-2 border rounded bg-gray-100"
+            className="w-full px-4 py-3 border rounded-lg bg-slate-100 shadow-sm"
             value={userEmail}
             readOnly
           />
         </div>
 
         {/* AUTO‑FILLED COMPANY NAME */}
-        <div>
-          <label className="block mb-2 font-semibold">Company Name</label>
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-slate-700">Company Name</label>
           <input
             type="text"
-            className="w-full p-2 border rounded bg-gray-100"
+            className="w-full px-4 py-3 border rounded-lg bg-slate-100 shadow-sm"
             value={companyName}
             readOnly
           />
         </div>
 
-        <div>
-          <label className="block mb-2 font-semibold">Product Plan</label>
+        {/* PRODUCT PLAN */}
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-slate-700">Product Plan</label>
           <select
-            className="w-full p-2 border rounded"
+            className="w-full px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
             value={productName}
             onChange={(e) => setProductName(e.target.value)}
           >
@@ -170,12 +169,13 @@ export default function ClientLicenseRequestPage() {
           </select>
         </div>
 
-        <div>
-          <label className="block mb-2 font-semibold">
+        {/* REQUEST KEY */}
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-slate-700">
             License Request Key (from your machine)
           </label>
           <textarea
-            className="w-full p-3 border rounded"
+            className="w-full px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
             rows={5}
             value={requestKey}
             onChange={(e) => setRequestKey(e.target.value)}
@@ -183,10 +183,11 @@ export default function ClientLicenseRequestPage() {
           />
         </div>
 
-        <div>
-          <label className="block mb-2 font-semibold">Notes (optional)</label>
+        {/* NOTES */}
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-slate-700">Notes (optional)</label>
           <textarea
-            className="w-full p-3 border rounded"
+            className="w-full px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -194,20 +195,28 @@ export default function ClientLicenseRequestPage() {
           />
         </div>
 
+        {/* MESSAGE */}
         {msg && (
           <p
-            className={`text-sm mb-2 ${
-              msg.type === "error" ? "text-red-600" : "text-green-600"
+            className={`text-sm font-semibold p-3 rounded-lg ${
+              msg.type === "error"
+                ? "bg-red-100 text-red-700"
+                : "bg-green-100 text-green-700"
             }`}
           >
             {msg.text}
           </p>
         )}
 
+        {/* SUBMIT BUTTON */}
         <button
           type="submit"
           disabled={saving}
-          className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50"
+          className={`w-full py-4 text-lg font-bold rounded-xl shadow-lg transition transform active:scale-95 ${
+            saving
+              ? "bg-gray-400 cursor-not-allowed text-white"
+              : "bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:shadow-xl hover:brightness-110"
+          }`}
         >
           {saving ? "Sending..." : "Send Request"}
         </button>

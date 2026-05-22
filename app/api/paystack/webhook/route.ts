@@ -74,7 +74,7 @@ export async function POST(req: Request) {
 
     // 🔹 Prevent duplicate
     const { data: existing } = await supabase
-      .from("Payment")
+      .from("payments")
       .select("id")
       .eq("reference", reference)
       .maybeSingle();
@@ -84,15 +84,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, duplicate: true });
     }
 
-    // 🔹 Insert payment record (payment history)
-    const { error: insertError } = await supabase.from("Payment").insert({
+    // 🔹 Insert into correct table: payments
+    const { error: insertError } = await supabase.from("payments").insert({
       userid: userId,
       amount,
       currency: "NGN",
       status: "success",
       reference,
+      email: customerEmail,
       gateway: "paystack",
       channel: event.event,
+      created_at: new Date().toISOString(),
     });
 
     if (insertError) {
@@ -103,7 +105,7 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log("✅ Payment inserted into Payment table");
+    console.log("✅ Payment inserted into payments table");
 
     // =====================================================
     // 1️⃣ ANNUAL RENEWAL FLOW
@@ -111,7 +113,6 @@ export async function POST(req: Request) {
     if (meta.type === "ANNUAL_RENEWAL") {
       console.log("🔥 PROCESSING ANNUAL RENEWAL");
 
-      // companyId & companyName expected in metadata
       const companyId = meta.companyId;
       const companyName = meta.companyName;
 
@@ -129,7 +130,6 @@ export async function POST(req: Request) {
         );
       }
 
-      // Find or create license for this company
       let { data: license } = await supabase
         .from("License")
         .select("*")
@@ -190,7 +190,6 @@ export async function POST(req: Request) {
         licensecount: company.license_count,
       });
 
-      // Email: Annual renewal successful
       if (customerEmail) {
         sendEmail({
           to: customerEmail,
@@ -261,7 +260,6 @@ export async function POST(req: Request) {
         reference,
       });
 
-      // Email: License purchase receipt
       if (customerEmail) {
         sendEmail({
           to: customerEmail,
@@ -281,10 +279,9 @@ export async function POST(req: Request) {
     }
 
     // =====================================================
-    // 3️⃣ ADMIN + GENERIC RECEIPT (OPTIONAL, VIA BREVO)
+    // 3️⃣ ADMIN EMAIL NOTIFICATION
     // =====================================================
     if (customerEmail) {
-      // Admin notification
       await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {

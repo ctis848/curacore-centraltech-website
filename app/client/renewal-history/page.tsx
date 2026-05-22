@@ -20,13 +20,11 @@ export default function RenewalHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [fatalError, setFatalError] = useState("");
 
-  // Filters
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  // Sorting
   const [sortField, setSortField] = useState("paidat");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -69,13 +67,9 @@ export default function RenewalHistoryPage() {
     load();
   }, []);
 
-  // -----------------------------
-  // FILTER + SORT PIPELINE
-  // -----------------------------
   const filtered = useMemo(() => {
     let r = [...rows];
 
-    // Search
     if (search.trim()) {
       const s = search.toLowerCase();
       r = r.filter(
@@ -85,12 +79,10 @@ export default function RenewalHistoryPage() {
       );
     }
 
-    // Status filter
     if (statusFilter !== "ALL") {
       r = r.filter((x) => x.status === statusFilter);
     }
 
-    // Date range
     if (fromDate) {
       r = r.filter((x) => new Date(x.paidat) >= new Date(fromDate));
     }
@@ -98,7 +90,6 @@ export default function RenewalHistoryPage() {
       r = r.filter((x) => new Date(x.paidat) <= new Date(toDate));
     }
 
-    // Sorting
     r.sort((a, b) => {
       const A = a[sortField as keyof RenewalRecord];
       const B = b[sortField as keyof RenewalRecord];
@@ -111,9 +102,6 @@ export default function RenewalHistoryPage() {
     return r;
   }, [rows, search, statusFilter, fromDate, toDate, sortField, sortDir]);
 
-  // -----------------------------
-  // EXPORT FUNCTIONS
-  // -----------------------------
   const exportCSV = () => {
     const csvRows = [
       ["Date", "Amount", "Licenses", "Reference", "Status"],
@@ -153,63 +141,86 @@ export default function RenewalHistoryPage() {
   };
 
   const exportPDF = () => {
-    window.print(); // Simple browser PDF export
+    window.print();
   };
 
-  // -----------------------------
-  // UI
-  // -----------------------------
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Renewal History</h1>
+    <div className="p-6 max-w-6xl mx-auto space-y-8">
 
-      {fatalError && <p className="text-red-600">{fatalError}</p>}
-      {loading && <p className="text-slate-500">Loading…</p>}
+      {/* Title */}
+      <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+        Renewal History
+      </h1>
+
+      {fatalError && (
+        <p className="text-red-600 font-semibold">{fatalError}</p>
+      )}
+
+      {loading && (
+        <p className="text-slate-500 animate-pulse text-lg">
+          Loading renewal history…
+        </p>
+      )}
 
       {/* Filters */}
-      <div className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="p-6 bg-white rounded-xl shadow-md border border-slate-200 space-y-4">
+
         <input
           type="text"
-          placeholder="Search reference or status..."
-          className="border px-3 py-2 rounded"
+          placeholder="🔍 Search reference or status..."
+          className="w-full px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <select
-          className="border px-3 py-2 rounded"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="ALL">All Status</option>
-          <option value="SUCCESS">SUCCESS</option>
-          <option value="FAILED">FAILED</option>
-        </select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-        <input
-          type="date"
-          className="border px-3 py-2 rounded"
-          value={fromDate}
-          onChange={(e) => setFromDate(e.target.value)}
-        />
+          <select
+            className="px-3 py-2 border rounded-lg shadow-sm"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="ALL">All Status</option>
+            <option value="SUCCESS">SUCCESS</option>
+            <option value="FAILED">FAILED</option>
+          </select>
 
-        <input
-          type="date"
-          className="border px-3 py-2 rounded"
-          value={toDate}
-          onChange={(e) => setToDate(e.target.value)}
-        />
+          <input
+            type="date"
+            className="px-3 py-2 border rounded-lg shadow-sm"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+          />
+
+          <input
+            type="date"
+            className="px-3 py-2 border rounded-lg shadow-sm"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* Export Buttons */}
-      <div className="flex gap-3 mb-4">
-        <button onClick={exportCSV} className="px-4 py-2 bg-slate-800 text-white rounded">
+      <div className="flex flex-wrap gap-3">
+        <button
+          onClick={exportCSV}
+          className="px-5 py-3 rounded-lg bg-gradient-to-r from-slate-700 to-slate-900 text-white font-semibold shadow hover:brightness-110"
+        >
           Export CSV
         </button>
-        <button onClick={exportExcel} className="px-4 py-2 bg-green-700 text-white rounded">
+
+        <button
+          onClick={exportExcel}
+          className="px-5 py-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold shadow hover:brightness-110"
+        >
           Export Excel
         </button>
-        <button onClick={exportPDF} className="px-4 py-2 bg-red-700 text-white rounded">
+
+        <button
+          onClick={exportPDF}
+          className="px-5 py-3 rounded-lg bg-gradient-to-r from-red-500 to-red-700 text-white font-semibold shadow hover:brightness-110"
+        >
           Export PDF
         </button>
       </div>
@@ -220,15 +231,15 @@ export default function RenewalHistoryPage() {
       )}
 
       {filtered.length > 0 && (
-        <div className="overflow-x-auto rounded-lg shadow bg-white">
-          <table className="min-w-full border">
-            <thead className="bg-slate-900 text-white">
+        <div className="overflow-x-auto bg-white rounded-xl shadow-lg border border-slate-200">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gradient-to-r from-purple-200 to-blue-200 text-slate-700">
               <tr>
                 {["paidat", "amount", "licensecount", "reference", "status"].map(
                   (field) => (
                     <th
                       key={field}
-                      className="px-4 py-3 text-left cursor-pointer"
+                      className="px-4 py-3 text-left font-semibold cursor-pointer"
                       onClick={() => {
                         if (sortField === field) {
                           setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -239,7 +250,7 @@ export default function RenewalHistoryPage() {
                       }}
                     >
                       {field.toUpperCase()}
-                      {sortField === field ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                      {sortField === field ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
                     </th>
                   )
                 )}
@@ -248,21 +259,21 @@ export default function RenewalHistoryPage() {
 
             <tbody>
               {filtered.map((r) => (
-                <tr key={r.id} className="border-b hover:bg-slate-50">
+                <tr key={r.id} className="border-b hover:bg-slate-50 transition">
                   <td className="px-4 py-3">
                     {new Date(r.paidat).toLocaleString()}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 font-semibold text-emerald-700">
                     ₦{Number(r.amount).toLocaleString()}
                   </td>
                   <td className="px-4 py-3">{r.licensecount}</td>
                   <td className="px-4 py-3 font-mono">{r.reference}</td>
                   <td className="px-4 py-3">
                     <span
-                      className={`px-2 py-1 rounded text-xs font-semibold ${
+                      className={`px-3 py-1 rounded-full text-xs font-bold ${
                         r.status === "SUCCESS"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-red-100 text-red-700"
+                          ? "bg-green-200 text-green-800"
+                          : "bg-red-200 text-red-800"
                       }`}
                     >
                       {r.status}

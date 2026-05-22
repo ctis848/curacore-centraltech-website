@@ -9,11 +9,11 @@ export default function ClientDashboardPage() {
   const [company, setCompany] = useState<any>(null);
   const [nextRenewal, setNextRenewal] = useState<Date | null>(null);
   const [daysRemaining, setDaysRemaining] = useState<number>(0);
-  const [renewalStatus, setRenewalStatus] = useState<"DUE" | "NOT_DUE">("NOT_DUE");
+  const [renewalStatus, setRenewalStatus] =
+    useState<"DUE" | "NOT_DUE">("NOT_DUE");
 
   useEffect(() => {
     async function loadDashboard() {
-      // ⭐ FIX: Use getSession() instead of getUser()
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -23,7 +23,6 @@ export default function ClientDashboardPage() {
 
       const userId = user.id;
 
-      // 1️⃣ Get company_id
       const { data: membership } = await supabase
         .from("user_companies")
         .select("company_id")
@@ -32,7 +31,6 @@ export default function ClientDashboardPage() {
 
       if (!membership) return;
 
-      // 2️⃣ Load company
       const { data: companyData } = await supabase
         .from("companies")
         .select("*")
@@ -41,7 +39,6 @@ export default function ClientDashboardPage() {
 
       setCompany(companyData);
 
-      // 3️⃣ Load renewal info
       const { data: renewalData } = await supabase
         .from("License")
         .select("annualFeePaidUntil")
@@ -68,16 +65,18 @@ export default function ClientDashboardPage() {
   }, []);
 
   return (
-    <div className="space-y-8">
+    <div className="p-6 space-y-10 max-w-6xl mx-auto">
 
-      {/* ⭐ TITLE AT THE TOP */}
-      <h1 className="text-2xl font-bold">Client Dashboard</h1>
+      {/* Title */}
+      <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+        Client Dashboard
+      </h1>
 
-      {/* ⭐ COMPANY CARDS ALWAYS VISIBLE */}
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
-        <Card title="Company Name" value={company?.name ?? "—"} />
+      {/* Company Cards */}
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
+        <DashboardCard title="Company Name" value={company?.name ?? "—"} />
 
-        <Card
+        <DashboardCard
           title="Annual Fee"
           value={
             company?.annual_price
@@ -89,26 +88,31 @@ export default function ClientDashboardPage() {
           }
         />
 
-        <Card
+        <DashboardCard
           title="Renewal Date"
-          value={company?.renewal_date ?? "—"}
+          value={
+            company?.renewal_date
+              ? new Date(company.renewal_date).toLocaleDateString()
+              : "—"
+          }
         />
 
-        <Card
+        <DashboardCard
           title="Total Licenses Allowed"
           value={company?.license_count ?? "—"}
         />
       </div>
 
-      {/* ⭐ RENEWAL COUNTDOWN */}
+      {/* Renewal Countdown */}
       {nextRenewal && (
-        <div className="p-6 bg-black text-green-400 rounded-xl shadow-lg text-center">
-          <p className="text-sm text-gray-300 uppercase tracking-widest">
+        <div className="p-10 rounded-2xl shadow-xl bg-gradient-to-br from-slate-900 to-slate-800 text-center border border-slate-700">
+
+          <p className="text-sm text-slate-400 uppercase tracking-widest">
             Days Remaining Until Renewal
           </p>
 
           <p
-            className={`mt-3 text-7xl font-bold ${
+            className={`mt-4 text-7xl font-extrabold ${
               daysRemaining <= 7
                 ? "text-red-500"
                 : daysRemaining <= 30
@@ -119,7 +123,7 @@ export default function ClientDashboardPage() {
             {daysRemaining}
           </p>
 
-          <p className="text-gray-400 mt-2 text-sm">
+          <p className="text-slate-400 mt-3 text-sm">
             {daysRemaining > 0
               ? "before your annual maintenance fee is due"
               : "Payment is due or overdue"}
@@ -130,11 +134,13 @@ export default function ClientDashboardPage() {
   );
 }
 
-function Card({ title, value }: any) {
+function DashboardCard({ title, value }: any) {
   return (
-    <div className="bg-white rounded shadow p-4 border border-slate-200">
-      <h2 className="text-sm font-semibold text-slate-600 uppercase">{title}</h2>
-      <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
+    <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-6 hover:shadow-lg transition">
+      <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        {title}
+      </h2>
+      <p className="mt-3 text-3xl font-bold text-slate-900">{value}</p>
     </div>
   );
 }

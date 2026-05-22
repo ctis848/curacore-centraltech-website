@@ -18,6 +18,7 @@ import {
   X,
   ArrowRightLeft,
   History,
+  User,
 } from "lucide-react";
 
 export default function ClientSidebar() {
@@ -28,6 +29,7 @@ export default function ClientSidebar() {
   const [open, setOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [fullName, setFullName] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadUser() {
@@ -45,7 +47,8 @@ export default function ClientSidebar() {
         .single();
 
       if (profile) {
-        setCompanyName(profile.company || profile.fullname || null);
+        setCompanyName(profile.company || null);
+        setFullName(profile.fullname || null);
       }
     }
 
@@ -75,12 +78,9 @@ export default function ClientSidebar() {
     {
       title: "Billing",
       items: [
-        { href: "/client/payment-history", label: "Payment History", icon: CreditCard },
+        { href: "/client/payments", label: "Payments", icon: CreditCard },
         { href: "/client/invoice-history", label: "Invoice History", icon: FileText },
-
-        // ⭐ NEW: Company-Based Renewal Page
         { href: "/client/renew-annual", label: "Renew Annual Payment", icon: RefreshCcw },
-
         { href: "/client/renewal-history", label: "Renewal History", icon: History },
       ],
     },
@@ -92,37 +92,49 @@ export default function ClientSidebar() {
 
   return (
     <>
+      {/* Mobile Toggle */}
       <button
         onClick={() => setOpen(!open)}
-        className="md:hidden fixed top-4 left-4 z-50 bg-slate-900 text-white p-2 rounded"
+        className="md:hidden fixed top-4 left-4 z-50 bg-gradient-to-r from-purple-600 to-blue-600 text-white p-2 rounded-lg shadow-lg"
       >
         {open ? <X size={22} /> : <Menu size={22} />}
       </button>
 
+      {/* Sidebar */}
       <aside
-        className={`fixed md:static top-0 left-0 h-full w-64 bg-slate-200 text-slate-900 flex flex-col transition-transform duration-300 z-40
+        className={`fixed md:static top-0 left-0 h-full w-64 bg-gradient-to-b from-slate-900 to-slate-800 text-white flex flex-col transition-transform duration-300 z-40 shadow-xl
         ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
       >
-        <div className="px-4 py-4 border-b border-slate-300">
-          <h1 className="text-xl font-bold">Client Portal</h1>
+        {/* Header */}
+        <div className="px-4 py-6 border-b border-slate-700 bg-gradient-to-r from-purple-700 to-blue-700 shadow-md">
+          <h1 className="text-xl font-extrabold flex items-center gap-2">
+            <User size={20} /> Client Portal
+          </h1>
 
           {companyName && (
-            <p className="text-sm font-semibold mt-1 truncate max-w-[180px]">
+            <p className="text-sm font-semibold mt-2 truncate max-w-[180px] text-slate-200">
               {companyName}
             </p>
           )}
 
+          {fullName && (
+            <p className="text-xs text-slate-300 truncate max-w-[180px]">
+              {fullName}
+            </p>
+          )}
+
           {userEmail && (
-            <p className="text-xs text-slate-600 truncate max-w-[180px]">
+            <p className="text-xs text-slate-400 truncate max-w-[180px]">
               {userEmail}
             </p>
           )}
         </div>
 
-        <nav className="flex-1 px-2 py-4 overflow-y-auto space-y-6">
+        {/* Navigation */}
+        <nav className="flex-1 px-3 py-5 overflow-y-auto space-y-8">
           {sections.map((section) => (
             <div key={section.title}>
-              <p className="text-xs uppercase text-slate-500 px-3 mb-1 tracking-wide">
+              <p className="text-xs uppercase text-slate-400 px-2 mb-2 tracking-wider">
                 {section.title}
               </p>
 
@@ -135,10 +147,10 @@ export default function ClientSidebar() {
                     key={item.href}
                     href={item.href}
                     onClick={() => setOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition-all ${
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
                       active
-                        ? "bg-slate-300 text-slate-900 shadow-sm"
-                        : "text-slate-700 hover:bg-slate-300 hover:text-slate-900"
+                        ? "bg-white text-slate-900 shadow-md"
+                        : "text-slate-300 hover:bg-slate-700 hover:text-white"
                     }`}
                   >
                     <Icon size={18} />
@@ -150,9 +162,10 @@ export default function ClientSidebar() {
           ))}
         </nav>
 
+        {/* Logout */}
         <button
           onClick={handleLogout}
-          className="m-3 px-3 py-2 rounded bg-red-600 hover:bg-red-700 text-sm font-semibold flex items-center gap-2 text-white"
+          className="m-4 px-4 py-3 rounded-lg bg-gradient-to-r from-red-600 to-red-700 hover:brightness-110 text-sm font-semibold flex items-center gap-2 text-white shadow-lg"
         >
           <LogOut size={18} />
           Logout

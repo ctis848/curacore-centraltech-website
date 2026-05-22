@@ -1,22 +1,76 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import Analytics from "@/components/payments/analytics";
+import FiltersSidebar from "@/components/payments/filters";
+import TimelineDrawer from "@/components/payments/timeline";
+import UserDrawer from "@/components/payments/user";
+import ViewPaymentModal from "@/components/payments/modal";
+import ExportBar from "@/components/payments/export";
 
-interface PaymentRow {
+export type PaymentRow = {
   id: string;
-  invoice_id: string | null;
+  userid: string | null;
+  email: string | null;
+  reference: string | null;
   amount: number;
+  currency: string | null;
+  status: string | null;
+  gateway: string | null;
+  channel: string | null;
+  invoice_id: string | null;
   created_at: string | null;
-}
+  admin_notes?: string | null;
+};
 
-export default function PaymentsPage() {
+export type UserDetails = {
+  id: string;
+  email: string;
+  created_at?: string | null;
+};
+
+export type TimelineEvent = {
+  id: string;
+  payment_id: string;
+  event_type: string;
+  message: string | null;
+  created_at: string;
+};
+
+export default function AdminPaymentsPage() {
   const supabase = supabaseBrowser();
 
   const [payments, setPayments] = useState<PaymentRow[]>([]);
-  const [filtered, setFiltered] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [gatewayFilter, setGatewayFilter] = useState<string>("ALL");
+  const [channelFilter, setChannelFilter] = useState<string>("ALL");
+
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+
+  const [minAmount, setMinAmount] = useState<string>("");
+  const [maxAmount, setMaxAmount] = useState<string>("");
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const [sortField, setSortField] = useState<keyof PaymentRow>("created_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const [selectedPayment, setSelectedPayment] = useState<PaymentRow | null>(null);
+  const [viewOpen, setViewOpen] = useState(false);
+
+  const [userDrawerOpen, setUserDrawerOpen] = useState(false);
+  const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
+
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
 
   useEffect(() => {
     loadPayments();
@@ -26,7 +80,7 @@ export default function PaymentsPage() {
     setLoading(true);
 
     const { data, error } = await supabase
-      .from("payments") // ✅ correct table name
+      .from("payments")
       .select("*")
       .order("created_at", { ascending: false });
 
@@ -36,82 +90,409 @@ export default function PaymentsPage() {
       return;
     }
 
-    const rows = (data as PaymentRow[]) || [];
-
-    setPayments(rows);
-    setFiltered(rows);
+    setPayments((data as PaymentRow[]) || []);
     setLoading(false);
+    setPage(1);
   }
 
-  // Simple search by id, invoice_id
-  useEffect(() => {
+  function handleSort(field: keyof PaymentRow) {
+    if (sortField === field) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  }
+
+  function getSortIcon(field: keyof PaymentRow) {
+    if (sortField !== field) return "";
+    return sortDir === "asc" ? " ▲" : " ▼";
+  }
+
+  function applyDateFilter(created: string | null) {
+    if (!created) return false;
+    const createdDate = new Date(created).getTime();
+    if (dateFrom) {
+      const from = new Date(dateFrom).getTime();
+      if (createdDate < from) return false;
+    }
+    if (dateTo) {
+      const to = new Date(dateTo).getTime();
+      if (createdDate > to) return false;
+    }
+    return true;
+  }
+
+  function applyAmountFilter(amount: number) {
+    const min = minAmount ? Number(minAmount) : null;
+    const max = maxAmount ? Number(maxAmount) : null;
+    if (min !== null && amount < min) return false;
+    if (max !== null && amount > max) return false;
+    return true;
+  }
+
+  function setPresetDays(days: number) {
+    const now = new Date();
+    const from = new Date();
+    from.setDate(now.getDate() - days);
+    setDateFrom(from.toISOString().slice(0, 10));
+    setDateTo(now.toISOString().slice(0, 10));
+  }
+
+  function setPresetThisMonth() {
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
+    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    setDateFrom(from.toISOString().slice(0, 10));
+    setDateTo(to.toISOString().slice(0, 10));
+  }
+
+  function setPresetThisYear() {
+    const now = new Date();
+    const from = new Date(now.getFullYear(), 0, 1);
+    const to = new Date(now.getFullYear(), 11, 31);
+    setDateFrom(from.toISOString().slice(0, 10));
+    setDateTo(to.toISOString().slice(0, 10));
+  }
+
+  const processed = useMemo(() => {
+    let rows = [...payments];
+
     const s = search.toLowerCase();
 
-    const results = payments.filter((p) => {
+    rows = rows.filter((p) => {
+      const matchesSearch =
+        (p.id ?? "").toLowerCase().includes(s) ||
+        (p.invoice_id ?? "").toLowerCase().includes(s) ||
+        (p.email ?? "").toLowerCase().includes(s) ||
+        (p.reference ?? "").toLowerCase().includes(s) ||
+        (p.gateway ?? "").toLowerCase().includes(s) ||
+        (p.channel ?? "").toLowerCase().includes(s) ||
+        (p.status ?? "").toLowerCase().includes(s);
+
+      const matchesStatus =
+        statusFilter === "ALL" ||
+        (p.status ?? "").toLowerCase() === statusFilter.toLowerCase();
+
+      const matchesGateway =
+        gatewayFilter === "ALL" ||
+        (p.gateway ?? "").toLowerCase() === gatewayFilter.toLowerCase();
+
+      const matchesChannel =
+        channelFilter === "ALL" ||
+        (p.channel ?? "").toLowerCase() === channelFilter.toLowerCase();
+
+      const matchesDate = applyDateFilter(p.created_at);
+      const matchesAmount = applyAmountFilter(p.amount);
+
       return (
-        p.id.toLowerCase().includes(s) ||
-        (p.invoice_id ?? "").toLowerCase().includes(s)
+        matchesSearch &&
+        matchesStatus &&
+        matchesGateway &&
+        matchesChannel &&
+        matchesDate &&
+        matchesAmount
       );
     });
 
-    setFiltered(results);
-  }, [search, payments]);
+    rows.sort((a, b) => {
+      const A = (a[sortField] ?? "").toString().toLowerCase();
+      const B = (b[sortField] ?? "").toString().toLowerCase();
+      if (A < B) return sortDir === "asc" ? -1 : 1;
+      if (A > B) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return rows;
+  }, [
+    payments,
+    search,
+    statusFilter,
+    gatewayFilter,
+    channelFilter,
+    dateFrom,
+    dateTo,
+    minAmount,
+    maxAmount,
+    sortField,
+    sortDir,
+  ]);
+
+  const totalPages = Math.ceil(processed.length / pageSize) || 1;
+  const currentPage = Math.min(page, totalPages);
+  const paginated = processed.slice(
+    (currentPage - 1) * pageSize,
+    (currentPage - 1) * pageSize + pageSize
+  );
+
+  const uniqueStatuses = Array.from(
+    new Set(payments.map((p) => p.status).filter(Boolean))
+  ) as string[];
+
+  const uniqueGateways = Array.from(
+    new Set(payments.map((p) => p.gateway).filter(Boolean))
+  ) as string[];
+
+  const uniqueChannels = Array.from(
+    new Set(payments.map((p) => p.channel).filter(Boolean))
+  ) as string[];
+
+  function totalAmount() {
+    return processed.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  }
+
+  async function openUserDrawer(userid: string | null) {
+    if (!userid) return;
+    const { data } = await supabase
+      .from("auth.users")
+      .select("id, email, created_at")
+      .eq("id", userid)
+      .maybeSingle();
+
+    if (data) {
+      setUserDetails({
+        id: data.id,
+        email: data.email,
+        created_at: data.created_at,
+      });
+      setUserDrawerOpen(true);
+    }
+  }
+
+  async function openTimeline(paymentId: string) {
+    const { data } = await supabase
+      .from("payment_timeline")
+      .select("*")
+      .eq("payment_id", paymentId)
+      .order("created_at", { ascending: false });
+
+    setTimelineEvents((data as TimelineEvent[]) || []);
+    setTimelineOpen(true);
+  }
+
+  async function saveAdminNotes(paymentId: string, notes: string) {
+    const { error } = await supabase
+      .from("payments")
+      .update({ admin_notes: notes })
+      .eq("id", paymentId);
+
+    if (!error) {
+      setPayments((prev) =>
+        prev.map((p) =>
+          p.id === paymentId ? { ...p, admin_notes: notes } : p
+        )
+      );
+    }
+  }
 
   return (
     <div>
       <h1 className="text-2xl font-semibold mb-4">Payments</h1>
 
-      {/* Search */}
-      <div className="flex flex-wrap gap-3 mb-4">
+      <Analytics totalCount={processed.length} totalAmount={totalAmount()} />
+
+      <div className="flex flex-wrap gap-3 mb-4 items-center">
         <input
           type="text"
-          placeholder="Search by payment ID or invoice ID..."
+          placeholder="Search by ID, email, reference, invoice..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="px-3 py-2 border rounded shadow-sm flex-1 min-w-[200px]"
+          className="px-3 py-2 border rounded shadow-sm flex-1 min-w-[220px]"
         />
+
+        <button
+          onClick={() => setFiltersOpen(true)}
+          className="px-4 py-2 bg-slate-800 text-white rounded"
+        >
+          Filters
+        </button>
       </div>
+
+      <ExportBar payments={processed} />
 
       {loading && <p className="text-slate-500">Loading payments…</p>}
 
-      {!loading && filtered.length === 0 && (
+      {!loading && processed.length === 0 && (
         <p className="text-slate-500">No payments found.</p>
       )}
 
-      {/* Payment List */}
-      <div className="space-y-3">
-        {filtered.map((p) => (
-          <div
-            key={p.id}
-            className="block border rounded p-4 bg-white shadow-sm"
-          >
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="font-medium text-lg">Payment</p>
-                <p className="text-sm text-slate-600 font-mono">
-                  Payment ID: {p.id}
-                </p>
-                <p className="text-sm text-slate-600">
-                  Invoice ID: {p.invoice_id || "—"}
-                </p>
-              </div>
+      {!loading && processed.length > 0 && (
+        <div className="overflow-x-auto border rounded-lg bg-white shadow-sm">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-100 text-slate-700">
+              <tr>
+                <th
+                  className="px-4 py-2 cursor-pointer text-left"
+                  onClick={() => handleSort("created_at")}
+                >
+                  Created{getSortIcon("created_at")}
+                </th>
+                <th
+                  className="px-4 py-2 cursor-pointer text-left"
+                  onClick={() => handleSort("amount")}
+                >
+                  Amount{getSortIcon("amount")}
+                </th>
+                <th className="px-4 py-2 text-left">Email</th>
+                <th
+                  className="px-4 py-2 cursor-pointer text-left"
+                  onClick={() => handleSort("reference")}
+                >
+                  Reference{getSortIcon("reference")}
+                </th>
+                <th className="px-4 py-2 text-left">Status</th>
+                <th className="px-4 py-2 text-left">Gateway</th>
+                <th className="px-4 py-2 text-left">Channel</th>
+                <th className="px-4 py-2 text-left">Invoice</th>
+                <th className="px-4 py-2 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.map((p) => (
+                <tr key={p.id} className="border-t hover:bg-slate-50">
+                  <td className="px-4 py-2">
+                    {p.created_at
+                      ? new Date(p.created_at).toLocaleString()
+                      : "—"}
+                  </td>
+                  <td className="px-4 py-2 font-semibold text-emerald-700">
+                    ₦{Number(p.amount).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-2">
+                    {p.email || (
+                      <span className="text-slate-400 italic">No email</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 font-mono break-all">
+                    {p.reference || "—"}
+                  </td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-semibold ${
+                        (p.status || "").toLowerCase() === "success"
+                          ? "bg-green-100 text-green-700"
+                          : (p.status || "").toLowerCase() === "failed"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {p.status || "UNKNOWN"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className="px-2 py-1 rounded text-xs bg-slate-100 text-slate-700">
+                      {p.gateway || "—"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className="px-2 py-1 rounded text-xs bg-slate-100 text-slate-700">
+                      {p.channel || "—"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2">
+                    {p.invoice_id ? (
+                      <span className="font-mono text-xs">{p.invoice_id}</span>
+                    ) : (
+                      <span className="text-slate-400 italic">No invoice</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 space-x-3">
+                    <button
+                      onClick={() => {
+                        setSelectedPayment(p);
+                        setViewOpen(true);
+                      }}
+                      className="text-blue-600 hover:underline"
+                    >
+                      View
+                    </button>
+                    {p.userid && (
+                      <button
+                        onClick={() => openUserDrawer(p.userid)}
+                        className="text-indigo-600 hover:underline"
+                      >
+                        User
+                      </button>
+                    )}
+                    <button
+                      onClick={() => openTimeline(p.id)}
+                      className="text-purple-600 hover:underline"
+                    >
+                      Timeline
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-              <div className="text-right">
-                <p className="font-semibold text-emerald-700">
-                  {Number(p.amount).toLocaleString()}
-                </p>
-              </div>
-            </div>
+      <div className="flex justify-between items-center mt-4">
+        <button
+          disabled={currentPage === 1}
+          onClick={() => setPage(currentPage - 1)}
+          className="px-3 py-1 bg-slate-200 rounded disabled:opacity-50"
+        >
+          Previous
+        </button>
 
-            <p className="text-xs text-slate-500 mt-2">
-              Created:{" "}
-              {p.created_at
-                ? new Date(p.created_at).toLocaleString()
-                : "Unknown"}
-            </p>
-          </div>
-        ))}
+        <span className="text-sm">
+          Page {currentPage} of {totalPages}
+        </span>
+
+        <button
+          disabled={currentPage === totalPages}
+          onClick={() => setPage(currentPage + 1)}
+          className="px-3 py-1 bg-slate-200 rounded disabled:opacity-50"
+        >
+          Next
+        </button>
       </div>
+
+      <ViewPaymentModal
+        open={viewOpen}
+        payment={selectedPayment}
+        onClose={() => setViewOpen(false)}
+        onSaveNotes={saveAdminNotes}
+      />
+
+      <UserDrawer
+        open={userDrawerOpen}
+        user={userDetails}
+        onClose={() => setUserDrawerOpen(false)}
+      />
+
+      <TimelineDrawer
+        open={timelineOpen}
+        events={timelineEvents}
+        onClose={() => setTimelineOpen(false)}
+      />
+
+      <FiltersSidebar
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        gatewayFilter={gatewayFilter}
+        setGatewayFilter={setGatewayFilter}
+        channelFilter={channelFilter}
+        setChannelFilter={setChannelFilter}
+        uniqueStatuses={uniqueStatuses}
+        uniqueGateways={uniqueGateways}
+        uniqueChannels={uniqueChannels}
+        dateFrom={dateFrom}
+        setDateFrom={setDateFrom}
+        dateTo={dateTo}
+        setDateTo={setDateTo}
+        minAmount={minAmount}
+        setMinAmount={setMinAmount}
+        maxAmount={maxAmount}
+        setMaxAmount={setMaxAmount}
+        setPresetDays={setPresetDays}
+        setPresetThisMonth={setPresetThisMonth}
+        setPresetThisYear={setPresetThisYear}
+      />
     </div>
   );
 }

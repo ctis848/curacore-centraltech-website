@@ -22,7 +22,6 @@ export default function TransferRequestsPage() {
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
-
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [licenseFilter, setLicenseFilter] = useState("ALL");
   const [newEmailFilter, setNewEmailFilter] = useState("");
@@ -30,7 +29,8 @@ export default function TransferRequestsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const [sortField, setSortField] = useState<keyof TransferRequest>("createdAt");
+  const [sortField, setSortField] =
+    useState<keyof TransferRequest>("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const [page, setPage] = useState(1);
@@ -235,158 +235,168 @@ export default function TransferRequestsPage() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Transfer Requests</h1>
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
+
+      {/* Title */}
+      <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+        Transfer Requests
+      </h1>
 
       {/* FILTER BAR */}
-      <div className="flex flex-wrap gap-3 mb-4 items-center">
+      <div className="p-6 bg-white rounded-xl shadow-md border border-slate-200 space-y-4">
+
         <input
           type="text"
-          placeholder="Search by license, email, or status..."
+          placeholder="🔍 Search by license, email, or status..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="px-3 py-2 border rounded shadow-sm flex-1 min-w-[200px]"
+          className="px-4 py-3 border rounded-lg shadow-sm w-full focus:ring-2 focus:ring-purple-400"
         />
 
-        <select
-          className="px-3 py-2 border rounded"
-          value={licenseFilter}
-          onChange={(e) => setLicenseFilter(e.target.value)}
-        >
-          <option value="ALL">All Licenses</option>
-          {uniqueLicenses.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-        <select
-          className="px-3 py-2 border rounded"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="ALL">All Status</option>
-          {uniqueStatuses.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+          <select
+            className="px-3 py-2 border rounded-lg shadow-sm"
+            value={licenseFilter}
+            onChange={(e) => setLicenseFilter(e.target.value)}
+          >
+            <option value="ALL">All Licenses</option>
+            {uniqueLicenses.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
 
-        <input
-          type="text"
-          placeholder="Filter by new user email"
-          value={newEmailFilter}
-          onChange={(e) => setNewEmailFilter(e.target.value)}
-          className="px-3 py-2 border rounded min-w-[180px]"
-        />
-      </div>
+          <select
+            className="px-3 py-2 border rounded-lg shadow-sm"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="ALL">All Status</option>
+            {uniqueStatuses.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
 
-      {/* DATE FILTERS */}
-      <div className="flex flex-wrap gap-3 mb-4 items-center">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-600">From:</span>
           <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="px-2 py-1 border rounded"
+            type="text"
+            placeholder="Filter by new user email"
+            value={newEmailFilter}
+            onChange={(e) => setNewEmailFilter(e.target.value)}
+            className="px-3 py-2 border rounded-lg shadow-sm"
           />
+
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-slate-600">From</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-3 py-2 border rounded-lg shadow-sm"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-slate-600">To</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-2 border rounded-lg shadow-sm"
+            />
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-600">To:</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="px-2 py-1 border rounded"
-          />
+        {/* Date Presets */}
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => setPresetDays(7)}
+            className="px-3 py-2 text-xs bg-purple-200 rounded-lg hover:bg-purple-300"
+          >
+            Last 7 Days
+          </button>
+          <button
+            onClick={() => setPresetDays(30)}
+            className="px-3 py-2 text-xs bg-purple-200 rounded-lg hover:bg-purple-300"
+          >
+            Last 30 Days
+          </button>
+          <button
+            onClick={setPresetThisYear}
+            className="px-3 py-2 text-xs bg-blue-200 rounded-lg hover:bg-blue-300"
+          >
+            This Year
+          </button>
+          <button
+            onClick={() => {
+              setDateFrom("");
+              setDateTo("");
+            }}
+            className="px-3 py-2 text-xs bg-slate-200 rounded-lg hover:bg-slate-300"
+          >
+            Clear Dates
+          </button>
         </div>
-
-        <button
-          onClick={() => setPresetDays(7)}
-          className="px-3 py-1 text-xs bg-slate-200 rounded"
-        >
-          Last 7 Days
-        </button>
-        <button
-          onClick={() => setPresetDays(30)}
-          className="px-3 py-1 text-xs bg-slate-200 rounded"
-        >
-          Last 30 Days
-        </button>
-        <button
-          onClick={setPresetThisYear}
-          className="px-3 py-1 text-xs bg-slate-200 rounded"
-        >
-          This Year
-        </button>
-        <button
-          onClick={() => {
-            setDateFrom("");
-            setDateTo("");
-          }}
-          className="px-3 py-1 text-xs bg-slate-100 rounded"
-        >
-          Clear Dates
-        </button>
       </div>
 
       {/* EXPORT BUTTONS */}
-      <div className="flex flex-wrap gap-3 mb-4 items-center">
+      <div className="flex flex-wrap gap-3">
         <button
           onClick={exportCSV}
-          className="px-4 py-2 bg-slate-700 text-white rounded"
+          className="px-5 py-3 rounded-lg bg-gradient-to-r from-slate-700 to-slate-900 text-white font-semibold shadow hover:brightness-110"
         >
           Export CSV
         </button>
+
         <button
           onClick={exportExcel}
-          className="px-4 py-2 bg-green-600 text-white rounded"
+          className="px-5 py-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold shadow hover:brightness-110"
         >
           Export Excel
         </button>
+
         <button
           onClick={exportPDF}
-          className="px-4 py-2 bg-red-600 text-white rounded"
+          className="px-5 py-3 rounded-lg bg-gradient-to-r from-red-500 to-red-700 text-white font-semibold shadow hover:brightness-110"
         >
           Export PDF
         </button>
       </div>
 
       {/* TABLE */}
-      <div className="overflow-x-auto border rounded bg-white shadow">
+      <div className="overflow-x-auto bg-white rounded-xl shadow-lg border border-slate-200">
         <table className="min-w-full text-sm">
-          <thead className="bg-slate-100">
+          <thead className="bg-gradient-to-r from-purple-200 to-blue-200 text-slate-700">
             <tr>
               <th
-                className="px-4 py-2 text-left cursor-pointer"
+                className="px-4 py-3 text-left font-semibold cursor-pointer"
                 onClick={() => handleSort("licenseId")}
               >
                 License{getSortIcon("licenseId")}
               </th>
               <th
-                className="px-4 py-2 text-left cursor-pointer"
+                className="px-4 py-3 text-left font-semibold cursor-pointer"
                 onClick={() => handleSort("oldUserEmail")}
               >
                 From{getSortIcon("oldUserEmail")}
               </th>
               <th
-                className="px-4 py-2 text-left cursor-pointer"
+                className="px-4 py-3 text-left font-semibold cursor-pointer"
                 onClick={() => handleSort("newUserEmail")}
               >
                 To{getSortIcon("newUserEmail")}
               </th>
               <th
-                className="px-4 py-2 text-left cursor-pointer"
+                className="px-4 py-3 text-left font-semibold cursor-pointer"
                 onClick={() => handleSort("status")}
               >
                 Status{getSortIcon("status")}
               </th>
               <th
-                className="px-4 py-2 text-left cursor-pointer"
+                className="px-4 py-3 text-left font-semibold cursor-pointer"
                 onClick={() => handleSort("createdAt")}
               >
                 Created{getSortIcon("createdAt")}
@@ -398,7 +408,7 @@ export default function TransferRequestsPage() {
             {paginated.map((req) => (
               <tr
                 key={req.id}
-                className={`border-t hover:bg-slate-50 ${
+                className={`border-t hover:bg-slate-50 transition ${
                   req.status === "APPROVED"
                     ? "bg-green-50"
                     : req.status === "PENDING"
@@ -408,11 +418,23 @@ export default function TransferRequestsPage() {
                     : ""
                 }`}
               >
-                <td className="px-4 py-2">{req.licenseId}</td>
-                <td className="px-4 py-2">{req.oldUserEmail}</td>
-                <td className="px-4 py-2">{req.newUserEmail}</td>
-                <td className="px-4 py-2">{req.status}</td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-3">{req.licenseId}</td>
+                <td className="px-4 py-3">{req.oldUserEmail}</td>
+                <td className="px-4 py-3">{req.newUserEmail}</td>
+                <td className="px-4 py-3 font-bold">
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      req.status === "APPROVED"
+                        ? "bg-green-200 text-green-800"
+                        : req.status === "PENDING"
+                        ? "bg-yellow-200 text-yellow-800"
+                        : "bg-red-200 text-red-800"
+                    }`}
+                  >
+                    {req.status}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
                   {new Date(req.createdAt).toLocaleString()}
                 </td>
               </tr>
@@ -426,19 +448,19 @@ export default function TransferRequestsPage() {
         <button
           disabled={currentPage === 1}
           onClick={() => setPage(currentPage - 1)}
-          className="px-3 py-1 bg-slate-200 rounded disabled:opacity-50"
+          className="px-4 py-2 bg-purple-200 rounded-lg disabled:opacity-50 hover:bg-purple-300"
         >
           Previous
         </button>
 
-        <span className="text-sm">
+        <span className="text-sm font-semibold">
           Page {currentPage} of {totalPages}
         </span>
 
         <button
           disabled={currentPage === totalPages}
           onClick={() => setPage(currentPage + 1)}
-          className="px-3 py-1 bg-slate-200 rounded disabled:opacity-50"
+          className="px-4 py-2 bg-purple-200 rounded-lg disabled:opacity-50 hover:bg-purple-300"
         >
           Next
         </button>

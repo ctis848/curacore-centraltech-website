@@ -25,7 +25,6 @@ export default function TransferLicensePage() {
     try {
       setLoading(true);
 
-      // ⭐ Get logged‑in user
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -35,7 +34,6 @@ export default function TransferLicensePage() {
         return;
       }
 
-      // ⭐ Validate old machine activation
       const { data: activation, error: actErr } = await supabase
         .from("MachineActivation")
         .select("id, licenseId")
@@ -47,7 +45,6 @@ export default function TransferLicensePage() {
         return;
       }
 
-      // ⭐ Validate license belongs to this user
       const { data: license, error: licErr } = await supabase
         .from("License")
         .select("id, userId")
@@ -59,7 +56,6 @@ export default function TransferLicensePage() {
         return;
       }
 
-      // ⭐ Create transfer request
       const { error: insertErr } = await supabase
         .from("LicenseTransferRequest")
         .insert({
@@ -88,45 +84,67 @@ export default function TransferLicensePage() {
   }
 
   return (
-    <div>
-      <h1 className="text-xl font-bold mb-4">Transfer License</h1>
+    <div className="p-6 max-w-3xl mx-auto space-y-8">
 
+      {/* Title */}
+      <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+        Transfer License
+      </h1>
+
+      {/* Form Container */}
       <form
         onSubmit={handleTransfer}
-        className="bg-white rounded shadow p-4 max-w-xl space-y-3"
+        className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 space-y-6"
       >
-        <div>
-          <label className="block mb-1 font-semibold">
+        {/* Old Machine ID */}
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-slate-700">
             Old Machine Identifier
           </label>
           <input
-            className="w-full p-2 border rounded"
+            className="w-full px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
             value={oldMachineId}
             onChange={(e) => setOldMachineId(e.target.value)}
             placeholder="Old machine ID / fingerprint..."
           />
         </div>
 
-        <div>
-          <label className="block mb-1 font-semibold">
+        {/* New Request Key */}
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-slate-700">
             New Machine License Request Key
           </label>
           <textarea
-            className="w-full p-3 border rounded"
-            rows={4}
+            className="w-full px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
+            rows={5}
             value={newRequestKey}
             onChange={(e) => setNewRequestKey(e.target.value)}
             placeholder="Paste the new machine's License Request Key..."
           />
         </div>
 
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-        {msg && <p className="text-green-700 text-sm">{msg}</p>}
+        {/* Messages */}
+        {error && (
+          <p className="text-red-600 font-semibold bg-red-50 p-3 rounded-lg">
+            {error}
+          </p>
+        )}
 
+        {msg && (
+          <p className="text-green-700 font-semibold bg-green-50 p-3 rounded-lg">
+            {msg}
+          </p>
+        )}
+
+        {/* Submit Button */}
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50"
+          className={`w-full py-4 text-lg font-bold rounded-xl shadow-lg transition transform active:scale-95 ${
+            loading
+              ? "bg-gray-400 cursor-not-allowed text-white"
+              : "bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:shadow-xl hover:brightness-110"
+          }`}
         >
           {loading ? "Submitting..." : "Submit Transfer Request"}
         </button>
