@@ -48,8 +48,10 @@ const navItems: NavEntry[] = [
 
   { section: "Licensing" },
   { label: "Licenses", href: "/admin/licenses", icon: KeyIcon },
+  { label: "Active Licenses", href: "/admin/active-licenses", icon: KeyIcon }, // ⭐ NEW
   { label: "License Requests", href: "/admin/license-requests", icon: ClipboardDocumentListIcon },
   { label: "Send License", href: "/admin/send-license", icon: KeyIcon, roles: ["admin", "superadmin"] },
+
 
   { section: "Finance" },
   { label: "Payments", href: "/admin/payments", icon: CreditCardIcon },

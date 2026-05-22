@@ -14,6 +14,7 @@ type LicenseRow = {
   user_id: string;
   created_at: string;
   requestKey?: string | null;
+  notes?: string | null;
 };
 
 export default function ClientLicensesPage() {
@@ -26,7 +27,6 @@ export default function ClientLicensesPage() {
   const [activeTab, setActiveTab] = useState<"ACTIVE" | "PENDING">("ACTIVE");
 
   const [search, setSearch] = useState("");
-
   const [productFilter, setProductFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [requestKeyFilter, setRequestKeyFilter] = useState<string>("");
@@ -41,6 +41,10 @@ export default function ClientLicensesPage() {
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
+  // ⭐ View Modal State
+  const [viewOpen, setViewOpen] = useState(false);
+  const [selectedLicense, setSelectedLicense] = useState<LicenseRow | null>(null);
+
   useEffect(() => {
     async function loadUser() {
       const { data } = await supabase.auth.getUser();
@@ -52,7 +56,6 @@ export default function ClientLicensesPage() {
   useEffect(() => {
     if (!user?.id) return;
     loadLicenses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeTab]);
 
   async function loadLicenses() {
@@ -68,7 +71,8 @@ export default function ClientLicensesPage() {
           status,
           userId,
           requestedAt,
-          requestKey
+          requestKey,
+          notes
         `)
         .eq("userId", user.id)
         .eq("status", "APPROVED")
@@ -82,6 +86,7 @@ export default function ClientLicensesPage() {
         user_id: l.userId,
         created_at: l.requestedAt,
         requestKey: l.requestKey,
+        notes: l.notes ?? null,
       }));
 
       setLicenses(mapped);
@@ -99,7 +104,8 @@ export default function ClientLicensesPage() {
           requestKey,
           status,
           userId,
-          requestedAt
+          requestedAt,
+          notes
         `)
         .eq("userId", user.id)
         .eq("status", "PENDING")
@@ -113,6 +119,7 @@ export default function ClientLicensesPage() {
         user_id: r.userId,
         created_at: r.requestedAt,
         requestKey: r.requestKey,
+        notes: r.notes ?? null,
       }));
 
       setLicenses(pendingMapped);
@@ -175,7 +182,8 @@ export default function ClientLicensesPage() {
         (l.productName ?? "").toLowerCase().includes(s) ||
         (l.licenseKey ?? "").toLowerCase().includes(s) ||
         (l.status ?? "").toLowerCase().includes(s) ||
-        (l.requestKey ?? "").toLowerCase().includes(s);
+        (l.requestKey ?? "").toLowerCase().includes(s) ||
+        (l.notes ?? "").toLowerCase().includes(s);
 
       const matchesProduct =
         productFilter === "ALL" ||
@@ -244,7 +252,8 @@ export default function ClientLicensesPage() {
   function downloadLicense(lic: LicenseRow) {
     const content = `PRODUCT=${lic.productName ?? ""}
 LICENSE_KEY=${lic.licenseKey ?? ""}
-USER=${lic.user_id ?? ""}`;
+USER=${lic.user_id ?? ""}
+NOTES=${lic.notes ?? ""}`;
 
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -262,11 +271,14 @@ USER=${lic.user_id ?? ""}`;
 
     const lines = processed.map(
       (lic) =>
-        `PRODUCT=${lic.productName ?? ""}\nLICENSE_KEY=${
-          lic.licenseKey ?? ""
-        }\nSTATUS=${lic.status}\nUSER=${lic.user_id}\nCREATED=${
-          lic.created_at
-        }\nREQUEST_KEY=${lic.requestKey ?? ""}\n---\n`
+        `PRODUCT=${lic.productName ?? ""}
+LICENSE_KEY=${lic.licenseKey ?? ""}
+STATUS=${lic.status}
+USER=${lic.user_id}
+CREATED=${lic.created_at}
+REQUEST_KEY=${lic.requestKey ?? ""}
+NOTES=${lic.notes ?? ""}
+---\n`
     );
 
     const blob = new Blob([lines.join("\n")], { type: "text/plain" });
@@ -285,6 +297,7 @@ USER=${lic.user_id ?? ""}`;
       processed.map((l) => ({
         Product: l.productName ?? "",
         LicenseKey: l.licenseKey ?? "",
+        Notes: l.notes ?? "",
         Status: l.status,
         Created: l.created_at,
         RequestKey: l.requestKey ?? "",
@@ -300,6 +313,7 @@ USER=${lic.user_id ?? ""}`;
     const headers = [
       "Product",
       "LicenseKey",
+      "Notes",
       "Status",
       "Created",
       "RequestKey",
@@ -307,6 +321,7 @@ USER=${lic.user_id ?? ""}`;
     const rows = processed.map((l) => [
       l.productName ?? "",
       l.licenseKey ?? "",
+      l.notes ?? "",
       l.status,
       l.created_at,
       l.requestKey ?? "",
@@ -333,10 +348,11 @@ USER=${lic.user_id ?? ""}`;
     doc.text("Licenses", 14, 10);
 
     autoTable(doc, {
-      head: [["Product", "License Key", "Status", "Created", "Request Key"]],
+      head: [["Product", "License Key", "Notes", "Status", "Created", "Request Key"]],
       body: processed.map((l) => [
         String(l.productName ?? ""),
         String(l.licenseKey ?? ""),
+        String(l.notes ?? ""),
         String(l.status ?? ""),
         String(l.created_at ?? ""),
         String(l.requestKey ?? ""),
@@ -384,10 +400,11 @@ USER=${lic.user_id ?? ""}`;
         </button>
       </div>
 
+      {/* FILTERS */}
       <div className="flex flex-wrap gap-3 mb-4 items-center">
         <input
           type="text"
-          placeholder="Search by product, key, request key, or status..."
+          placeholder="Search by product, key, request key, status, or notes..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="px-3 py-2 border rounded shadow-sm flex-1 min-w-[200px]"
@@ -436,6 +453,7 @@ USER=${lic.user_id ?? ""}`;
         />
       </div>
 
+      {/* DATE FILTERS */}
       <div className="flex flex-wrap gap-3 mb-4 items-center">
         <div className="flex items-center gap-2">
           <span className="text-sm text-slate-600">Created From:</span>
@@ -486,6 +504,7 @@ USER=${lic.user_id ?? ""}`;
         </button>
       </div>
 
+      {/* EXPORT BUTTONS */}
       <div className="flex flex-wrap gap-3 mb-4 items-center">
         <button
           onClick={exportCSV}
@@ -513,6 +532,7 @@ USER=${lic.user_id ?? ""}`;
         </button>
       </div>
 
+      {/* TABLE */}
       {loading && <p className="text-slate-500">Loading licenses…</p>}
 
       {!loading && processed.length === 0 && (
@@ -549,6 +569,13 @@ USER=${lic.user_id ?? ""}`;
                   onClick={() => handleSort("licenseKey")}
                 >
                   License Key{getSortIcon("licenseKey")}
+                </th>
+
+                <th
+                  className="px-4 py-2 cursor-pointer text-left"
+                  onClick={() => handleSort("notes")}
+                >
+                  Notes{getSortIcon("notes")}
                 </th>
 
                 <th
@@ -594,6 +621,14 @@ USER=${lic.user_id ?? ""}`;
                   </td>
 
                   <td className="px-4 py-2">
+                    {lic.notes ? (
+                      <span className="text-slate-700">{lic.notes}</span>
+                    ) : (
+                      <span className="text-slate-400 italic">No notes</span>
+                    )}
+                  </td>
+
+                  <td className="px-4 py-2">
                     <span
                       className={`px-2 py-1 rounded text-xs font-semibold ${
                         lic.status === "ACTIVE"
@@ -612,12 +647,15 @@ USER=${lic.user_id ?? ""}`;
                   </td>
 
                   <td className="px-4 py-2 space-x-3">
-                    <a
-                      href={`/client/licenses/${lic.id}`}
+                    <button
+                      onClick={() => {
+                        setSelectedLicense(lic);
+                        setViewOpen(true);
+                      }}
                       className="text-blue-600 hover:underline"
                     >
                       View
-                    </a>
+                    </button>
 
                     {lic.licenseKey && (
                       <>
@@ -644,6 +682,7 @@ USER=${lic.user_id ?? ""}`;
         </div>
       )}
 
+      {/* PAGINATION */}
       <div className="flex justify-between items-center mt-4">
         <button
           disabled={currentPage === 1}
@@ -665,6 +704,42 @@ USER=${lic.user_id ?? ""}`;
           Next
         </button>
       </div>
+
+      {/* VIEW LICENSE MODAL */}
+      {viewOpen && selectedLicense && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-full max-w-lg rounded-lg shadow-xl p-6">
+            <h2 className="text-xl font-semibold mb-4">License Details</h2>
+
+            <div className="space-y-3">
+              <p><strong>Product:</strong> {selectedLicense.productName}</p>
+              <p><strong>License Key:</strong> {selectedLicense.licenseKey}</p>
+              <p><strong>Request Key:</strong> {selectedLicense.requestKey}</p>
+              <p><strong>Status:</strong> {selectedLicense.status}</p>
+              <p><strong>Created:</strong> {new Date(selectedLicense.created_at).toLocaleString()}</p>
+
+              <div>
+                <label className="font-semibold">Notes</label>
+                <textarea
+                  className="w-full border rounded p-2 mt-1 bg-slate-100"
+                  rows={4}
+                  value={selectedLicense.notes || ""}
+                  readOnly
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setViewOpen(false)}
+                className="px-4 py-2 bg-slate-200 rounded"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
