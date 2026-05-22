@@ -1,7 +1,6 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { sendEmail } from "@/lib/email/send";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
@@ -11,12 +10,6 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // 🔥 LOG 1 — Raw body received
-    console.log("🔥 CHECKOUT BODY RECEIVED:", JSON.stringify(body, null, 2));
-
-    // -------------------------------
-    // Extract fields safely
-    // -------------------------------
     const email = String(body?.email || "").trim();
     const companyName = String(body?.companyName || "").trim();
     const plan = String(body?.plan || "").trim();
@@ -26,52 +19,27 @@ export async function POST(request: Request) {
     const type = String(body?.type || "").trim();
     const couponCode = body?.couponCode || null;
 
-    // 🔥 LOG 2 — Validation values
-    console.log("🔥 VALIDATION VALUES:", {
-      email,
-      companyName,
-      plan,
-      quantity,
-      annualFee,
-      amount,
-      type,
-      couponCode,
-    });
-
-    // -------------------------------
-    // Validate required fields
-    // -------------------------------
-    if (!email || !email.includes("@")) {
+    if (!email || !email.includes("@"))
       return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
-    }
 
-    if (!companyName) {
+    if (!companyName)
       return NextResponse.json({ error: "Company name is required" }, { status: 400 });
-    }
 
-    if (!plan) {
+    if (!plan)
       return NextResponse.json({ error: "Plan is required" }, { status: 400 });
-    }
 
-    if (!quantity || isNaN(quantity) || quantity <= 0) {
+    if (!quantity || quantity <= 0)
       return NextResponse.json({ error: "Valid quantity is required" }, { status: 400 });
-    }
 
-    if (!annualFee || isNaN(annualFee) || annualFee <= 0) {
+    if (!annualFee || annualFee <= 0)
       return NextResponse.json({ error: "Valid annual fee is required" }, { status: 400 });
-    }
 
-    if (!amount || isNaN(amount) || amount <= 0) {
+    if (!amount || amount <= 0)
       return NextResponse.json({ error: "Valid amount is required" }, { status: 400 });
-    }
 
-    if (!type) {
+    if (!type)
       return NextResponse.json({ error: "Payment type is required" }, { status: 400 });
-    }
 
-    // -------------------------------
-    // Prepare metadata
-    // -------------------------------
     const metadata = {
       type,
       email,
@@ -81,34 +49,29 @@ export async function POST(request: Request) {
       annualFee,
       couponCode,
       description: "New License Purchase",
+      custom_fields: [
+        {
+          display_name: "Company",
+          variable_name: "company_name",
+          value: companyName,
+        },
+      ],
     };
 
-    // -------------------------------
-    // Generate reference
-    // -------------------------------
     const reference = `CC-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
-    // -------------------------------
-    // PAYSTACK PAYLOAD (WITH ALL CHANNELS ENABLED)
-    // -------------------------------
     const paystackPayload = {
       email,
-      amount: amount * 100, // Paystack requires kobo
+      amount: amount * 100,
       currency: "NGN",
       reference,
       metadata,
       callback_url: `${APP_URL}/payment/callback?reference=${reference}`,
 
-      // ⭐ ENABLE ALL PAYMENT CHANNELS
+      // ⭐ VALID CHANNELS (DVA + CARD + BANK + USSD)
       channels: ["card", "bank", "bank_transfer", "ussd", "qr"],
     };
 
-    // 🔥 LOG 3 — Paystack payload
-    console.log("🔥 PAYSTACK PAYLOAD:", paystackPayload);
-
-    // -------------------------------
-    // Initialize Paystack
-    // -------------------------------
     const response = await fetch(`${PAYSTACK_BASE}/transaction/initialize`, {
       method: "POST",
       headers: {
@@ -120,35 +83,23 @@ export async function POST(request: Request) {
 
     const raw = await response.text();
 
-    // 🔥 LOG 4 — Raw Paystack response
-    console.log("🔥 RAW PAYSTACK RESPONSE:", raw);
-
-    // -------------------------------
-    // Detect HTML response (Paystack error)
-    // -------------------------------
     if (raw.startsWith("<")) {
       return NextResponse.json(
-        { error: "Paystack returned HTML. Payload invalid." },
+        { error: "Paystack returned HTML. Invalid payload." },
         { status: 400 }
       );
     }
 
-    // -------------------------------
-    // Parse JSON safely
-    // -------------------------------
     let data;
     try {
       data = JSON.parse(raw);
-    } catch (err) {
+    } catch {
       return NextResponse.json(
         { error: "Paystack returned invalid JSON" },
         { status: 400 }
       );
     }
 
-    // -------------------------------
-    // Paystack rejected the request
-    // -------------------------------
     if (!response.ok || !data.status) {
       return NextResponse.json(
         { error: data.message || "Paystack rejected the request" },
@@ -156,9 +107,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // -------------------------------
-    // SUCCESS — Return authorization URL
-    // -------------------------------
     return NextResponse.json({
       authorization_url: data.data.authorization_url,
     });

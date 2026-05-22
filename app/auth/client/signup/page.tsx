@@ -67,7 +67,7 @@ export default function SignupPage() {
     });
 
     // 3️⃣ Redirect
-    router.push("/client/dashboard");
+    router.push("/auth/client/login");
   }
 
   return (
