@@ -29,7 +29,6 @@ export default function AdminDashboardPage() {
       try {
         setLoading(true);
 
-        // 1. Verify admin session
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -39,7 +38,6 @@ export default function AdminDashboardPage() {
           return;
         }
 
-        // 2. Fetch all required data
         const [licensesRes, invoicesRes, requestsRes, ticketsRes] =
           await Promise.all([
             supabase.from("License").select(`
@@ -82,7 +80,6 @@ export default function AdminDashboardPage() {
             `),
           ]);
 
-        // ⭐ MAP LICENSES
         const licenses = (licensesRes.data || []).map((l: any) => ({
           id: l.id,
           userId: l.user_id,
@@ -95,7 +92,6 @@ export default function AdminDashboardPage() {
           annualFeePaidUntil: l.annualFeePaidUntil,
         }));
 
-        // ⭐ MAP INVOICES
         const invoices = (invoicesRes.data || []).map((i: any) => ({
           id: i.id,
           userId: i.company_id,
@@ -104,7 +100,6 @@ export default function AdminDashboardPage() {
           createdAt: i.created_at,
         }));
 
-        // ⭐ MAP LICENSE REQUESTS
         const requests = (requestsRes.data || []).map((r: any) => ({
           id: r.id,
           userId: r.userId,
@@ -115,7 +110,6 @@ export default function AdminDashboardPage() {
           licenseKey: r.licenseKey,
         }));
 
-        // ⭐ MAP SUPPORT TICKETS
         const tickets = (ticketsRes.data || []).map((t: any) => ({
           id: t.id,
           userId: t.user_id,
@@ -125,7 +119,6 @@ export default function AdminDashboardPage() {
           createdAt: t.created_at,
         }));
 
-        // ⭐ COMPUTE STATS
         const totalActiveLicenses = licenses.filter(
           (l) => l.status === "ACTIVE"
         ).length;
@@ -153,7 +146,6 @@ export default function AdminDashboardPage() {
           (t) => t.status === "OPEN"
         ).length;
 
-        // ⭐ Annual fee due soon (30 days)
         const dueAnnualFeesList = licenses.filter((l) => {
           if (!l.annualFeePaidUntil) return true;
           const dueDate = new Date(l.annualFeePaidUntil);
@@ -163,7 +155,6 @@ export default function AdminDashboardPage() {
           return diff <= 30;
         });
 
-        // ⭐ Pending requests sorted
         const pendingRequestsList = requests
           .filter((r) => r.status === "PENDING")
           .sort(
@@ -173,7 +164,6 @@ export default function AdminDashboardPage() {
           )
           .slice(0, 5);
 
-        // ⭐ Recent open tickets
         const recentTicketsList = tickets
           .filter((t) => t.status === "OPEN")
           .sort(
@@ -183,7 +173,6 @@ export default function AdminDashboardPage() {
           )
           .slice(0, 5);
 
-        // ⭐ UPDATE STATE
         setStats({
           totalActiveLicenses,
           totalInactiveLicenses,
@@ -210,50 +199,52 @@ export default function AdminDashboardPage() {
       title: "Active Licenses",
       value: stats.totalActiveLicenses,
       subtitle: "Across all clients",
-      color: "bg-emerald-50 border-emerald-200",
+      color: "from-emerald-50 to-emerald-100 border-emerald-200",
     },
     {
       title: "Inactive / Expired Licenses",
       value: stats.totalInactiveLicenses,
       subtitle: "Need attention",
-      color: "bg-slate-50 border-slate-200",
+      color: "from-slate-50 to-slate-100 border-slate-200",
     },
     {
       title: "Annual Fee Expired",
       value: stats.totalExpiredAnnualFee,
       subtitle: "20% fee overdue",
-      color: "bg-rose-50 border-rose-200",
+      color: "from-rose-50 to-rose-100 border-rose-200",
     },
     {
       title: "Total Payments",
       value: stats.totalPayments,
       subtitle: "All invoices",
-      color: "bg-blue-50 border-blue-200",
+      color: "from-blue-50 to-blue-100 border-blue-200",
     },
     {
       title: "Plans Purchased",
       value: stats.totalPlansPurchased,
       subtitle: "Paid invoices",
-      color: "bg-amber-50 border-amber-200",
+      color: "from-amber-50 to-amber-100 border-amber-200",
     },
     {
       title: "Pending License Requests",
       value: stats.pendingLicenseRequests,
       subtitle: "Awaiting approval",
-      color: "bg-indigo-50 border-indigo-200",
+      color: "from-indigo-50 to-indigo-100 border-indigo-200",
     },
     {
       title: "Open Support Tickets",
       value: stats.openSupportTickets,
       subtitle: "Support queue",
-      color: "bg-purple-50 border-purple-200",
+      color: "from-purple-50 to-purple-100 border-purple-200",
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10 p-6 max-w-7xl mx-auto">
+
+      {/* Title */}
       <div>
-        <h2 className="text-2xl font-semibold text-slate-900">
+        <h2 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
           Admin Dashboard
         </h2>
         <p className="text-sm text-slate-600 mt-1">
@@ -265,17 +256,17 @@ export default function AdminDashboardPage() {
         <p className="text-sm text-slate-600">Loading admin data...</p>
       ) : (
         <>
-          {/* CARDS */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* METRIC CARDS */}
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {cards.map((card) => (
               <div
                 key={card.title}
-                className={`flex flex-col rounded-xl border p-4 shadow-sm ${card.color}`}
+                className={`flex flex-col rounded-2xl border p-5 shadow-md bg-gradient-to-br ${card.color} hover:shadow-lg transition`}
               >
-                <span className="text-xs font-medium uppercase text-slate-500">
+                <span className="text-xs font-medium uppercase text-slate-600 tracking-wide">
                   {card.title}
                 </span>
-                <span className="mt-2 text-2xl font-semibold text-slate-900">
+                <span className="mt-3 text-3xl font-extrabold text-slate-900">
                   {card.value}
                 </span>
                 <span className="mt-1 text-xs text-slate-600">
@@ -285,23 +276,25 @@ export default function AdminDashboardPage() {
             ))}
           </div>
 
-          {/* LISTS */}
-          <section className="grid gap-4 md:grid-cols-2">
+          {/* LIST SECTIONS */}
+          <section className="grid gap-6 md:grid-cols-2">
+
             {/* Pending Requests */}
-            <div className="rounded-xl border bg-white p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-800 mb-2">
+            <div className="rounded-2xl border bg-white p-5 shadow-md">
+              <h3 className="text-sm font-semibold text-slate-800 mb-3">
                 Pending License Requests
               </h3>
+
               {pendingRequests.length === 0 ? (
                 <p className="text-sm text-slate-500">
                   No pending license requests.
                 </p>
               ) : (
-                <ul className="space-y-2 text-sm">
+                <ul className="space-y-3 text-sm">
                   {pendingRequests.map((req) => (
                     <li
                       key={req.id}
-                      className="flex items-center justify-between border rounded px-2 py-1"
+                      className="flex items-center justify-between border rounded-lg px-3 py-2 hover:bg-slate-50 transition"
                     >
                       <div>
                         <p className="font-medium">
@@ -311,6 +304,7 @@ export default function AdminDashboardPage() {
                           Request ID: {req.id}
                         </p>
                       </div>
+
                       <button
                         onClick={() =>
                           router.push(`/admin/license-requests/${req.id}`)
@@ -326,20 +320,21 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Annual Fee Due */}
-            <div className="rounded-xl border bg-white p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-800 mb-2">
+            <div className="rounded-2xl border bg-white p-5 shadow-md">
+              <h3 className="text-sm font-semibold text-slate-800 mb-3">
                 Annual 20% Fee Due Soon
               </h3>
+
               {dueAnnualFees.length === 0 ? (
                 <p className="text-sm text-slate-500">
                   No clients with upcoming annual fee due.
                 </p>
               ) : (
-                <ul className="space-y-2 text-sm">
+                <ul className="space-y-3 text-sm">
                   {dueAnnualFees.slice(0, 5).map((lic) => (
                     <li
                       key={lic.id}
-                      className="flex items-center justify-between border rounded px-2 py-1"
+                      className="flex items-center justify-between border rounded-lg px-3 py-2 hover:bg-slate-50 transition"
                     >
                       <div>
                         <p className="font-medium">
@@ -349,6 +344,7 @@ export default function AdminDashboardPage() {
                           License ID: {lic.id}
                         </p>
                       </div>
+
                       <span className="text-xs text-amber-700 font-medium">
                         20% fee due
                       </span>
@@ -360,20 +356,21 @@ export default function AdminDashboardPage() {
           </section>
 
           {/* Support Tickets */}
-          <section className="rounded-xl border bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-800 mb-2">
+          <section className="rounded-2xl border bg-white p-5 shadow-md">
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">
               Open Support Tickets
             </h3>
+
             {recentTickets.length === 0 ? (
               <p className="text-sm text-slate-500">
                 No open support tickets at the moment.
               </p>
             ) : (
-              <ul className="space-y-2 text-sm">
+              <ul className="space-y-3 text-sm">
                 {recentTickets.map((t) => (
                   <li
                     key={t.id}
-                    className="flex items-center justify-between border rounded px-2 py-1"
+                    className="flex items-center justify-between border rounded-lg px-3 py-2 hover:bg-slate-50 transition"
                   >
                     <div>
                       <p className="font-medium">{t.subject}</p>
@@ -381,6 +378,7 @@ export default function AdminDashboardPage() {
                         Ticket ID: {t.id}
                       </p>
                     </div>
+
                     <button
                       onClick={() => router.push(`/admin/support/${t.id}`)}
                       className="text-xs font-medium text-blue-600 hover:underline"

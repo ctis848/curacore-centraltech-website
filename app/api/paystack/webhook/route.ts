@@ -48,8 +48,12 @@ export async function POST(req: Request) {
     const amount = data.amount / 100;
     const paystackId = data.id;
     const meta = data.metadata || {};
+
     const customerEmail =
-      meta.email ?? data.customer?.email ?? data.customer?.customer_email ?? null;
+      meta.email ??
+      data.customer?.email ??
+      data.customer?.customer_email ??
+      null;
 
     const reference =
       data.reference ||
@@ -84,7 +88,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, duplicate: true });
     }
 
-    // 🔹 Insert into correct table: payments
+    // 🔹 Insert into payments table
     const { error: insertError } = await supabase.from("payments").insert({
       userid: userId,
       amount,
@@ -210,11 +214,16 @@ export async function POST(req: Request) {
     }
 
     // =====================================================
-    // 2️⃣ NEW LICENSE PURCHASE FLOW
+    // 2️⃣ NEW LICENSE PURCHASE FLOW (CARD + TRANSFER + DVA)
     // =====================================================
     if (meta.type !== "ANNUAL_RENEWAL") {
-      console.log("🔥 PROCESSING NEW LICENSE PURCHASE");
+      console.log("🔥 PROCESSING NEW LICENSE PURCHASE (CARD or TRANSFER)");
 
+      const plan = meta.plan;
+      const quantity = Number(meta.quantity || 1);
+      const companyName = meta.companyName;
+
+      // 1) Check if client exists
       const { data: existingClient } = await supabase
         .from("Clients")
         .select("*")
@@ -225,13 +234,13 @@ export async function POST(req: Request) {
 
       if (existingClient) {
         const newTotal =
-          (existingClient.totalLicenses || 0) + Number(meta.quantity || 0);
+          (existingClient.totalLicenses || 0) + quantity;
 
         const { data: updated } = await supabase
           .from("Clients")
           .update({
             totalLicenses: newTotal,
-            companyName: meta.companyName,
+            companyName: companyName,
           })
           .eq("id", existingClient.id)
           .select()
@@ -243,8 +252,8 @@ export async function POST(req: Request) {
           .from("Clients")
           .insert({
             email: customerEmail,
-            companyName: meta.companyName,
-            totalLicenses: meta.quantity,
+            companyName: companyName,
+            totalLicenses: quantity,
           })
           .select()
           .single();
@@ -252,30 +261,34 @@ export async function POST(req: Request) {
         clientId = created?.id;
       }
 
+      // 2) Create license purchase record
       await supabase.from("LicensePurchases").insert({
         clientId,
-        plan: meta.plan,
-        quantity: meta.quantity,
+        plan,
+        quantity,
         amount,
         reference,
+        channel: event.event,
       });
 
+      // 3) Send receipt email
       if (customerEmail) {
         sendEmail({
           to: customerEmail,
           subject: "Your CentralCore License Receipt",
           html: `
             <h2>Payment Successful</h2>
-            <p><strong>Company:</strong> ${meta.companyName}</p>
-            <p><strong>Plan:</strong> ${meta.plan}</p>
-            <p><strong>Quantity:</strong> ${meta.quantity}</p>
+            <p><strong>Company:</strong> ${companyName}</p>
+            <p><strong>Plan:</strong> ${plan}</p>
+            <p><strong>Quantity:</strong> ${quantity}</p>
             <p><strong>Amount Paid:</strong> ₦${amount.toLocaleString()}</p>
             <p><strong>Reference:</strong> ${reference}</p>
+            <p><strong>Payment Method:</strong> ${event.event}</p>
           `,
         }).catch((e) => console.error("🔥 EMAIL ERROR:", e));
       }
 
-      console.log("✅ New license purchase flow completed");
+      console.log("✅ New license purchase flow completed (CARD/TRANSFER)");
     }
 
     // =====================================================

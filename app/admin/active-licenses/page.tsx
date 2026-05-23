@@ -22,7 +22,6 @@ export default function AdminActiveLicensesPage() {
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
-  // Modal + Drawer
   const [selectedLicense, setSelectedLicense] = useState<any>(null);
   const [viewOpen, setViewOpen] = useState(false);
 
@@ -108,17 +107,11 @@ export default function AdminActiveLicensesPage() {
     currentPage * pageSize
   );
 
-  // ---------------------------
-  // VIEW MODAL
-  // ---------------------------
   function openViewModal(lic: any) {
     setSelectedLicense(lic);
     setViewOpen(true);
   }
 
-  // ---------------------------
-  // USER DETAILS DRAWER
-  // ---------------------------
   async function loadUserDetails(userId: string) {
     const { data } = await supabase
       .from("users")
@@ -130,9 +123,6 @@ export default function AdminActiveLicensesPage() {
     setUserDrawerOpen(true);
   }
 
-  // ---------------------------
-  // EXPORT FUNCTIONS
-  // ---------------------------
   function exportCSV() {
     const headers = ["Product", "LicenseKey", "Notes", "User", "Created"];
     const rows = licenses.map((l) => [
@@ -190,21 +180,26 @@ export default function AdminActiveLicensesPage() {
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold mb-4">Active Licenses</h1>
+    <div className="p-6 space-y-8 max-w-7xl mx-auto">
+
+      {/* TITLE */}
+      <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+        Active Licenses
+      </h1>
 
       {/* FILTERS */}
       <div className="flex flex-wrap gap-3 mb-4 items-center">
+
         <input
           type="text"
           placeholder="Search by product, key, request key, or notes..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="px-3 py-2 border rounded shadow-sm flex-1 min-w-[200px]"
+          className="px-4 py-3 border rounded-lg shadow-sm flex-1 min-w-[200px] focus:ring-2 focus:ring-purple-400"
         />
 
         <select
-          className="px-3 py-2 border rounded"
+          className="px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
           value={productFilter}
           onChange={(e) => setProductFilter(e.target.value)}
         >
@@ -220,7 +215,7 @@ export default function AdminActiveLicensesPage() {
         </select>
 
         <select
-          className="px-3 py-2 border rounded"
+          className="px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
@@ -230,21 +225,21 @@ export default function AdminActiveLicensesPage() {
 
         <button
           onClick={exportCSV}
-          className="px-4 py-2 bg-slate-700 text-white rounded"
+          className="px-5 py-3 bg-slate-800 text-white rounded-lg shadow hover:brightness-110"
         >
           Export CSV
         </button>
 
         <button
           onClick={exportExcel}
-          className="px-4 py-2 bg-green-600 text-white rounded"
+          className="px-5 py-3 bg-emerald-600 text-white rounded-lg shadow hover:brightness-110"
         >
           Export Excel
         </button>
 
         <button
           onClick={exportPDF}
-          className="px-4 py-2 bg-red-600 text-white rounded"
+          className="px-5 py-3 bg-red-600 text-white rounded-lg shadow hover:brightness-110"
         >
           Export PDF
         </button>
@@ -252,65 +247,68 @@ export default function AdminActiveLicensesPage() {
 
       {/* TABLE */}
       {!loading && (
-        <div className="overflow-x-auto border rounded-lg bg-white shadow-sm">
+        <div className="overflow-x-auto border rounded-2xl bg-white shadow-xl">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-100 text-slate-700">
+            <thead className="bg-gradient-to-r from-slate-100 to-slate-200 text-slate-700">
               <tr>
                 <th
-                  className="px-4 py-2 cursor-pointer text-left"
+                  className="px-5 py-3 cursor-pointer text-left font-semibold"
                   onClick={() => handleSort("productName")}
                 >
                   Product{getSortIcon("productName")}
                 </th>
 
                 <th
-                  className="px-4 py-2 cursor-pointer text-left"
+                  className="px-5 py-3 cursor-pointer text-left font-semibold"
                   onClick={() => handleSort("licenseKey")}
                 >
                   License Key{getSortIcon("licenseKey")}
                 </th>
 
                 <th
-                  className="px-4 py-2 cursor-pointer text-left"
+                  className="px-5 py-3 cursor-pointer text-left font-semibold"
                   onClick={() => handleSort("notes")}
                 >
                   Notes{getSortIcon("notes")}
                 </th>
 
                 <th
-                  className="px-4 py-2 cursor-pointer text-left"
+                  className="px-5 py-3 cursor-pointer text-left font-semibold"
                   onClick={() => handleSort("requestedAt")}
                 >
                   Created{getSortIcon("requestedAt")}
                 </th>
 
-                <th className="px-4 py-2 text-left">User</th>
-                <th className="px-4 py-2 text-left">Actions</th>
+                <th className="px-5 py-3 text-left font-semibold">User</th>
+                <th className="px-5 py-3 text-left font-semibold">Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {paginated.map((lic) => (
-                <tr key={lic.id} className="border-t hover:bg-slate-50">
-                  <td className="px-4 py-2">{lic.productName}</td>
+                <tr
+                  key={lic.id}
+                  className="border-t hover:bg-slate-50 transition"
+                >
+                  <td className="px-5 py-3">{lic.productName}</td>
 
-                  <td className="px-4 py-2 font-mono break-all">
+                  <td className="px-5 py-3 font-mono break-all">
                     {lic.licenseKey}
                   </td>
 
-                  <td className="px-4 py-2">
+                  <td className="px-5 py-3">
                     {lic.notes || (
                       <span className="italic text-slate-400">No notes</span>
                     )}
                   </td>
 
-                  <td className="px-4 py-2">
+                  <td className="px-5 py-3">
                     {new Date(lic.requestedAt).toLocaleString()}
                   </td>
 
-                  <td className="px-4 py-2">{lic.userId}</td>
+                  <td className="px-5 py-3">{lic.userId}</td>
 
-                  <td className="px-4 py-2 space-x-3">
+                  <td className="px-5 py-3 space-x-3">
                     <button
                       onClick={() => openViewModal(lic)}
                       className="text-blue-600 hover:underline"
@@ -337,19 +335,19 @@ export default function AdminActiveLicensesPage() {
         <button
           disabled={currentPage === 1}
           onClick={() => setPage(currentPage - 1)}
-          className="px-3 py-1 bg-slate-200 rounded disabled:opacity-50"
+          className="px-4 py-2 bg-purple-200 rounded-lg disabled:opacity-50 hover:bg-purple-300"
         >
           Previous
         </button>
 
-        <span className="text-sm">
+        <span className="text-sm font-semibold">
           Page {currentPage} of {totalPages}
         </span>
 
         <button
           disabled={currentPage === totalPages}
           onClick={() => setPage(currentPage + 1)}
-          className="px-3 py-1 bg-slate-200 rounded disabled:opacity-50"
+          className="px-4 py-2 bg-purple-200 rounded-lg disabled:opacity-50 hover:bg-purple-300"
         >
           Next
         </button>
@@ -357,11 +355,13 @@ export default function AdminActiveLicensesPage() {
 
       {/* VIEW LICENSE MODAL */}
       {viewOpen && selectedLicense && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-lg rounded-lg shadow-xl p-6">
-            <h2 className="text-xl font-semibold mb-4">License Details</h2>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 border border-slate-200">
+            <h2 className="text-2xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent mb-4">
+              License Details
+            </h2>
 
-            <div className="space-y-3">
+            <div className="space-y-3 text-sm text-slate-700">
               <p><strong>Product:</strong> {selectedLicense.productName}</p>
               <p><strong>License Key:</strong> {selectedLicense.licenseKey}</p>
               <p><strong>Request Key:</strong> {selectedLicense.requestKey}</p>
@@ -369,9 +369,9 @@ export default function AdminActiveLicensesPage() {
               <p><strong>Created:</strong> {new Date(selectedLicense.requestedAt).toLocaleString()}</p>
 
               <div>
-                <label className="font-semibold">Notes</label>
+                <label className="font-semibold text-slate-800">Notes</label>
                 <textarea
-                  className="w-full border rounded p-2 mt-1"
+                  className="w-full border rounded-lg p-3 mt-1 bg-slate-50 focus:ring-2 focus:ring-purple-400"
                   rows={4}
                   value={selectedLicense.notes || ""}
                   onChange={(e) =>
@@ -384,7 +384,7 @@ export default function AdminActiveLicensesPage() {
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setViewOpen(false)}
-                className="px-4 py-2 bg-slate-200 rounded"
+                className="px-5 py-2 bg-slate-200 rounded-lg hover:bg-slate-300"
               >
                 Close
               </button>
@@ -399,7 +399,7 @@ export default function AdminActiveLicensesPage() {
                   setViewOpen(false);
                   loadLicenses();
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded"
+                className="px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow hover:brightness-110"
               >
                 Save Notes
               </button>
@@ -410,19 +410,23 @@ export default function AdminActiveLicensesPage() {
 
       {/* USER DETAILS DRAWER */}
       {userDrawerOpen && userDetails && (
-        <div className="fixed inset-0 flex justify-end bg-black/30 z-50">
-          <div className="w-96 bg-white h-full shadow-xl p-6 overflow-y-auto">
-            <h2 className="text-xl font-semibold mb-4">User Details</h2>
+        <div className="fixed inset-0 flex justify-end bg-black/30 backdrop-blur-sm z-50">
+          <div className="w-96 bg-white h-full shadow-2xl p-6 overflow-y-auto border-l border-slate-200">
+            <h2 className="text-2xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent mb-4">
+              User Details
+            </h2>
 
-            <p><strong>ID:</strong> {userDetails.id}</p>
-            <p><strong>Email:</strong> {userDetails.email}</p>
-            <p><strong>Name:</strong> {userDetails.fullName}</p>
-            <p><strong>Tenant:</strong> {userDetails.tenantId}</p>
-            <p><strong>Created:</strong> {new Date(userDetails.created_at).toLocaleString()}</p>
+            <div className="space-y-2 text-sm text-slate-700">
+              <p><strong>ID:</strong> {userDetails.id}</p>
+              <p><strong>Email:</strong> {userDetails.email}</p>
+              <p><strong>Name:</strong> {userDetails.fullName}</p>
+              <p><strong>Tenant:</strong> {userDetails.tenantId}</p>
+              <p><strong>Created:</strong> {new Date(userDetails.created_at).toLocaleString()}</p>
+            </div>
 
             <button
               onClick={() => setUserDrawerOpen(false)}
-              className="mt-6 px-4 py-2 bg-slate-200 rounded"
+              className="mt-6 px-5 py-2 bg-slate-200 rounded-lg hover:bg-slate-300"
             >
               Close
             </button>

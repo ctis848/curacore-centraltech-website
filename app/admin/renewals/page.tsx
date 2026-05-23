@@ -277,16 +277,22 @@ export default function RenewalsPage() {
   const totalPages = Math.ceil(combinedList.length / pageSize);
 
   return (
-    <div>
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold">Renewals</h1>
+    <div className="p-6 space-y-8 max-w-7xl mx-auto">
+
+      {/* TITLE */}
+      <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+        Renewals
+      </h1>
+
+      {/* HEADER ACTIONS */}
+      <div className="flex justify-between items-center">
+        <div></div>
 
         <div className="flex gap-3">
           <button
             type="button"
             onClick={() => exportCSV(combinedList)}
-            className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700"
+            className="px-5 py-3 bg-teal-600 text-white rounded-lg shadow hover:brightness-110"
           >
             Export CSV
           </button>
@@ -294,7 +300,7 @@ export default function RenewalsPage() {
           <button
             type="button"
             onClick={loadRenewals}
-            className="px-4 py-2 border rounded hover:bg-slate-50"
+            className="px-5 py-3 border rounded-lg bg-white shadow hover:bg-slate-50"
           >
             Refresh
           </button>
@@ -310,35 +316,37 @@ export default function RenewalsPage() {
 
       {/* BULK ACTION BAR */}
       {selected.length > 0 && (
-        <div className="mb-4 p-3 bg-slate-100 border rounded flex items-center gap-4">
-          <span className="font-medium">{selected.length} selected</span>
+        <div className="mb-4 p-4 bg-slate-100 border rounded-xl flex items-center gap-4 shadow">
+          <span className="font-semibold text-slate-800">
+            {selected.length} selected
+          </span>
 
           <button
             onClick={() =>
               exportCSV(combinedList.filter((x) => selected.includes(x.id)))
             }
-            className="px-3 py-1 bg-teal-600 text-white rounded text-sm"
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm shadow hover:brightness-110"
           >
             Export CSV
           </button>
 
           <button
             onClick={bulkNotify}
-            className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm shadow hover:brightness-110"
           >
             Notify Tenants
           </button>
 
           <button
             onClick={bulkMarkRenewed}
-            className="px-3 py-1 bg-emerald-600 text-white rounded text-sm"
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm shadow hover:brightness-110"
           >
             Mark Renewed
           </button>
 
           <button
             onClick={bulkGenerateInvoices}
-            className="px-3 py-1 bg-indigo-600 text-white rounded text-sm"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm shadow hover:brightness-110"
           >
             Generate Invoices
           </button>
@@ -355,7 +363,7 @@ export default function RenewalsPage() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border rounded flex-1 min-w-[200px]"
+          className="px-4 py-3 border rounded-lg shadow-sm flex-1 min-w-[200px] focus:ring-2 focus:ring-purple-400"
         />
 
         <select
@@ -364,7 +372,7 @@ export default function RenewalsPage() {
             setProductFilter(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border rounded"
+          className="px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
         >
           <option value="">All Products</option>
           {products.map((p) => (
@@ -378,7 +386,7 @@ export default function RenewalsPage() {
             setTenantFilter(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border rounded"
+          className="px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
         >
           <option value="">All Tenants</option>
           {tenants.map((t) => (
@@ -392,7 +400,7 @@ export default function RenewalsPage() {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border rounded"
+          className="px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
         >
           <option value="">All Statuses</option>
           {statuses.map((s) => (
@@ -402,11 +410,11 @@ export default function RenewalsPage() {
       </div>
 
       {/* TABLE */}
-      <div className="overflow-x-auto bg-white shadow rounded border border-slate-200">
+      <div className="overflow-x-auto bg-white shadow-xl rounded-2xl border border-slate-200">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 sticky top-0 z-10">
+          <thead className="bg-gradient-to-r from-slate-100 to-slate-200 sticky top-0 z-10">
             <tr className="border-b text-slate-700">
-              <th className="p-3 text-left">
+              <th className="p-4 text-left">
                 <input
                   type="checkbox"
                   onChange={() => toggleSelectAll(paginated)}
@@ -418,34 +426,42 @@ export default function RenewalsPage() {
               </th>
 
               <th
-                className="p-3 text-left cursor-pointer select-none"
+                className="p-4 text-left cursor-pointer select-none font-semibold"
                 onClick={() => setSortKey("productName")}
               >
-                Product {sortKey === "productName" && (sortDirection === "asc" ? "↑" : "↓")}
+                Product{" "}
+                {sortKey === "productName" &&
+                  (sortDirection === "asc" ? "↑" : "↓")}
               </th>
 
               <th
-                className="p-3 text-left cursor-pointer select-none"
+                className="p-4 text-left cursor-pointer select-none font-semibold"
                 onClick={() => setSortKey("licenseKey")}
               >
-                License Key {sortKey === "licenseKey" && (sortDirection === "asc" ? "↑" : "↓")}
+                License Key{" "}
+                {sortKey === "licenseKey" &&
+                  (sortDirection === "asc" ? "↑" : "↓")}
               </th>
 
               <th
-                className="p-3 text-left cursor-pointer select-none"
+                className="p-4 text-left cursor-pointer select-none font-semibold"
                 onClick={() => setSortKey("expiresAt")}
               >
-                Expires At {sortKey === "expiresAt" && (sortDirection === "asc" ? "↑" : "↓")}
+                Expires At{" "}
+                {sortKey === "expiresAt" &&
+                  (sortDirection === "asc" ? "↑" : "↓")}
               </th>
 
               <th
-                className="p-3 text-left cursor-pointer select-none"
+                className="p-4 text-left cursor-pointer select-none font-semibold"
                 onClick={() => setSortKey("status")}
               >
-                Status {sortKey === "status" && (sortDirection === "asc" ? "↑" : "↓")}
+                Status{" "}
+                {sortKey === "status" &&
+                  (sortDirection === "asc" ? "↑" : "↓")}
               </th>
 
-              <th className="p-3 text-left">Details</th>
+              <th className="p-4 text-left font-semibold">Details</th>
             </tr>
           </thead>
 
@@ -470,9 +486,9 @@ export default function RenewalsPage() {
               paginated.map((lic, index) => (
                 <tr
                   key={`${lic.id}-${index}`}
-                  className="border-b hover:bg-slate-50 transition-colors even:bg-slate-50/30"
+                  className="border-b hover:bg-slate-50 transition even:bg-slate-50/30"
                 >
-                  <td className="p-3">
+                  <td className="p-4">
                     <input
                       type="checkbox"
                       checked={selected.includes(lic.id)}
@@ -480,23 +496,23 @@ export default function RenewalsPage() {
                     />
                   </td>
 
-                  <td className="p-3 font-medium">
+                  <td className="p-4 font-medium">
                     {lic.productName || "Unnamed Product"}
                   </td>
 
-                  <td className="p-3 font-mono text-xs text-slate-700 break-all">
+                  <td className="p-4 font-mono text-xs text-slate-700 break-all">
                     {lic.licenseKey}
                   </td>
 
-                  <td className="p-3">
+                  <td className="p-4">
                     {lic.expiresAt || (
                       <span className="text-slate-500 italic">Unknown</span>
                     )}
                   </td>
 
-                  <td className="p-3">
+                  <td className="p-4">
                     <span
-                      className={`px-2 py-1 rounded text-xs font-semibold ${
+                      className={`px-2 py-1 rounded-lg text-xs font-semibold ${
                         renewalState(lic.expiresAt).includes("expired")
                           ? "bg-red-100 text-red-700"
                           : renewalState(lic.expiresAt).includes("due soon") ||
@@ -509,7 +525,7 @@ export default function RenewalsPage() {
                     </span>
                   </td>
 
-                  <td className="p-3">
+                  <td className="p-4">
                     <a
                       href={`/admin/renewals/${lic.id}`}
                       className="text-teal-600 hover:underline font-medium"
@@ -529,8 +545,10 @@ export default function RenewalsPage() {
           <button
             disabled={page === 1}
             onClick={() => setPage(page - 1)}
-            className={`px-4 py-2 border rounded ${
-              page === 1 ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-50"
+            className={`px-4 py-2 border rounded-lg ${
+              page === 1
+                ? "opacity-40 cursor-not-allowed"
+                : "hover:bg-slate-50"
             }`}
           >
             Previous
@@ -541,8 +559,10 @@ export default function RenewalsPage() {
               <button
                 key={p}
                 onClick={() => setPage(p)}
-                className={`px-3 py-1 border rounded ${
-                  p === page ? "bg-slate-900 text-white" : "hover:bg-slate-50"
+                className={`px-3 py-1 border rounded-lg ${
+                  p === page
+                    ? "bg-slate-900 text-white"
+                    : "hover:bg-slate-50"
                 }`}
               >
                 {p}
@@ -553,8 +573,10 @@ export default function RenewalsPage() {
           <button
             disabled={page === totalPages}
             onClick={() => setPage(page + 1)}
-            className={`px-4 py-2 border rounded ${
-              page === totalPages ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-50"
+            className={`px-4 py-2 border rounded-lg ${
+              page === totalPages
+                ? "opacity-40 cursor-not-allowed"
+                : "hover:bg-slate-50"
             }`}
           >
             Next

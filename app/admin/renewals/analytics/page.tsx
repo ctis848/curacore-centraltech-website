@@ -128,15 +128,21 @@ export default function RenewalAnalyticsPage() {
   }, [monthlyData]);
 
   return (
-    <div>
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold">Renewal Analytics</h1>
+    <div className="p-6 space-y-8 max-w-6xl mx-auto">
+
+      {/* TITLE */}
+      <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+        Renewal Analytics
+      </h1>
+
+      {/* HEADER FILTER */}
+      <div className="flex justify-between items-center">
+        <div></div>
 
         <select
           value={year}
           onChange={(e) => setYear(e.target.value)}
-          className="px-3 py-2 border rounded"
+          className="px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
         >
           {years.map((y) => (
             <option key={y}>{y}</option>
@@ -145,46 +151,45 @@ export default function RenewalAnalyticsPage() {
       </div>
 
       {/* SUMMARY CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="p-4 bg-white shadow rounded border">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-6 bg-white shadow-xl rounded-2xl border border-slate-200">
           <p className="text-sm text-slate-500">Total Renewals</p>
-          <p className="text-2xl font-semibold">{summary.total}</p>
+          <p className="text-3xl font-extrabold text-slate-800">{summary.total}</p>
         </div>
 
-        <div className="p-4 bg-white shadow rounded border">
+        <div className="p-6 bg-white shadow-xl rounded-2xl border border-slate-200">
           <p className="text-sm text-slate-500">Due Soon</p>
-          <p className="text-2xl font-semibold text-yellow-700">
-            {summary.dueSoon}
-          </p>
+          <p className="text-3xl font-extrabold text-yellow-600">{summary.dueSoon}</p>
         </div>
 
-        <div className="p-4 bg-white shadow rounded border">
+        <div className="p-6 bg-white shadow-xl rounded-2xl border border-slate-200">
           <p className="text-sm text-slate-500">Expired</p>
-          <p className="text-2xl font-semibold text-red-700">
-            {summary.expired}
-          </p>
+          <p className="text-3xl font-extrabold text-red-600">{summary.expired}</p>
         </div>
       </div>
 
       {/* MONTH TABLE */}
-      <div className="overflow-x-auto bg-white shadow rounded border border-slate-200 mt-8">
+      <div className="overflow-x-auto bg-white shadow-xl rounded-2xl border border-slate-200 mt-8">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 sticky top-0 z-10">
+          <thead className="bg-gradient-to-r from-slate-100 to-slate-200 sticky top-0 z-10">
             <tr className="border-b text-slate-700">
-              <th className="p-3 text-left">Month</th>
-              <th className="p-3 text-left">Total Renewals</th>
-              <th className="p-3 text-left">Due Soon</th>
-              <th className="p-3 text-left">Expired</th>
+              <th className="p-4 text-left font-semibold">Month</th>
+              <th className="p-4 text-left font-semibold">Total Renewals</th>
+              <th className="p-4 text-left font-semibold">Due Soon</th>
+              <th className="p-4 text-left font-semibold">Expired</th>
             </tr>
           </thead>
 
           <tbody>
             {Object.entries(monthlyData).map(([month, stats]) => (
-              <tr key={month} className="border-b hover:bg-slate-50">
-                <td className="p-3 font-medium">{month}</td>
-                <td className="p-3">{stats.total}</td>
-                <td className="p-3 text-yellow-700">{stats.dueSoon}</td>
-                <td className="p-3 text-red-700">{stats.expired}</td>
+              <tr
+                key={month}
+                className="border-b hover:bg-slate-50 transition even:bg-slate-50/30"
+              >
+                <td className="p-4 font-medium">{month}</td>
+                <td className="p-4">{stats.total}</td>
+                <td className="p-4 text-yellow-700">{stats.dueSoon}</td>
+                <td className="p-4 text-red-700">{stats.expired}</td>
               </tr>
             ))}
 

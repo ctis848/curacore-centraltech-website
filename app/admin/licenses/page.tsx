@@ -30,43 +30,70 @@ export default function AdminLicenseManagementPage() {
   }, []);
 
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold text-teal-700 mb-6">
-        License Management Dashboard
-      </h1>
+    <div className="p-8 space-y-8 max-w-7xl mx-auto">
 
-      {loading && <p>Loading companies…</p>}
+      {/* PAGE TITLE */}
+      <div>
+        <h1 className="text-4xl font-extrabold bg-gradient-to-r from-teal-600 to-blue-500 bg-clip-text text-transparent">
+          License Management Dashboard
+        </h1>
+        <p className="text-sm text-slate-600 mt-1">
+          Overview of companies, license counts, annual fees, and renewal cycles.
+        </p>
+      </div>
 
-      {!loading && companies.length === 0 && (
-        <p className="text-slate-500">No companies found.</p>
+      {/* LOADING */}
+      {loading && (
+        <p className="text-slate-600 text-sm">Loading companies…</p>
       )}
 
+      {/* EMPTY STATE */}
+      {!loading && companies.length === 0 && (
+        <p className="text-slate-500 text-sm">No companies found.</p>
+      )}
+
+      {/* TABLE */}
       {!loading && companies.length > 0 && (
-        <div className="overflow-x-auto border rounded-xl bg-white shadow">
+        <div className="overflow-x-auto border rounded-2xl bg-white shadow-xl">
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-100 text-gray-700">
+            <thead className="bg-gradient-to-r from-slate-100 to-slate-200 text-slate-700">
               <tr>
-                <th className="px-4 py-2 text-left">Company</th>
-                <th className="px-4 py-2 text-left">Licenses</th>
-                <th className="px-4 py-2 text-left">Annual Fee</th>
-                <th className="px-4 py-2 text-left">Renewal Date</th>
-                <th className="px-4 py-2 text-left">Action</th>
+                <th className="px-5 py-3 text-left font-semibold">Company</th>
+                <th className="px-5 py-3 text-left font-semibold">Licenses</th>
+                <th className="px-5 py-3 text-left font-semibold">Annual Fee</th>
+                <th className="px-5 py-3 text-left font-semibold">Renewal Date</th>
+                <th className="px-5 py-3 text-left font-semibold">Action</th>
               </tr>
             </thead>
 
             <tbody>
               {companies.map((c) => (
-                <tr key={c.id} className="border-t hover:bg-gray-50">
-                  <td className="px-4 py-2">{c.name}</td>
-                  <td className="px-4 py-2">{c.license_count}</td>
-                  <td className="px-4 py-2">₦{c.annual_price}</td>
-                  <td className="px-4 py-2">
-                    {c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : "—"}
+                <tr
+                  key={c.id}
+                  className="border-t hover:bg-slate-50 transition"
+                >
+                  <td className="px-5 py-3 font-medium text-slate-800">
+                    {c.name}
                   </td>
-                  <td className="px-4 py-2">
+
+                  <td className="px-5 py-3 text-slate-700">
+                    {c.license_count}
+                  </td>
+
+                  <td className="px-5 py-3 text-emerald-700 font-semibold">
+                    ₦{Number(c.annual_price).toLocaleString()}
+                  </td>
+
+                  <td className="px-5 py-3 text-slate-700">
+                    {c.renewal_date
+                      ? new Date(c.renewal_date).toLocaleDateString()
+                      : "—"}
+                  </td>
+
+                  <td className="px-5 py-3">
                     <Link
                       href={`/admin/licenses/${c.id}`}
-                      className="text-teal-600 underline"
+                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-teal-600 to-blue-600 text-white text-xs font-semibold shadow hover:brightness-110"
                     >
                       Manage
                     </Link>

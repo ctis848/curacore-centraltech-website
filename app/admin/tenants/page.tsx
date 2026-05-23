@@ -83,10 +83,14 @@ export default function TenantsPage() {
   const totalPages = Math.ceil(sorted.length / pageSize);
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold mb-6">Tenants</h1>
+    <div className="p-6 space-y-8 max-w-7xl mx-auto">
 
-      {/* Filters */}
+      {/* TITLE */}
+      <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+        Tenants
+      </h1>
+
+      {/* FILTERS */}
       <div className="flex flex-wrap gap-3 mb-6">
         <input
           type="text"
@@ -96,7 +100,7 @@ export default function TenantsPage() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border rounded flex-1 min-w-[200px]"
+          className="px-4 py-3 border rounded-lg shadow-sm flex-1 min-w-[200px] focus:ring-2 focus:ring-purple-400"
         />
 
         <select
@@ -105,7 +109,7 @@ export default function TenantsPage() {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border rounded"
+          className="px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
         >
           <option value="">All Statuses</option>
           <option value="active">Active</option>
@@ -113,37 +117,38 @@ export default function TenantsPage() {
         </select>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto bg-white shadow rounded border border-slate-200">
+      {/* TABLE */}
+      <div className="overflow-x-auto bg-white shadow-xl rounded-2xl border border-slate-200">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 sticky top-0 z-10">
+          <thead className="bg-gradient-to-r from-slate-100 to-slate-200 sticky top-0 z-10">
             <tr className="border-b text-slate-700">
+
               <th
-                className="p-3 text-left cursor-pointer"
+                className="p-4 text-left cursor-pointer font-semibold"
                 onClick={() => setSortKey("name")}
               >
                 Name {sortKey === "name" && (sortDirection === "asc" ? "↑" : "↓")}
               </th>
 
               <th
-                className="p-3 text-left cursor-pointer"
+                className="p-4 text-left cursor-pointer font-semibold"
                 onClick={() => setSortKey("email")}
               >
                 Email {sortKey === "email" && (sortDirection === "asc" ? "↑" : "↓")}
               </th>
 
-              <th className="p-3 text-left">Phone</th>
+              <th className="p-4 text-left font-semibold">Phone</th>
 
               <th
-                className="p-3 text-left cursor-pointer"
+                className="p-4 text-left cursor-pointer font-semibold"
                 onClick={() => setSortKey("createdAt")}
               >
                 Created {sortKey === "createdAt" && (sortDirection === "asc" ? "↑" : "↓")}
               </th>
 
-              <th className="p-3 text-left">Status</th>
+              <th className="p-4 text-left font-semibold">Status</th>
 
-              <th className="p-3 text-left">Details</th>
+              <th className="p-4 text-left font-semibold">Details</th>
             </tr>
           </thead>
 
@@ -166,15 +171,20 @@ export default function TenantsPage() {
 
             {!loading &&
               paginated.map((t) => (
-                <tr key={t.id} className="border-b hover:bg-slate-50">
-                  <td className="p-3 font-medium">{t.name}</td>
-                  <td className="p-3">{t.email || "—"}</td>
-                  <td className="p-3">{t.phone || "—"}</td>
-                  <td className="p-3">{new Date(t.createdAt).toLocaleDateString()}</td>
+                <tr
+                  key={t.id}
+                  className="border-b hover:bg-slate-50 transition even:bg-slate-50/30"
+                >
+                  <td className="p-4 font-medium">{t.name}</td>
+                  <td className="p-4">{t.email || "—"}</td>
+                  <td className="p-4">{t.phone || "—"}</td>
+                  <td className="p-4">
+                    {new Date(t.createdAt).toLocaleDateString()}
+                  </td>
 
-                  <td className="p-3">
+                  <td className="p-4">
                     <span
-                      className={`px-2 py-1 rounded text-xs font-semibold ${
+                      className={`px-2 py-1 rounded-lg text-xs font-semibold ${
                         t.status === "active"
                           ? "bg-green-100 text-green-700"
                           : "bg-red-100 text-red-700"
@@ -184,7 +194,7 @@ export default function TenantsPage() {
                     </span>
                   </td>
 
-                  <td className="p-3">
+                  <td className="p-4">
                     <a
                       href={`/admin/tenants/${t.id}`}
                       className="text-teal-600 hover:underline font-medium"
@@ -198,14 +208,16 @@ export default function TenantsPage() {
         </table>
       </div>
 
-      {/* Pagination */}
+      {/* PAGINATION */}
       {totalPages > 1 && (
         <div className="flex justify-between items-center mt-6">
           <button
             disabled={page === 1}
             onClick={() => setPage(page - 1)}
-            className={`px-4 py-2 border rounded ${
-              page === 1 ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-50"
+            className={`px-4 py-2 border rounded-lg ${
+              page === 1
+                ? "opacity-40 cursor-not-allowed"
+                : "hover:bg-slate-50"
             }`}
           >
             Previous
@@ -216,8 +228,10 @@ export default function TenantsPage() {
               <button
                 key={p}
                 onClick={() => setPage(p)}
-                className={`px-3 py-1 border rounded ${
-                  p === page ? "bg-slate-900 text-white" : "hover:bg-slate-50"
+                className={`px-3 py-1 border rounded-lg ${
+                  p === page
+                    ? "bg-slate-900 text-white"
+                    : "hover:bg-slate-50"
                 }`}
               >
                 {p}
@@ -228,8 +242,10 @@ export default function TenantsPage() {
           <button
             disabled={page === totalPages}
             onClick={() => setPage(page + 1)}
-            className={`px-4 py-2 border rounded ${
-              page === totalPages ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-50"
+            className={`px-4 py-2 border rounded-lg ${
+              page === totalPages
+                ? "opacity-40 cursor-not-allowed"
+                : "hover:bg-slate-50"
             }`}
           >
             Next

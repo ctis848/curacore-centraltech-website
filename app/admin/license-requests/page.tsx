@@ -134,7 +134,6 @@ export default function LicenseRequestListPage() {
     });
   }, [search, statusFilter, companyFilter, requests]);
 
-  // ⭐ FIXED WIDTH + AUTO HEIGHT
   const columns = [
     { field: "emailDisplay", headerName: "Email", flex: 1, minWidth: 150 },
     { field: "companyDisplay", headerName: "Company", flex: 1, minWidth: 150 },
@@ -205,34 +204,25 @@ export default function LicenseRequestListPage() {
       field: "action",
       headerName: "Action",
       flex: 0,
-      minWidth: 220, // ⭐ FIX: Always wide enough
+      minWidth: 220,
       sortable: false,
       filterable: false,
       renderCell: (params: any) => {
         const id = params.row.id;
 
         return (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "6px",
-              width: "100%",
-              minHeight: "100px", // ⭐ FIX: Always tall enough
-            }}
-          >
+          <div className="flex flex-col gap-2 w-full min-h-[100px]">
             <textarea
-              className="border p-1 rounded w-full text-xs"
+              className="border p-2 rounded w-full text-xs bg-slate-50 focus:ring-2 focus:ring-purple-400"
               rows={3}
               placeholder="Paste license key..."
               value={licenseInputs[id] ?? ""}
               onChange={(e) => updateLicenseInput(id, e.target.value)}
-              style={{ resize: "vertical" }}
             />
 
             <button
               onClick={() => handleSaveLicense(params.row)}
-              className="bg-blue-600 text-white text-xs px-3 py-1 rounded"
+              className="bg-blue-600 text-white text-xs px-3 py-1 rounded shadow hover:brightness-110"
             >
               Save
             </button>
@@ -263,24 +253,34 @@ export default function LicenseRequestListPage() {
   }, [filteredRows]);
 
   if (loading) {
-    return <div className="p-6">Loading requests...</div>;
+    return (
+      <div className="p-6 text-slate-600 text-sm">
+        Loading requests…
+      </div>
+    );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">License Requests</h1>
+    <div className="p-6 space-y-8 max-w-7xl mx-auto">
 
-      <div className="flex gap-4 mb-4">
+      {/* TITLE */}
+      <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+        License Requests
+      </h1>
+
+      {/* FILTERS */}
+      <div className="flex flex-wrap gap-4 mb-4 items-center">
+
         <input
           type="text"
           placeholder="Search..."
-          className="border p-2 rounded w-64"
+          className="border p-3 rounded-lg w-64 shadow-sm focus:ring-2 focus:ring-purple-400"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
 
         <select
-          className="border p-2 rounded"
+          className="border p-3 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
@@ -291,7 +291,7 @@ export default function LicenseRequestListPage() {
         </select>
 
         <select
-          className="border p-2 rounded"
+          className="border p-3 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
           value={companyFilter}
           onChange={(e) => setCompanyFilter(e.target.value)}
         >
@@ -312,13 +312,14 @@ export default function LicenseRequestListPage() {
         </Button>
       </div>
 
+      {/* GROUPED TABLES */}
       {Object.entries(grouped).map(([company, rows]) => {
         const isOpen = openGroups[company] ?? true;
 
         return (
-          <div key={company} className="border rounded mb-4">
+          <div key={company} className="border rounded-2xl shadow bg-white mb-6">
             <div
-              className="cursor-pointer bg-blue-100 px-4 py-2 font-semibold flex justify-between sticky top-0 z-10"
+              className="cursor-pointer bg-gradient-to-r from-blue-100 to-blue-200 px-4 py-3 font-semibold flex justify-between items-center sticky top-0 z-10 rounded-t-2xl"
               onClick={() =>
                 setOpenGroups((prev) => ({
                   ...prev,
@@ -329,7 +330,9 @@ export default function LicenseRequestListPage() {
               <span className="text-blue-900">
                 {company} — {rows.length} requests
               </span>
-              <span>{isOpen ? "▼" : "▶"}</span>
+              <span className="text-blue-900 font-bold">
+                {isOpen ? "▼" : "▶"}
+              </span>
             </div>
 
             {isOpen && (
@@ -340,7 +343,7 @@ export default function LicenseRequestListPage() {
                   getRowId={(row) => row.id}
                   pageSizeOptions={[5, 10, 20]}
                   disableRowSelectionOnClick
-                  getRowHeight={() => "auto"} // ⭐ FIX: Auto height
+                  getRowHeight={() => "auto"}
                 />
               </div>
             )}
