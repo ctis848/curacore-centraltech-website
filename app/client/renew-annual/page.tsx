@@ -128,7 +128,7 @@ export default function RenewAnnualPage() {
     );
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-8">
+    <div className="p-6 max-w-3xl mx-auto space-y-10">
 
       {/* Title */}
       <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
@@ -173,7 +173,7 @@ export default function RenewAnnualPage() {
         </div>
       </div>
 
-      {/* Pay Button */}
+      {/* Pay Now Button */}
       <button
         onClick={processPayment}
         disabled={processing}
@@ -183,8 +183,83 @@ export default function RenewAnnualPage() {
             : "bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:shadow-xl hover:brightness-110"
         }`}
       >
-        {processing ? "Processing Payment…" : "Pay Now"}
+        {processing ? "Processing Payment…" : `Pay ₦${company.annual_price.toLocaleString()} Securely`}
       </button>
+
+      {/* BANK TRANSFER OPTION */}
+      <div className="bg-white/80 backdrop-blur-xl border border-slate-200 rounded-2xl p-6 shadow-lg space-y-6">
+        <h2 className="text-lg font-semibold text-slate-900">
+          Pay by Bank Transfer (Titan Bank)
+        </h2>
+
+        <p className="text-sm text-slate-700">
+          You can also pay directly into our dedicated virtual account. Your
+          payment will be automatically detected and your renewal will be
+          activated.
+        </p>
+
+        {/* BANK DETAILS */}
+        <div className="bg-slate-100 rounded-xl p-4 space-y-2">
+          <p className="text-sm"><strong>Bank:</strong> Titan Bank</p>
+          <p className="text-sm"><strong>Account Number:</strong> 0000729810</p>
+          <p className="text-sm"><strong>Account Name:</strong> Central Tech Information System Ltd</p>
+          <p className="text-xs text-slate-500">(This is your dedicated Paystack DVA)</p>
+        </div>
+
+        {/* BUTTONS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          {/* OPTION A — COPY ACCOUNT NUMBER */}
+          <button
+            onClick={() => navigator.clipboard.writeText("0000729810")}
+            className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+          >
+            Copy Account Number
+          </button>
+
+          {/* OPTION B — I HAVE PAID */}
+          <button
+            onClick={() => alert("Thank you! Paystack will automatically verify your transfer within a few minutes.")}
+            className="w-full py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition"
+          >
+            I Have Paid — Confirm Transfer
+          </button>
+
+          {/* OPTION C — UPLOAD PROOF */}
+          <label className="w-full py-3 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition text-center cursor-pointer">
+            Upload Proof of Payment
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={() => alert("Proof uploaded! Admin will verify manually.")}
+            />
+          </label>
+
+          {/* OPTION D — OPEN BANK APP */}
+          <button
+            onClick={() => {
+              window.location.href = "intent://bankapp#Intent;scheme=bank;end";
+            }}
+            className="w-full py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition"
+          >
+            Open Bank App
+          </button>
+        </div>
+
+        {/* OPTION E — BIG GREEN BUTTON */}
+        <button
+          onClick={() => alert("Please transfer to Titan Bank 0000729810. Your renewal will activate automatically.")}
+          className="w-full py-4 text-lg font-bold rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl hover:brightness-110 transition"
+        >
+          Pay by Bank Transfer (Titan Bank)
+        </button>
+
+        <p className="text-xs text-slate-500 text-center">
+          After payment, your renewal will be confirmed automatically via Paystack.
+        </p>
+      </div>
+
     </div>
   );
 }

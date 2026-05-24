@@ -11,7 +11,11 @@ export default function ClientLayout({
   return (
     <div className="min-h-screen flex bg-slate-100">
       <ClientSidebar />
-      <main className="flex-1 p-6">{children}</main>
+
+      {/* FIXED MAIN WRAPPER */}
+      <main className="flex-1 p-6 overflow-y-auto pb-20">
+        {children}
+      </main>
     </div>
   );
 }

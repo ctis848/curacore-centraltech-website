@@ -126,26 +126,10 @@ export default function BuyLicensePage() {
     }
   }
 
-  // BANK TRANSFER PAYMENT
-  function handleTransferPayment() {
-    if (!email.trim() || !companyName.trim()) {
-      alert("Please fill in company name and email");
-      return;
-    }
-
-    const url = `/buy/transfer?plan=${plan}&amount=${Math.round(
-      totalAmount
-    )}&licenses=${quantity}&email=${encodeURIComponent(
-      email
-    )}&company=${encodeURIComponent(companyName)}`;
-
-    window.location.href = url;
-  }
-
-  // UI
   return (
     <div className="min-h-screen bg-gray-50 pt-28 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+        
         {/* Header */}
         <div className="bg-gradient-to-r from-teal-700 to-teal-500 p-8 md:p-12 text-white text-center">
           <h1 className="text-4xl md:text-5xl font-extrabold">
@@ -157,6 +141,7 @@ export default function BuyLicensePage() {
         </div>
 
         <div className="p-8 md:p-12 lg:p-16 space-y-12">
+
           {/* Plan Selection */}
           <div className="space-y-4">
             <label className="block text-xl font-semibold text-gray-800">
@@ -418,23 +403,80 @@ export default function BuyLicensePage() {
               : `Pay ${formatNaira(totalAmount)} Securely`}
           </button>
 
-          {/* Pay by Bank Transfer */}
-          <button
-            onClick={handleTransferPayment}
-            disabled={!email.trim() || !companyName.trim()}
-            className={`w-full py-5 text-xl font-bold rounded-xl border-2 mt-4 transition-all transform hover:scale-[1.02] ${
-              !email.trim() || !companyName.trim()
-                ? "border-gray-300 text-gray-400 cursor-not-allowed"
-                : "border-teal-600 text-teal-700 hover:bg-teal-50 shadow-lg hover:shadow-xl"
-            }`}
-          >
-            Pay by Bank Transfer (Titan Bank)
-          </button>
+          {/* BANK TRANSFER MODULE — EXACT SAME AS RENEW PAGE */}
+          <div className="bg-white/80 backdrop-blur-xl border border-slate-200 rounded-2xl p-6 shadow-lg space-y-6 mt-10">
+            <h2 className="text-lg font-semibold text-slate-900">
+              Pay by Bank Transfer (Titan Bank)
+            </h2>
 
-          <p className="text-center text-sm text-gray-600 pt-6">
-            Secure payment powered by Paystack • Transfer payments are verified
-            and licenses are activated after confirmation.
-          </p>
+            <p className="text-sm text-slate-700">
+              You can also pay directly into our dedicated virtual account. Your
+              payment will be automatically detected and your license will be
+              activated.
+            </p>
+
+            {/* BANK DETAILS */}
+            <div className="bg-slate-100 rounded-xl p-4 space-y-2">
+              <p className="text-sm"><strong>Bank:</strong> Titan Bank</p>
+              <p className="text-sm"><strong>Account Number:</strong> 0000729810</p>
+              <p className="text-sm"><strong>Account Name:</strong> Central Tech Information System Ltd</p>
+              <p className="text-xs text-slate-500">(This is your dedicated Paystack DVA)</p>
+            </div>
+
+            {/* BUTTONS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+              {/* OPTION A — COPY ACCOUNT NUMBER */}
+              <button
+                onClick={() => navigator.clipboard.writeText("0000729810")}
+                className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+              >
+                Copy Account Number
+              </button>
+
+              {/* OPTION B — I HAVE PAID */}
+              <button
+                onClick={() => alert("Thank you! Paystack will automatically verify your transfer within a few minutes.")}
+                className="w-full py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition"
+              >
+                I Have Paid — Confirm Transfer
+              </button>
+
+              {/* OPTION C — UPLOAD PROOF */}
+              <label className="w-full py-3 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition text-center cursor-pointer">
+                Upload Proof of Payment
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={() => alert("Proof uploaded! Admin will verify manually.")}
+                />
+              </label>
+
+              {/* OPTION D — OPEN BANK APP */}
+              <button
+                onClick={() => {
+                  window.location.href = "intent://bankapp#Intent;scheme=bank;end";
+                }}
+                className="w-full py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition"
+              >
+                Open Bank App
+              </button>
+            </div>
+
+            {/* OPTION E — BIG GREEN BUTTON */}
+            <button
+              onClick={() => alert("Please transfer to Titan Bank 0000729810. Your license will activate automatically once Paystack detects the payment.")}
+              className="w-full py-4 text-lg font-bold rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl hover:brightness-110 transition"
+            >
+              Pay by Bank Transfer (Titan Bank)
+            </button>
+
+            <p className="text-xs text-slate-500 text-center">
+              After payment, your license will be confirmed automatically via Paystack.
+            </p>
+          </div>
+
         </div>
       </div>
     </div>

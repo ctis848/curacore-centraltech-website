@@ -152,18 +152,39 @@ export async function POST(req: NextRequest) {
     }
 
     // ----------------------------------------------------
-    // SEND RECEIPT EMAIL
+    // SEND RECEIPT EMAIL TO CUSTOMER
     // ----------------------------------------------------
     await sendReceiptEmail({
       to: email,
       amount,
       currency: tx.currency,
       reference,
-      licenseId: metadata.licenseId ?? null, // REQUIRED BY ReceiptPayload
+      licenseId: metadata.licenseId ?? null,
+      companyName: metadata.companyName ?? "",
+      plan: metadata.plan ?? "",
+      quantity: metadata.quantity ?? "",
+      type: metadata.type ?? "",
+      isAdmin: false,
     });
 
     // ----------------------------------------------------
-    // ADMIN NOTIFICATION
+    // SEND RECEIPT EMAIL TO ADMIN
+    // ----------------------------------------------------
+    await sendReceiptEmail({
+      to: "info@ctistech.com",
+      amount,
+      currency: tx.currency,
+      reference,
+      licenseId: metadata.licenseId ?? null,
+      companyName: metadata.companyName ?? "",
+      plan: metadata.plan ?? "",
+      quantity: metadata.quantity ?? "",
+      type: metadata.type ?? "",
+      isAdmin: true,
+    });
+
+    // ----------------------------------------------------
+    // ADMIN NOTIFICATION (BREVO)
     // ----------------------------------------------------
     if (BREVO_API_KEY) {
       await fetch("https://api.brevo.com/v3/smtp/email", {
