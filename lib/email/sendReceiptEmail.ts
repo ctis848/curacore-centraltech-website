@@ -3,8 +3,8 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
-// Convert PDFKit document to Buffer
-async function pdfToBuffer(doc: PDFDocument): Promise<Buffer> {
+// Convert PDFKit document to Buffer (TypeScript-safe)
+async function pdfToBuffer(doc: InstanceType<typeof PDFDocument>): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     doc.on("data", (chunk) => chunks.push(chunk));
@@ -12,6 +12,19 @@ async function pdfToBuffer(doc: PDFDocument): Promise<Buffer> {
     doc.on("error", reject);
     doc.end();
   });
+}
+
+interface ReceiptPayload {
+  to: string;
+  amount: number;
+  currency: string;
+  reference: string;
+  licenseId: string | null;
+  companyName?: string;
+  plan?: string;
+  quantity?: number | string;
+  type?: string;
+  isAdmin?: boolean;
 }
 
 export async function sendReceiptEmail({
@@ -91,7 +104,7 @@ export async function sendReceiptEmail({
   `;
 
   // ----------------------------------------------------
-  // 3. Send Email with PDF Attachment
+  // 3. Send Email with PDF Attachment (FIXED)
   // ----------------------------------------------------
   await resend.emails.send({
     from: "CTIS Tech <no-reply@ctistech.com>",
@@ -102,8 +115,7 @@ export async function sendReceiptEmail({
       {
         filename: `CTIS-Receipt-${reference}.pdf`,
         content: pdfBuffer.toString("base64"),
-        type: "application/pdf",
-        disposition: "attachment",
+        contentType: "application/pdf",
       },
     ],
   });
