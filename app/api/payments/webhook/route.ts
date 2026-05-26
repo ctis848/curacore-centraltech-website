@@ -88,7 +88,6 @@ export async function POST(req: NextRequest) {
     if (metadata.type === "NEW_LICENSE_PURCHASE") {
       const quantity = Number(metadata.quantity) || 0;
 
-      // Increase license count
       if (userId) {
         const { data: client } = await supabase
           .from("Clients")
@@ -104,7 +103,6 @@ export async function POST(req: NextRequest) {
           .eq("userid", userId);
       }
 
-      // Insert license purchase history
       await supabase.from("LicensePurchases").insert({
         userid: userId,
         email,
@@ -149,6 +147,29 @@ export async function POST(req: NextRequest) {
         paidat: new Date().toISOString(),
         licensecount: metadata.licenseCount ?? 0,
       });
+    }
+
+    // ----------------------------------------------------
+    // ⭐ SERVICE PAYMENT FLOW (NEW)
+    // ----------------------------------------------------
+    if (metadata.type === "SERVICE_PAYMENT") {
+      const requestId = metadata.requestId;
+
+      // Mark latest service invoice as paid
+      await supabase
+        .from("ServiceInvoices")
+        .update({
+          paid: true,
+          reference,
+          paid_at: new Date().toISOString(),
+        })
+        .eq("requestId", requestId);
+
+      // Mark service request as completed (optional)
+      await supabase
+        .from("ServiceRequests")
+        .update({ status: "completed" })
+        .eq("id", requestId);
     }
 
     // ----------------------------------------------------

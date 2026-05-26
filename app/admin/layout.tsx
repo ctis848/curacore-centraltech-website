@@ -22,6 +22,8 @@ import {
   DocumentDuplicateIcon,
   DocumentTextIcon,
   BanknotesIcon,
+  WrenchScrewdriverIcon,
+  ClipboardDocumentCheckIcon,
 } from "@heroicons/react/24/outline";
 
 // -----------------------------
@@ -43,7 +45,7 @@ type NavEntry = NavSection | NavItem;
 const userRole = "superadmin";
 
 // -----------------------------
-// NAV ITEMS (UPDATED)
+// NAV ITEMS (UPDATED WITH NEW SECTION)
 // -----------------------------
 const navItems: NavEntry[] = [
   { section: "General" },
@@ -68,6 +70,11 @@ const navItems: NavEntry[] = [
   { label: "Clients", href: "/admin/clients", icon: UserGroupIcon },
   { label: "License Purchases", href: "/admin/license-purchases", icon: DocumentDuplicateIcon },
   { label: "Invoices", href: "/admin/invoices", icon: DocumentTextIcon },
+
+  // ⭐ NEW SECTION ADDED HERE
+  { section: "On‑Site Support" },
+  { label: "Service Requests", href: "/admin/service-requests", icon: ClipboardDocumentCheckIcon },
+  { label: "Service Analytics", href: "/admin/service-analytics", icon: ChartBarIcon },
 
   { section: "Management" },
   { label: "Tenants", href: "/admin/tenants", icon: BuildingOfficeIcon },

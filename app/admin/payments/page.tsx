@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
 
 import Analytics from "@/components/payments/analytics";
 import FiltersSidebar from "@/components/payments/filters";
@@ -40,8 +39,6 @@ export type TimelineEvent = {
 };
 
 export default function AdminPaymentsPage() {
-  const supabase = supabaseBrowser();
-
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -80,18 +77,25 @@ export default function AdminPaymentsPage() {
   async function loadPayments() {
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("payments")
-      .select("*")
-      .order("created_at", { ascending: false });
+    try {
+      const res = await fetch("/api/admin/payments/list", {
+        method: "GET",
+        credentials: "include",
+      });
 
-    if (error) {
-      console.error("Payment fetch error:", error);
-      setLoading(false);
-      return;
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error("Payment fetch error:", json.error);
+        setLoading(false);
+        return;
+      }
+
+      setPayments(json.data || []);
+    } catch (err) {
+      console.error("Network error:", err);
     }
 
-    setPayments((data as PaymentRow[]) || []);
     setLoading(false);
     setPage(1);
   }
@@ -241,48 +245,57 @@ export default function AdminPaymentsPage() {
   function totalAmount() {
     return processed.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   }
-
   async function openUserDrawer(userid: string | null) {
     if (!userid) return;
-    const { data } = await supabase
-      .from("auth.users")
-      .select("id, email, created_at")
-      .eq("id", userid)
-      .maybeSingle();
 
-    if (data) {
-      setUserDetails({
-        id: data.id,
-        email: data.email,
-        created_at: data.created_at,
-      });
-      setUserDrawerOpen(true);
+    try {
+      const res = await fetch(`/api/admin/payments/user?userid=${userid}`);
+      const json = await res.json();
+
+      if (res.ok && json.data) {
+        setUserDetails(json.data);
+        setUserDrawerOpen(true);
+      }
+    } catch (err) {
+      console.error("User fetch error:", err);
     }
   }
 
   async function openTimeline(paymentId: string) {
-    const { data } = await supabase
-      .from("payment_timeline")
-      .select("*")
-      .eq("payment_id", paymentId)
-      .order("created_at", { ascending: false });
+    try {
+      const res = await fetch(`/api/admin/payments/timeline?payment_id=${paymentId}`);
+      const json = await res.json();
 
-    setTimelineEvents((data as TimelineEvent[]) || []);
-    setTimelineOpen(true);
+      if (res.ok) {
+        setTimelineEvents(json.data || []);
+        setTimelineOpen(true);
+      }
+    } catch (err) {
+      console.error("Timeline fetch error:", err);
+    }
   }
 
   async function saveAdminNotes(paymentId: string, notes: string) {
-    const { error } = await supabase
-      .from("payments")
-      .update({ admin_notes: notes })
-      .eq("id", paymentId);
+    try {
+      const res = await fetch("/api/admin/payments/update-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentId, notes }),
+      });
 
-    if (!error) {
-      setPayments((prev) =>
-        prev.map((p) =>
-          p.id === paymentId ? { ...p, admin_notes: notes } : p
-        )
-      );
+      const json = await res.json();
+
+      if (res.ok) {
+        setPayments((prev) =>
+          prev.map((p) =>
+            p.id === paymentId ? { ...p, admin_notes: notes } : p
+          )
+        );
+      } else {
+        console.error("Failed to update notes:", json.error);
+      }
+    } catch (err) {
+      console.error("Network error:", err);
     }
   }
 
@@ -390,11 +403,13 @@ export default function AdminPaymentsPage() {
                       {p.gateway || "—"}
                     </span>
                   </td>
+
                   <td className="px-4 py-3">
                     <span className="px-2 py-1 rounded text-xs bg-slate-100 text-slate-700">
                       {p.channel || "—"}
                     </span>
                   </td>
+
                   <td className="px-4 py-3">
                     {p.invoice_id ? (
                       <span className="font-mono text-xs">{p.invoice_id}</span>
@@ -402,6 +417,7 @@ export default function AdminPaymentsPage() {
                       <span className="text-slate-400 italic">No invoice</span>
                     )}
                   </td>
+
                   <td className="px-4 py-3 space-x-3">
                     <button
                       onClick={() => {
@@ -412,6 +428,7 @@ export default function AdminPaymentsPage() {
                     >
                       View
                     </button>
+
                     {p.userid && (
                       <button
                         onClick={() => openUserDrawer(p.userid)}
@@ -420,6 +437,7 @@ export default function AdminPaymentsPage() {
                         User
                       </button>
                     )}
+
                     <button
                       onClick={() => openTimeline(p.id)}
                       className="text-purple-600 hover:underline"
@@ -434,6 +452,7 @@ export default function AdminPaymentsPage() {
         </div>
       )}
 
+      {/* Pagination */}
       <div className="flex justify-between items-center mt-4">
         <button
           disabled={currentPage === 1}
@@ -456,6 +475,7 @@ export default function AdminPaymentsPage() {
         </button>
       </div>
 
+      {/* Modals & Drawers */}
       <ViewPaymentModal
         open={viewOpen}
         payment={selectedPayment}

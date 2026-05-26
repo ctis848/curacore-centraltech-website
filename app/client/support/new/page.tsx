@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { FiSend } from "react-icons/fi";
 
 export default function NewSupportTicketPage() {
   const router = useRouter();
@@ -58,7 +59,6 @@ export default function NewSupportTicketPage() {
 
       setSuccess(true);
 
-      // Redirect after short delay
       setTimeout(() => {
         router.push("/client/support");
       }, 1200);
@@ -71,69 +71,95 @@ export default function NewSupportTicketPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-xl">
-      <h1 className="text-2xl font-semibold text-slate-900">
-        New Support Ticket
-      </h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 py-20 px-6 flex justify-center">
+      <div className="max-w-xl w-full bg-white rounded-2xl shadow-2xl overflow-hidden animate-fadeIn">
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 p-2 rounded">
-          {error}
-        </p>
-      )}
-
-      {success && (
-        <p className="text-sm text-green-700 bg-green-50 border border-green-200 p-2 rounded">
-          Ticket submitted successfully.
-        </p>
-      )}
-
-      <div className="space-y-4 bg-white p-4 rounded shadow">
-        <div>
-          <label className="block text-sm font-medium mb-1">Subject</label>
-          <input
-            className="w-full rounded border p-2"
-            placeholder="Short title for your issue"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            disabled={saving}
-          />
+        {/* HEADER */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-10 text-white text-center shadow-lg">
+          <h1 className="text-3xl font-extrabold tracking-wide">
+            New Support Ticket
+          </h1>
+          <p className="mt-2 text-sm opacity-90">
+            Tell us what you need help with
+          </p>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Priority</label>
-          <select
-            className="w-full rounded border p-2"
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
+        {/* BODY */}
+        <div className="p-8 space-y-6">
+
+          {/* ERROR */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm animate-shake">
+              {error}
+            </div>
+          )}
+
+          {/* SUCCESS */}
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-lg text-sm animate-fadeIn">
+              Ticket submitted successfully.
+            </div>
+          )}
+
+          {/* SUBJECT */}
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700">
+              Subject *
+            </label>
+            <input
+              className="w-full p-4 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 shadow-sm"
+              placeholder="Short title for your issue"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              disabled={saving}
+            />
+          </div>
+
+          {/* PRIORITY */}
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700">
+              Priority *
+            </label>
+            <select
+              className="w-full p-4 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 shadow-sm"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              disabled={saving}
+            >
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+              <option value="CRITICAL">Critical</option>
+            </select>
+          </div>
+
+          {/* MESSAGE */}
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700">
+              Message *
+            </label>
+            <textarea
+              className="w-full p-4 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 shadow-sm h-40"
+              placeholder="Describe your issue in detail"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              disabled={saving}
+            />
+          </div>
+
+          {/* SUBMIT BUTTON */}
+          <button
+            onClick={submit}
             disabled={saving}
+            className={`w-full py-4 text-lg font-bold rounded-xl text-white flex items-center justify-center gap-2 transition-all shadow-lg ${
+              saving
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:scale-[1.02] hover:brightness-110"
+            }`}
           >
-            <option value="LOW">Low</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="HIGH">High</option>
-            <option value="CRITICAL">Critical</option>
-          </select>
+            {saving ? "Submitting…" : <>Submit Ticket <FiSend size={20} /></>}
+          </button>
         </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1">Message</label>
-          <textarea
-            className="w-full rounded border p-2"
-            rows={6}
-            placeholder="Describe your issue in detail"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            disabled={saving}
-          />
-        </div>
-
-        <button
-          onClick={submit}
-          disabled={saving}
-          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {saving ? "Submitting…" : "Submit Ticket"}
-        </button>
       </div>
     </div>
   );

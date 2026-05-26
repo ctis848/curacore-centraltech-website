@@ -84,6 +84,29 @@ export default function ClientSidebar() {
         { href: "/client/renewal-history", label: "Renewal History", icon: History },
       ],
     },
+
+    // ⭐ NEW SECTION ADDED HERE
+    {
+      title: "On Site Support",
+      items: [
+        {
+          href: "/client/service-requests",
+          label: "Service Requests",
+          icon: FileText,
+        },
+        {
+          href: "/client/service-invoices",
+          label: "Service Invoices",
+          icon: CreditCard,
+        },
+        {
+          href: "/client/on-site-support",
+          label: "Request On‑Site Support",
+          icon: Headphones,
+        },
+      ],
+    },
+
     {
       title: "Support",
       items: [{ href: "/client/support", label: "Contact Support", icon: Headphones }],
