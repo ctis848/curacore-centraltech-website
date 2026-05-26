@@ -1,547 +1,407 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-interface LicenseRow {
+type Client = {
+  companyname: string;
+  email: string;
+  phone?: string | null;
+  address?: string | null;
+};
+
+type LicenseRow = {
   id: string;
   productName: string | null;
-  licenseKey: string;
-  annualFeePaidUntil: string | null;
+  licenseKey: string | null;
   annualFeePercent: number | null;
-  userId: string | null;
-  tenantId: string | null;
-  status: string;
-  createdAt: string;
-}
+  renewalduedate: string | null;
+  renewalstatus: string | null;
+  clientId: string | null;
+  Client: Client | null;
+  baseFee: number;
+  additionalFee: number;
+  finalFee: number;
+};
 
 export default function AnnualFeesPage() {
-  const supabase = supabaseBrowser();
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
-  const [dueSoon, setDueSoon] = useState<LicenseRow[]>([]);
-  const [overdue, setOverdue] = useState<LicenseRow[]>([]);
+  const [rows, setRows] = useState<LicenseRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // Filters
   const [search, setSearch] = useState("");
-  const [productFilter, setProductFilter] = useState("");
-  const [tenantFilter, setTenantFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PAID" | "UNPAID">(
+    "ALL"
+  );
+  const [clientFilter, setClientFilter] = useState<string>("ALL");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
 
-  // Dropdown lists
-  const [products, setProducts] = useState<string[]>([]);
-  const [tenants, setTenants] = useState<string[]>([]);
-  const [statuses, setStatuses] = useState<string[]>([]);
+  useEffect(() => {
+    loadAnnualFees();
+  }, []);
 
-  // Pagination
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
+  async function loadAnnualFees() {
+    setLoading(true);
 
-  // Sorting
-  const [sortKey, setSortKey] = useState<
-    "productName" | "licenseKey" | "annualFeePaidUntil" | "status"
-  >("productName");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+    const { data, error } = await supabase
+      .from("License")
+      .select(
+        `
+        id,
+        productName,
+        licenseKey,
+        annualFeePercent,
+        renewalduedate,
+        renewalstatus,
+        clientId,
+        Client:clientId (
+          companyname,
+          email,
+          phone,
+          address
+        )
+      `
+      )
+      .order("renewalduedate", { ascending: true });
 
-  // Bulk selection
-  const [selected, setSelected] = useState<string[]>([]);
-
-  const toggleSelect = (id: string) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
-
-  const toggleSelectAll = (rows: LicenseRow[]) => {
-    const ids = rows.map((r) => r.id);
-    const allSelected = ids.every((id) => selected.includes(id));
-
-    if (allSelected) {
-      setSelected((prev) => prev.filter((id) => !ids.includes(id)));
-    } else {
-      setSelected((prev) => [...new Set([...prev, ...ids])]);
+    if (error) {
+      console.error("Failed to load licenses:", error);
+      setLoading(false);
+      return;
     }
-  };
 
-  // CSV EXPORT
-  function exportCSV(rows: LicenseRow[]) {
-    if (!rows.length) return;
+    const baseFee = 150000;
 
-    const headers = [
+    const processed: LicenseRow[] = (data || []).map((license: any) => {
+      const percent = license.annualFeePercent || 0;
+      const additionalFee = (percent / 100) * baseFee;
+      const finalFee = baseFee + additionalFee;
+
+      return {
+        ...license,
+        baseFee,
+        additionalFee,
+        finalFee,
+      };
+    });
+
+    setRows(processed);
+    setLoading(false);
+  }
+
+  function getUrgencyColor(date: string | null) {
+    if (!date) return "bg-gray-500";
+
+    const today = new Date();
+    const due = new Date(date);
+    const diffDays = Math.ceil(
+      (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (diffDays < 0) return "bg-red-600";
+    if (diffDays <= 7) return "bg-orange-500";
+    return "bg-green-600";
+  }
+
+  function isPaid(status: string | null) {
+    if (!status) return false;
+    return status.toUpperCase() === "PAID";
+  }
+
+  async function togglePaid(row: LicenseRow) {
+    const newStatus = isPaid(row.renewalstatus) ? "UNPAID" : "PAID";
+
+    const { error } = await supabase
+      .from("License")
+      .update({ renewalstatus: newStatus })
+      .eq("id", row.id);
+
+    if (error) {
+      console.error("Failed to update payment status:", error);
+      return;
+    }
+
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === row.id ? { ...r, renewalstatus: newStatus } : r
+      )
+    );
+  }
+
+  async function sendReminder(row: LicenseRow) {
+    alert(
+      `Reminder would be sent to ${row.Client?.email || "unknown email"} for ${
+        row.Client?.companyname || "Unknown Client"
+      }.`
+    );
+  }
+
+  function exportToCSV() {
+    const header = [
+      "Client",
+      "Email",
       "Product",
       "License Key",
-      "Paid Until",
+      "Base Fee",
+      "Additional Fee",
+      "Total Fee",
+      "Due Date",
       "Status",
-      "Days Remaining",
     ];
 
-    const csvRows = rows.map((lic) => [
-      lic.productName || "Unnamed Product",
-      lic.licenseKey,
-      lic.annualFeePaidUntil || "Never paid",
-      lic.status,
-      daysRemaining(lic.annualFeePaidUntil),
+    const lines = filteredRows.map((row) => [
+      row.Client?.companyname || "",
+      row.Client?.email || "",
+      row.productName || "",
+      row.licenseKey || "",
+      row.baseFee,
+      row.additionalFee,
+      row.finalFee,
+      row.renewalduedate
+        ? new Date(row.renewalduedate).toISOString().split("T")[0]
+        : "",
+      row.renewalstatus || "",
     ]);
 
-    const csvContent =
-      [headers, ...csvRows]
-        .map((row) =>
-          row
-            .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+    const csv =
+      [header, ...lines]
+        .map((line) =>
+          line
+            .map((value) =>
+              typeof value === "string"
+                ? `"${value.replace(/"/g, '""')}"`
+                : value
+            )
             .join(",")
         )
-        .join("\n");
+        .join("\n") + "\n";
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `annual-fees-${new Date().toISOString()}.csv`;
-    link.click();
-
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "annual_fees.csv";
+    a.click();
     URL.revokeObjectURL(url);
   }
 
-  // BULK ACTIONS
-  async function bulkNotify() {
-    if (!selected.length) return alert("No items selected.");
-
-    const res = await fetch("/api/admin/annual-fees/bulk-notify", {
-      method: "POST",
-      body: JSON.stringify({ ids: selected }),
+  const clients = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      if (r.Client?.companyname) set.add(r.Client.companyname);
     });
+    return Array.from(set).sort();
+  }, [rows]);
 
-    const json = await res.json();
-    alert(json.message);
-  }
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      const clientName = row.Client?.companyname || "";
+      const email = row.Client?.email || "";
+      const product = row.productName || "";
+      const key = row.licenseKey || "";
 
-  async function bulkMarkPaid() {
-    if (!selected.length) return alert("No items selected.");
+      const text = `${clientName} ${email} ${product} ${key}`.toLowerCase();
+      const s = search.toLowerCase();
+      if (s && !text.includes(s)) return false;
 
-    const res = await fetch("/api/admin/annual-fees/bulk-mark-paid", {
-      method: "POST",
-      body: JSON.stringify({ ids: selected }),
-    });
+      if (clientFilter !== "ALL" && clientName !== clientFilter) return false;
 
-    const json = await res.json();
-    alert(json.message);
-    loadFees();
-  }
+      if (statusFilter === "PAID" && !isPaid(row.renewalstatus)) return false;
+      if (statusFilter === "UNPAID" && isPaid(row.renewalstatus)) return false;
 
-  async function bulkGenerateInvoices() {
-    if (!selected.length) return alert("No items selected.");
-
-    const res = await fetch("/api/admin/annual-fees/bulk-generate-invoices", {
-      method: "POST",
-      body: JSON.stringify({ ids: selected }),
-    });
-
-    const json = await res.json();
-    alert(json.message);
-  }
-
-  // LOAD FEES
-  const loadFees = useCallback(async () => {
-    setLoading(true);
-    setErrorMsg(null);
-
-    try {
-      const { data, error } = await supabase
-        .from("License")
-        .select("*")
-        .order("createdAt", { ascending: false });
-
-      if (error) {
-        setErrorMsg("Failed to load annual fees.");
-        return;
+      if (fromDate) {
+        if (!row.renewalduedate) return false;
+        if (new Date(row.renewalduedate) < new Date(fromDate)) return false;
       }
 
-      const rows = (data as LicenseRow[]) || [];
-      const now = new Date();
+      if (toDate) {
+        if (!row.renewalduedate) return false;
+        if (new Date(row.renewalduedate) > new Date(toDate)) return false;
+      }
 
-      // Dropdown lists
-      setProducts([...new Set(rows.map((l) => l.productName).filter(Boolean))] as string[]);
-      setTenants([...new Set(rows.map((l) => l.tenantId).filter(Boolean))] as string[]);
-      setStatuses([...new Set(rows.map((l) => l.status).filter(Boolean))] as string[]);
+      return true;
+    });
+  }, [rows, search, statusFilter, clientFilter, fromDate, toDate]);
 
-      // Due soon
-      const dueSoonList = rows.filter((lic) => {
-        if (!lic.annualFeePaidUntil) return true;
-        const paidUntil = new Date(lic.annualFeePaidUntil);
-        const diff = paidUntil.getTime() - now.getTime();
-        return diff > 0 && diff < 30 * 24 * 60 * 60 * 1000;
-      });
-
-      // Overdue
-      const overdueList = rows.filter((lic) => {
-        if (!lic.annualFeePaidUntil) return true;
-        const paidUntil = new Date(lic.annualFeePaidUntil);
-        return paidUntil.getTime() < now.getTime();
-      });
-
-      setDueSoon(dueSoonList);
-      setOverdue(overdueList);
-    } catch {
-      setErrorMsg("Unexpected error loading annual fees.");
-    } finally {
-      setLoading(false);
-    }
-  }, [supabase]);
-
-  useEffect(() => {
-    loadFees();
-  }, [loadFees]);
-
-  function daysRemaining(date: string | null) {
-    if (!date) return "No payment history";
-
-    const now = new Date();
-    const paid = new Date(date);
-    const diff = paid.getTime() - now.getTime();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-
-    if (days > 0) return `${days} days remaining`;
-    if (days === 0) return "Expires today";
-    return `${Math.abs(days)} days overdue`;
+  if (loading) {
+    return <div className="p-6">Loading annual fees…</div>;
   }
 
-  const filterList = useCallback(
-    (list: LicenseRow[]) => {
-      const s = search.toLowerCase().trim();
-
-      return list.filter((l) => {
-        const matchesProduct = productFilter ? l.productName === productFilter : true;
-        const matchesTenant = tenantFilter ? l.tenantId === tenantFilter : true;
-        const matchesStatus = statusFilter ? l.status === statusFilter : true;
-
-        const matchesSearch =
-          !s ||
-          l.productName?.toLowerCase().includes(s) ||
-          l.licenseKey.toLowerCase().includes(s) ||
-          l.status.toLowerCase().includes(s);
-
-        return matchesProduct && matchesTenant && matchesStatus && matchesSearch;
-      });
-    },
-    [search, productFilter, tenantFilter, statusFilter]
-  );
-
-  const sortedList = useCallback(
-    (list: LicenseRow[]) => {
-      return [...list].sort((a, b) => {
-        const A = (a[sortKey] || "").toString().toLowerCase();
-        const B = (b[sortKey] || "").toString().toLowerCase();
-
-        if (A < B) return sortDirection === "asc" ? -1 : 1;
-        if (A > B) return sortDirection === "asc" ? 1 : -1;
-        return 0;
-      });
-    },
-    [sortKey, sortDirection]
-  );
-
-  const combinedList = useMemo(() => {
-    const merged = [...dueSoon, ...overdue];
-    return sortedList(filterList(merged));
-  }, [dueSoon, overdue, filterList, sortedList]);
-
-  const paginated = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return combinedList.slice(start, start + pageSize);
-  }, [combinedList, page]);
-
-  const totalPages = Math.ceil(combinedList.length / pageSize);
-
   return (
-    <div className="p-6 space-y-8 max-w-7xl mx-auto">
+    <div className="p-6 space-y-4">
+      <h1 className="text-2xl font-bold">Annual License Fees</h1>
 
-      {/* TITLE */}
-      <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
-        Annual Fees
-      </h1>
-
-      {/* HEADER ACTIONS */}
-      <div className="flex justify-between items-center">
-        <div></div>
-
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => exportCSV(combinedList)}
-            className="px-5 py-3 bg-teal-600 text-white rounded-lg shadow hover:brightness-110"
-          >
-            Export CSV
-          </button>
-
-          <button
-            type="button"
-            onClick={loadFees}
-            className="px-5 py-3 border rounded-lg bg-white shadow hover:bg-slate-50"
-          >
-            Refresh
-          </button>
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-end">
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-1">Search</label>
+          <input
+            className="border rounded px-2 py-1 min-w-[220px]"
+            placeholder="Client, product, license key…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-      </div>
 
-      {/* BULK ACTION BAR */}
-      {selected.length > 0 && (
-        <div className="mb-4 p-4 bg-slate-100 border rounded-xl flex items-center gap-4 shadow">
-          <span className="font-semibold text-slate-800">
-            {selected.length} selected
-          </span>
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-1">Client</label>
+          <select
+            className="border rounded px-2 py-1"
+            value={clientFilter}
+            onChange={(e) => setClientFilter(e.target.value)}
+          >
+            <option value="ALL">All clients</option>
+            {clients.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          <button
-            onClick={() =>
-              exportCSV(combinedList.filter((x) => selected.includes(x.id)))
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-1">Payment status</label>
+          <select
+            className="border rounded px-2 py-1"
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(e.target.value as "ALL" | "PAID" | "UNPAID")
             }
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm shadow hover:brightness-110"
           >
-            Export CSV
-          </button>
-
-          <button
-            onClick={bulkNotify}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm shadow hover:brightness-110"
-          >
-            Notify Tenants
-          </button>
-
-          <button
-            onClick={bulkMarkPaid}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm shadow hover:brightness-110"
-          >
-            Mark Paid
-          </button>
-
-          <button
-            onClick={bulkGenerateInvoices}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm shadow hover:brightness-110"
-          >
-            Generate Invoices
-          </button>
+            <option value="ALL">All</option>
+            <option value="PAID">Paid</option>
+            <option value="UNPAID">Unpaid</option>
+          </select>
         </div>
-      )}
 
-      {/* FILTERS */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <input
-          type="text"
-          placeholder="Search product, key, or status..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="px-4 py-3 border rounded-lg shadow-sm flex-1 min-w-[200px] focus:ring-2 focus:ring-purple-400"
-        />
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-1">Due from</label>
+          <input
+            type="date"
+            className="border rounded px-2 py-1"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+          />
+        </div>
 
-        <select
-          className="border px-4 py-3 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
-          value={productFilter}
-          onChange={(e) => setProductFilter(e.target.value)}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-1">Due to</label>
+          <input
+            type="date"
+            className="border rounded px-2 py-1"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+          />
+        </div>
+
+        <button
+          onClick={exportToCSV}
+          className="ml-auto bg-blue-600 text-white px-4 py-2 rounded text-sm"
         >
-          <option value="">All Products</option>
-          {products.map((p) => (
-            <option key={p}>{p}</option>
-          ))}
-        </select>
-
-        <select
-          className="border px-4 py-3 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
-          value={tenantFilter}
-          onChange={(e) => setTenantFilter(e.target.value)}
-        >
-          <option value="">All Tenants</option>
-          {tenants.map((t) => (
-            <option key={t}>{t}</option>
-          ))}
-        </select>
-
-        <select
-          className="border px-4 py-3 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="">All Statuses</option>
-          {statuses.map((s) => (
-            <option key={s}>{s}</option>
-          ))}
-        </select>
+          Export CSV
+        </button>
       </div>
 
-      {/* TABLE */}
-      <div className="overflow-x-auto bg-white shadow-xl rounded-2xl border border-slate-200">
-        <table className="w-full text-sm">
-          <thead className="bg-gradient-to-r from-slate-100 to-slate-200 sticky top-0 z-10">
-            <tr className="border-b text-slate-700">
-              <th className="p-4 text-left">
-                <input
-                  type="checkbox"
-                  onChange={() => toggleSelectAll(paginated)}
-                  checked={paginated.every((x) => selected.includes(x.id))}
-                />
-              </th>
-
-              <th
-                className="p-4 text-left cursor-pointer select-none font-semibold"
-                onClick={() => setSortKey("productName")}
-              >
-                Product{" "}
-                {sortKey === "productName" &&
-                  (sortDirection === "asc" ? "↑" : "↓")}
-              </th>
-
-              <th
-                className="p-4 text-left cursor-pointer select-none font-semibold"
-                onClick={() => setSortKey("licenseKey")}
-              >
-                License Key{" "}
-                {sortKey === "licenseKey" &&
-                  (sortDirection === "asc" ? "↑" : "↓")}
-              </th>
-
-              <th
-                className="p-4 text-left cursor-pointer select-none font-semibold"
-                onClick={() => setSortKey("annualFeePaidUntil")}
-              >
-                Paid Until{" "}
-                {sortKey === "annualFeePaidUntil" &&
-                  (sortDirection === "asc" ? "↑" : "↓")}
-              </th>
-
-              <th
-                className="p-4 text-left cursor-pointer select-none font-semibold"
-                onClick={() => setSortKey("status")}
-              >
-                Status{" "}
-                {sortKey === "status" &&
-                  (sortDirection === "asc" ? "↑" : "↓")}
-              </th>
-
-              <th className="p-4 text-left font-semibold">Details</th>
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="bg-gray-100 text-left">
+              <th className="p-2 border">Client</th>
+              <th className="p-2 border">Product</th>
+              <th className="p-2 border">License Key</th>
+              <th className="p-2 border">Base Fee</th>
+              <th className="p-2 border">Additional Fee</th>
+              <th className="p-2 border">Total Fee</th>
+              <th className="p-2 border">Due Date</th>
+              <th className="p-2 border">Status</th>
+              <th className="p-2 border">Actions</th>
             </tr>
           </thead>
-
           <tbody>
-            {loading && (
+            {filteredRows.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-slate-500">
-                  Loading annual fees…
+                <td className="p-4 text-center text-gray-500" colSpan={9}>
+                  No licenses match your filters.
                 </td>
               </tr>
             )}
 
-            {!loading && paginated.length === 0 && (
-              <tr>
-                <td colSpan={6} className="p-6 text-center text-slate-500">
-                  No results found.
+            {filteredRows.map((row) => (
+              <tr key={row.id} className="border-b">
+                <td className="p-2 border align-top">
+                  <div className="font-semibold">
+                    {row.Client?.companyname || "—"}
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    {row.Client?.email || "No email"}
+                  </div>
+                </td>
+
+                <td className="p-2 border align-top">
+                  {row.productName || "—"}
+                </td>
+
+                <td className="p-2 border align-top">
+                  <code className="text-xs">{row.licenseKey || "—"}</code>
+                </td>
+
+                <td className="p-2 border align-top">
+                  ₦{row.baseFee.toLocaleString()}
+                </td>
+
+                <td className="p-2 border align-top">
+                  ₦{row.additionalFee.toLocaleString()}
+                </td>
+
+                <td className="p-2 border align-top font-bold">
+                  ₦{row.finalFee.toLocaleString()}
+                </td>
+
+                <td className="p-2 border align-top">
+                  {row.renewalduedate
+                    ? new Date(row.renewalduedate).toLocaleDateString()
+                    : "—"}
+                </td>
+
+                <td className="p-2 border align-top">
+                  <span
+                    className={`px-3 py-1 rounded text-white text-xs ${getUrgencyColor(
+                      row.renewalduedate
+                    )}`}
+                  >
+                    {row.renewalstatus || "UNKNOWN"}
+                  </span>
+                </td>
+
+                <td className="p-2 border align-top space-y-1">
+                  <button
+                    onClick={() => togglePaid(row)}
+                    className={`w-full px-2 py-1 rounded text-xs ${
+                      isPaid(row.renewalstatus)
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-200 text-gray-800"
+                    }`}
+                  >
+                    {isPaid(row.renewalstatus) ? "Mark Unpaid" : "Mark Paid"}
+                  </button>
+
+                  <button
+                    onClick={() => sendReminder(row)}
+                    className="w-full px-2 py-1 rounded text-xs bg-purple-600 text-white"
+                  >
+                    Send Reminder
+                  </button>
                 </td>
               </tr>
-            )}
-
-            {!loading &&
-              paginated.map((lic, index) => (
-                <tr
-                  key={`${lic.id}-${index}`}
-                  className="border-b hover:bg-slate-50 transition even:bg-slate-50/30"
-                >
-                  <td className="p-4">
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(lic.id)}
-                      onChange={() => toggleSelect(lic.id)}
-                    />
-                  </td>
-
-                  <td className="p-4 font-medium">
-                    {lic.productName || "Unnamed Product"}
-                  </td>
-
-                  <td className="p-4 font-mono text-xs text-slate-700 break-all">
-                    {lic.licenseKey}
-                  </td>
-
-                  <td className="p-4">
-                    {lic.annualFeePaidUntil || (
-                      <span className="text-slate-500 italic">Never paid</span>
-                    )}
-                  </td>
-
-                  <td className="p-4">
-                    <span
-                      className={`px-2 py-1 rounded-lg text-xs font-semibold ${
-                        daysRemaining(lic.annualFeePaidUntil).includes(
-                          "overdue"
-                        )
-                          ? "bg-red-100 text-red-700"
-                          : daysRemaining(lic.annualFeePaidUntil).includes(
-                              "remaining"
-                            )
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-yellow-100 text-yellow-700"
-                      }`}
-                    >
-                      {daysRemaining(lic.annualFeePaidUntil)}
-                    </span>
-                  </td>
-
-                  <td className="p-4">
-                    <a
-                      href={`/admin/annual-fees/${lic.id}`}
-                      className="text-teal-600 hover:underline font-medium"
-                    >
-                      View
-                    </a>
-                  </td>
-                </tr>
-              ))}
+            ))}
           </tbody>
         </table>
       </div>
-
-      {/* PAGINATION */}
-      {totalPages > 1 && (
-        <div className="flex justify-between items-center mt-6">
-          <button
-            disabled={page === 1}
-            onClick={() => setPage(page - 1)}
-            className={`px-4 py-2 border rounded-lg ${
-              page === 1
-                ? "opacity-40 cursor-not-allowed"
-                : "hover:bg-slate-50"
-            }`}
-          >
-            Previous
-          </button>
-
-          <div className="flex gap-2">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className={`px-3 py-1 border rounded-lg ${
-                  p === page
-                    ? "bg-slate-900 text-white"
-                    : "hover:bg-slate-50"
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-
-           <button
-            disabled={page === totalPages}
-            onClick={() => setPage(page + 1)}
-            className={`px-4 py-2 border rounded-lg ${
-              page === totalPages
-                ? "opacity-40 cursor-not-allowed"
-                : "hover:bg-slate-50"
-            }`}
-          >
-            Next
-          </button>
-        </div>
-      )}
     </div>
   );
 }

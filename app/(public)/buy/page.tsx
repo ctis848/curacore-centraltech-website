@@ -58,23 +58,28 @@ export default function BuyLicensePage() {
     setCouponError("");
     setAppliedCoupon(null);
 
-    const res = await fetch("/api/coupons/validate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        couponCode: code,
-        amount: baseAmount,
-      }),
-    });
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          couponCode: code,
+          amount: baseAmount,
+        }),
+      });
 
-    const json = await res.json();
+      const json = await res.json();
 
-    if (!json.valid) {
-      setCouponError(json.reason || "Invalid coupon code");
-      return;
+      if (!json.valid) {
+        setCouponError(json.reason || "Invalid coupon code");
+        return;
+      }
+
+      setAppliedCoupon(json.coupon);
+    } catch (err) {
+      console.error("Coupon error:", err);
+      setCouponError("Unable to validate coupon at the moment.");
     }
-
-    setAppliedCoupon(json.coupon);
   }
 
   // PAYSTACK PAYMENT
@@ -89,11 +94,14 @@ export default function BuyLicensePage() {
     try {
       setLoading(true);
 
+      // Paystack expects amount in kobo
+      const amountInKobo = Math.round(totalAmount * 100);
+
       const res = await fetch("/api/payments/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: Math.round(totalAmount),
+          amount: amountInKobo,
           email,
           companyName,
           plan,
@@ -101,27 +109,48 @@ export default function BuyLicensePage() {
           annualFee: annualFees[plan],
           type: "NEW_LICENSE_PURCHASE",
           couponCode: appliedCoupon?.code || null,
+          // Extra metadata to help backend store into DB
+          metadata: {
+            companyName,
+            email,
+            plan,
+            quantity,
+            annualFee: annualFees[plan],
+            baseAmount,
+            discountAmount,
+            vatAmount,
+            totalAmount,
+            couponCode: appliedCoupon?.code || null,
+          },
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
+        console.error("Create checkout error:", data);
         alert(data.error || "Unable to start payment.");
-        setLoading(false);
         return;
       }
 
       if (!data.authorization_url) {
         alert("Payment initialized but no authorization URL returned.");
-        setLoading(false);
         return;
+      }
+
+      // Optional: store reference locally for success page
+      if (data.reference) {
+        sessionStorage.setItem(
+          "last_paystack_reference",
+          String(data.reference)
+        );
       }
 
       window.location.href = data.authorization_url;
     } catch (err) {
       console.error("Payment error:", err);
       alert("Unable to start payment.");
+    } finally {
       setLoading(false);
     }
   }
@@ -129,7 +158,6 @@ export default function BuyLicensePage() {
   return (
     <div className="min-h-screen bg-gray-50 pt-28 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
-        
         {/* Header */}
         <div className="bg-gradient-to-r from-teal-700 to-teal-500 p-8 md:p-12 text-white text-center">
           <h1 className="text-4xl md:text-5xl font-extrabold">
@@ -141,7 +169,6 @@ export default function BuyLicensePage() {
         </div>
 
         <div className="p-8 md:p-12 lg:p-16 space-y-12">
-
           {/* Plan Selection */}
           <div className="space-y-4">
             <label className="block text-xl font-semibold text-gray-800">
@@ -299,7 +326,7 @@ export default function BuyLicensePage() {
                 className="flex-1 p-4 text-lg border border-gray-300 rounded-xl"
               />
 
-              <button
+            <button
                 type="button"
                 onClick={applyCoupon}
                 className="px-6 py-3 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700"
@@ -417,15 +444,23 @@ export default function BuyLicensePage() {
 
             {/* BANK DETAILS */}
             <div className="bg-slate-100 rounded-xl p-4 space-y-2">
-              <p className="text-sm"><strong>Bank:</strong> Titan Bank</p>
-              <p className="text-sm"><strong>Account Number:</strong> 0000729810</p>
-              <p className="text-sm"><strong>Account Name:</strong> Central Tech Information System Ltd</p>
-              <p className="text-xs text-slate-500">(This is your dedicated Paystack DVA)</p>
+              <p className="text-sm">
+                <strong>Bank:</strong> Titan Bank
+              </p>
+              <p className="text-sm">
+                <strong>Account Number:</strong> 0000729810
+              </p>
+              <p className="text-sm">
+                <strong>Account Name:</strong> Central Tech Information System
+                Ltd
+              </p>
+              <p className="text-xs text-slate-500">
+                (This is your dedicated Paystack DVA)
+              </p>
             </div>
 
             {/* BUTTONS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
               {/* OPTION A — COPY ACCOUNT NUMBER */}
               <button
                 onClick={() => navigator.clipboard.writeText("0000729810")}
@@ -436,7 +471,11 @@ export default function BuyLicensePage() {
 
               {/* OPTION B — I HAVE PAID */}
               <button
-                onClick={() => alert("Thank you! Paystack will automatically verify your transfer within a few minutes.")}
+                onClick={() =>
+                  alert(
+                    "Thank you! Paystack will automatically verify your transfer within a few minutes."
+                  )
+                }
                 className="w-full py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition"
               >
                 I Have Paid — Confirm Transfer
@@ -449,14 +488,17 @@ export default function BuyLicensePage() {
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={() => alert("Proof uploaded! Admin will verify manually.")}
+                  onChange={() =>
+                    alert("Proof uploaded! Admin will verify manually.")
+                  }
                 />
               </label>
 
               {/* OPTION D — OPEN BANK APP */}
               <button
                 onClick={() => {
-                  window.location.href = "intent://bankapp#Intent;scheme=bank;end";
+                  window.location.href =
+                    "intent://bankapp#Intent;scheme=bank;end";
                 }}
                 className="w-full py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition"
               >
@@ -466,17 +508,21 @@ export default function BuyLicensePage() {
 
             {/* OPTION E — BIG GREEN BUTTON */}
             <button
-              onClick={() => alert("Please transfer to Titan Bank 0000729810. Your license will activate automatically once Paystack detects the payment.")}
+              onClick={() =>
+                alert(
+                  "Please transfer to Titan Bank 0000729810. Your license will activate automatically once Paystack detects the payment."
+                )
+              }
               className="w-full py-4 text-lg font-bold rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl hover:brightness-110 transition"
             >
               Pay by Bank Transfer (Titan Bank)
             </button>
 
             <p className="text-xs text-slate-500 text-center">
-              After payment, your license will be confirmed automatically via Paystack.
+              After payment, your license will be confirmed automatically via
+              Paystack.
             </p>
           </div>
-
         </div>
       </div>
     </div>

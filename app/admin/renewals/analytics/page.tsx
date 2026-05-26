@@ -8,7 +8,7 @@ interface LicenseRow {
   productName: string | null;
   licenseKey: string;
   expiresAt: string | null;
-  tenantId: string | null;
+  clientId: string | null;
   userId: string | null;
   status: string;
   createdAt: string;
@@ -42,7 +42,7 @@ export default function RenewalAnalyticsPage() {
         productName: r.productName ?? null,
         licenseKey: r.licenseKey,
         expiresAt: r.expires_at ?? null,
-        tenantId: r.user_id ?? null,
+        clientId: r.clientId ?? null,
         userId: r.user_id ?? null,
         status: r.status,
         createdAt: r.created_at,

@@ -20,7 +20,9 @@ export async function GET(req: Request) {
 
     console.log("🔍 VERIFYING PAYMENT:", reference);
 
+    // ----------------------------------------------------
     // 1️⃣ VERIFY WITH PAYSTACK
+    // ----------------------------------------------------
     const verifyRes = await fetch(
       `${PAYSTACK_BASE}/transaction/verify/${reference}`,
       {
@@ -29,50 +31,107 @@ export async function GET(req: Request) {
     );
 
     const raw = await verifyRes.text();
-    console.log("🔥 RAW PAYSTACK RESPONSE:", raw);
 
+    // Paystack sometimes returns HTML when rate‑limited
     if (raw.startsWith("<")) {
       return NextResponse.json(
-        { success: false, error: "Paystack returned HTML" },
+        {
+          success: false,
+          error: "Paystack returned HTML instead of JSON",
+          dva: false,
+        },
         { status: 400 }
       );
     }
 
-    const data = JSON.parse(raw);
+    let data: any = null;
+    try {
+      data = JSON.parse(raw);
+    } catch (err) {
+      console.error("❌ JSON PARSE ERROR:", err);
+      return NextResponse.json(
+        { success: false, error: "Invalid Paystack response" },
+        { status: 400 }
+      );
+    }
 
-    // ❗ DVA payments will return "Transaction not found"
+    // ----------------------------------------------------
+    // 2️⃣ HANDLE DVA (BANK TRANSFER) CASE
+    // ----------------------------------------------------
     if (!data.status) {
       return NextResponse.json({
         success: false,
-        error: "Transaction not found. If this was a bank transfer, wait for webhook.",
         dva: true,
+        error:
+          "Transaction not found. If this was a bank transfer, wait for webhook.",
       });
     }
 
     const trx = data.data;
 
+    // ----------------------------------------------------
+    // 3️⃣ PAYMENT NOT SUCCESSFUL
+    // ----------------------------------------------------
     if (trx.status !== "success") {
       return NextResponse.json(
-        { success: false, error: "Payment not successful" },
+        {
+          success: false,
+          status: trx.status,
+          error: "Payment not successful",
+        },
         { status: 400 }
       );
     }
 
-    // 2️⃣ Extract metadata
+    // ----------------------------------------------------
+    // 4️⃣ EXTRACT METADATA
+    // ----------------------------------------------------
     const meta = trx.metadata || {};
-    const customerEmail = meta.email ?? trx.customer?.email ?? null;
+
+    const customerEmail =
+      meta.email ??
+      meta.customerEmail ??
+      trx.customer?.email ??
+      null;
+
+    const paymentType = meta.type ?? null;
+    const plan = meta.plan ?? null;
+    const quantity = meta.quantity ?? null;
+    const companyName = meta.companyName ?? null;
 
     console.log("📦 METADATA:", meta);
 
-    // 3️⃣ Return success — webhook handles DB + emails
+    // ----------------------------------------------------
+    // 5️⃣ CHECK IF WEBHOOK HAS ALREADY PROCESSED THIS PAYMENT
+    // ----------------------------------------------------
+    const supabase = supabaseServer();
+
+    const { data: existingPayment } = await supabase
+      .from("Payment")
+      .select("id, status")
+      .eq("reference", reference)
+      .maybeSingle();
+
+    const webhookProcessed = !!existingPayment;
+
+    // ----------------------------------------------------
+    // 6️⃣ RETURN UNIFIED RESPONSE FOR FRONTEND
+    // ----------------------------------------------------
     return NextResponse.json({
       success: true,
-      email: customerEmail,
-      amount: trx.amount / 100,
+      status: "success",
       reference,
-      message: "Payment verified. Webhook will finalize processing.",
+      amount: trx.amount / 100,
+      email: customerEmail,
+      paymentType,
+      plan,
+      quantity,
+      companyName,
+      webhookProcessed,
+      message: webhookProcessed
+        ? "Payment verified and already processed by webhook."
+        : "Payment verified. Webhook will finalize processing.",
     });
-
   } catch (err) {
     console.error("🔥 VERIFY ROUTE ERROR:", err);
     return NextResponse.json(

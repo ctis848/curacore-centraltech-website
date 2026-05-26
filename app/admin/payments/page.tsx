@@ -22,6 +22,15 @@ export type PaymentRow = {
   invoice_id: string | null;
   created_at: string | null;
   admin_notes?: string | null;
+
+  // ⭐ NEW FIELDS FOR BUY PAGE + LICENSE LOGIC
+  clientId?: string | null;
+  clientCompanyName?: string | null;
+  paymentType?: string | null; // e.g. NEW_LICENSE_PURCHASE, ANNUAL_RENEWAL, ADDITIONAL_LICENSE
+  plan?: string | null; // starter, pro, enterprise
+  quantity?: number | null; // number of licenses in this payment
+  licenseCount?: number | null; // licenses actually created/affected
+  isNewClient?: boolean | null; // true if this payment created a new client
 };
 
 export type UserDetails = {
@@ -91,6 +100,7 @@ export default function AdminPaymentsPage() {
         return;
       }
 
+      // Expecting backend to start returning extended fields gradually
       setPayments(json.data || []);
     } catch (err) {
       console.error("Network error:", err);
@@ -173,7 +183,9 @@ export default function AdminPaymentsPage() {
         (p.reference ?? "").toLowerCase().includes(s) ||
         (p.gateway ?? "").toLowerCase().includes(s) ||
         (p.channel ?? "").toLowerCase().includes(s) ||
-        (p.status ?? "").toLowerCase().includes(s);
+        (p.status ?? "").toLowerCase().includes(s) ||
+        (p.clientCompanyName ?? "").toLowerCase().includes(s) ||
+        (p.paymentType ?? "").toLowerCase().includes(s);
 
       const matchesStatus =
         statusFilter === "ALL" ||
@@ -245,6 +257,58 @@ export default function AdminPaymentsPage() {
   function totalAmount() {
     return processed.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   }
+
+  // ⭐ LICENSE + CLIENT METRICS (from payments metadata)
+  const licenseMetrics = useMemo(() => {
+    const successful = processed.filter(
+      (p) => (p.status || "").toLowerCase() === "success"
+    );
+
+    const totalLicensesFromPayments = successful.reduce((sum, p) => {
+      const count =
+        (p.licenseCount ?? null) !== null
+          ? Number(p.licenseCount)
+          : p.quantity
+          ? Number(p.quantity)
+          : 0;
+      return sum + (isNaN(count) ? 0 : count);
+    }, 0);
+
+    const clientIds = new Set(
+      successful
+        .map((p) => p.clientId)
+        .filter((id): id is string => !!id)
+    );
+
+    const newClientIds = new Set(
+      successful
+        .filter((p) => p.isNewClient)
+        .map((p) => p.clientId)
+        .filter((id): id is string => !!id)
+    );
+
+    const buyPagePayments = successful.filter(
+      (p) =>
+        (p.paymentType || "").toUpperCase() === "NEW_LICENSE_PURCHASE" ||
+        (p.paymentType || "").toUpperCase() === "BUY_LICENSE"
+    );
+
+    const renewalPayments = successful.filter(
+      (p) =>
+        (p.paymentType || "").toUpperCase() === "ANNUAL_RENEWAL" ||
+        (p.paymentType || "").toUpperCase() === "RENEWAL"
+    );
+
+    return {
+      totalLicensesFromPayments,
+      totalSuccessfulPayments: successful.length,
+      totalClients: clientIds.size,
+      totalNewClients: newClientIds.size,
+      totalBuyPayments: buyPagePayments.length,
+      totalRenewalPayments: renewalPayments.length,
+    };
+  }, [processed]);
+
   async function openUserDrawer(userid: string | null) {
     if (!userid) return;
 
@@ -263,7 +327,9 @@ export default function AdminPaymentsPage() {
 
   async function openTimeline(paymentId: string) {
     try {
-      const res = await fetch(`/api/admin/payments/timeline?payment_id=${paymentId}`);
+      const res = await fetch(
+        `/api/admin/payments/timeline?payment_id=${paymentId}`
+      );
       const json = await res.json();
 
       if (res.ok) {
@@ -307,12 +373,62 @@ export default function AdminPaymentsPage() {
         Payments
       </h1>
 
+      {/* Existing analytics (count + amount) */}
       <Analytics totalCount={processed.length} totalAmount={totalAmount()} />
 
-      <div className="flex flex-wrap gap-3 mb-4 items-center">
+      {/* ⭐ NEW LICENSE + CLIENT SUMMARY BAR */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+        <div className="bg-white border rounded-xl p-4 shadow-sm">
+          <p className="text-xs font-semibold text-slate-500 uppercase">
+            Total Licenses (from successful payments)
+          </p>
+          <p className="mt-2 text-2xl font-extrabold text-emerald-700">
+            {licenseMetrics.totalLicensesFromPayments.toLocaleString()}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            Sum of licenseCount / quantity on successful payments
+          </p>
+        </div>
+
+        <div className="bg-white border rounded-xl p-4 shadow-sm">
+          <p className="text-xs font-semibold text-slate-500 uppercase">
+            Clients (New / Total)
+          </p>
+          <p className="mt-2 text-2xl font-extrabold text-slate-800">
+            {licenseMetrics.totalNewClients}{" "}
+            <span className="text-sm text-slate-500">
+              / {licenseMetrics.totalClients}
+            </span>
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            Based on clientId + isNewClient from payments
+          </p>
+        </div>
+
+        <div className="bg-white border rounded-xl p-4 shadow-sm">
+          <p className="text-xs font-semibold text-slate-500 uppercase">
+            Buy vs Renewal Payments
+          </p>
+          <p className="mt-2 text-lg font-bold text-slate-800">
+            Buy:{" "}
+            <span className="text-emerald-700">
+              {licenseMetrics.totalBuyPayments}
+            </span>{" "}
+            · Renewal:{" "}
+            <span className="text-indigo-700">
+              {licenseMetrics.totalRenewalPayments}
+            </span>
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            Classified via paymentType (NEW_LICENSE_PURCHASE / ANNUAL_RENEWAL)
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3 mb-4 items-center mt-4">
         <input
           type="text"
-          placeholder="Search by ID, email, reference, invoice..."
+          placeholder="Search by ID, email, reference, invoice, client, type..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="px-4 py-3 border rounded-lg shadow-sm flex-1 min-w-[220px] focus:ring-2 focus:ring-purple-400"
@@ -352,6 +468,9 @@ export default function AdminPaymentsPage() {
                   Amount{getSortIcon("amount")}
                 </th>
                 <th className="px-4 py-3 text-left font-semibold">Email</th>
+                <th className="px-4 py-3 text-left font-semibold">
+                  Client
+                </th>
                 <th
                   className="px-4 py-3 cursor-pointer text-left font-semibold"
                   onClick={() => handleSort("reference")}
@@ -361,92 +480,158 @@ export default function AdminPaymentsPage() {
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
                 <th className="px-4 py-3 text-left font-semibold">Gateway</th>
                 <th className="px-4 py-3 text-left font-semibold">Channel</th>
+                <th className="px-4 py-3 text-left font-semibold">
+                  Type
+                </th>
+                <th className="px-4 py-3 text-left font-semibold">
+                  Licenses
+                </th>
                 <th className="px-4 py-3 text-left font-semibold">Invoice</th>
                 <th className="px-4 py-3 text-left font-semibold">Actions</th>
               </tr>
             </thead>
 
             <tbody>
-              {paginated.map((p) => (
-                <tr key={p.id} className="border-t hover:bg-slate-50 transition">
-                  <td className="px-4 py-3">
-                    {p.created_at
-                      ? new Date(p.created_at).toLocaleString()
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-emerald-700">
-                    ₦{Number(p.amount).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3">
-                    {p.email || (
-                      <span className="text-slate-400 italic">No email</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 font-mono break-all">
-                    {p.reference || "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-semibold ${
-                        (p.status || "").toLowerCase() === "success"
-                          ? "bg-green-100 text-green-700"
-                          : (p.status || "").toLowerCase() === "failed"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-slate-200 text-slate-700"
-                      }`}
-                    >
-                      {p.status || "UNKNOWN"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-1 rounded text-xs bg-slate-100 text-slate-700">
-                      {p.gateway || "—"}
-                    </span>
-                  </td>
+              {paginated.map((p) => {
+                const licenseCountDisplay =
+                  (p.licenseCount ?? null) !== null
+                    ? p.licenseCount
+                    : p.quantity ?? null;
 
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-1 rounded text-xs bg-slate-100 text-slate-700">
-                      {p.channel || "—"}
-                    </span>
-                  </td>
+                return (
+                  <tr
+                    key={p.id}
+                    className="border-t hover:bg-slate-50 transition"
+                  >
+                    <td className="px-4 py-3">
+                      {p.created_at
+                        ? new Date(p.created_at).toLocaleString()
+                        : "—"}
+                    </td>
 
-                  <td className="px-4 py-3">
-                    {p.invoice_id ? (
-                      <span className="font-mono text-xs">{p.invoice_id}</span>
-                    ) : (
-                      <span className="text-slate-400 italic">No invoice</span>
-                    )}
-                  </td>
+                    <td className="px-4 py-3 font-semibold text-emerald-700">
+                      ₦{Number(p.amount).toLocaleString()}
+                    </td>
 
-                  <td className="px-4 py-3 space-x-3">
-                    <button
-                      onClick={() => {
-                        setSelectedPayment(p);
-                        setViewOpen(true);
-                      }}
-                      className="text-blue-600 hover:underline"
-                    >
-                      View
-                    </button>
+                    <td className="px-4 py-3">
+                      {p.email || (
+                        <span className="text-slate-400 italic">No email</span>
+                      )}
+                    </td>
 
-                    {p.userid && (
-                      <button
-                        onClick={() => openUserDrawer(p.userid)}
-                        className="text-indigo-600 hover:underline"
+                    <td className="px-4 py-3">
+                      {p.clientCompanyName ? (
+                        <span className="font-medium text-slate-800">
+                          {p.clientCompanyName}
+                        </span>
+                      ) : p.clientId ? (
+                        <span className="font-mono text-xs text-slate-500">
+                          {p.clientId}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic">
+                          No client
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3 font-mono break-all">
+                      {p.reference || "—"}
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-semibold ${
+                          (p.status || "").toLowerCase() === "success"
+                            ? "bg-green-100 text-green-700"
+                            : (p.status || "").toLowerCase() === "failed"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-slate-200 text-slate-700"
+                        }`}
                       >
-                        User
-                      </button>
-                    )}
+                        {p.status || "UNKNOWN"}
+                      </span>
+                    </td>
 
-                    <button
-                      onClick={() => openTimeline(p.id)}
-                      className="text-purple-600 hover:underline"
-                    >
-                      Timeline
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-1 rounded text-xs bg-slate-100 text-slate-700">
+                        {p.gateway || "—"}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-1 rounded text-xs bg-slate-100 text-slate-700">
+                        {p.channel || "—"}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-3">
+                      {p.paymentType ? (
+                        <span className="px-2 py-1 rounded text-xs bg-indigo-50 text-indigo-700 font-semibold">
+                          {p.paymentType}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic">—</span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3">
+                      {licenseCountDisplay != null ? (
+                        <span className="text-sm font-semibold text-slate-800">
+                          {licenseCountDisplay}{" "}
+                          {p.plan && (
+                            <span className="text-xs text-slate-500">
+                              ({p.plan})
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic">—</span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3">
+                      {p.invoice_id ? (
+                        <span className="font-mono text-xs">
+                          {p.invoice_id}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic">
+                          No invoice
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3 space-x-3">
+                      <button
+                        onClick={() => {
+                          setSelectedPayment(p);
+                          setViewOpen(true);
+                        }}
+                        className="text-blue-600 hover:underline"
+                      >
+                        View
+                      </button>
+
+                      {p.userid && (
+                        <button
+                          onClick={() => openUserDrawer(p.userid)}
+                          className="text-indigo-600 hover:underline"
+                        >
+                          User
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => openTimeline(p.id)}
+                        className="text-purple-600 hover:underline"
+                      >
+                        Timeline
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

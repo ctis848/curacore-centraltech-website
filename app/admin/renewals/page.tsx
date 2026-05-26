@@ -1,47 +1,66 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 
-interface LicenseRow {
+interface CompanyRow {
   id: string;
-  productName: string | null;
-  licenseKey: string;
-  expiresAt: string | null;
-  tenantId: string | null;
-  userId: string | null;
-  status: string;
-  createdAt: string;
+  name: string;
+  annual_price: number;
+  renewal_date: string | null;
+  license_count: number;
+  created_at: string;
 }
 
-type SortKey = "productName" | "licenseKey" | "expiresAt" | "status";
-type SortDirection = "asc" | "desc";
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function RenewalsPage() {
-  const supabase = supabaseBrowser();
-
-  const [licenses, setLicenses] = useState<LicenseRow[]>([]);
-  const [dueSoon, setDueSoon] = useState<LicenseRow[]>([]);
-  const [expired, setExpired] = useState<LicenseRow[]>([]);
+  const [companies, setCompanies] = useState<CompanyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
-  const [productFilter, setProductFilter] = useState("");
-  const [tenantFilter, setTenantFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const [products, setProducts] = useState<string[]>([]);
-  const [tenants, setTenants] = useState<string[]>([]);
-  const [statuses, setStatuses] = useState<string[]>([]);
-
-  const [sortKey, setSortKey] = useState<SortKey>("productName");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [month, setMonth] = useState(""); // NEW
+  const [year, setYear] = useState("");   // NEW
 
   const [page, setPage] = useState(1);
   const pageSize = 10;
+  const [totalCount, setTotalCount] = useState(0);
 
   const [selected, setSelected] = useState<string[]>([]);
+
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const renewalState = (renewal_date: string | null) => {
+    if (!renewal_date) return "Unknown";
+
+    const now = new Date();
+    const exp = new Date(renewal_date);
+    const diff = exp.getTime() - now.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+    if (days > 30) return `${days} days left`;
+    if (days > 0) return `${days} days (due soon)`;
+    if (days === 0) return "Due today";
+    return `${Math.abs(days)} days expired`;
+  };
+
+  const rowColorClass = (renewal_date: string | null) => {
+    const state = renewalState(renewal_date);
+    if (state.includes("expired")) return "bg-red-50";
+    if (state.includes("due soon") || state.includes("today")) return "bg-yellow-50";
+    if (state.includes("days left")) return "bg-green-50";
+    return "";
+  };
 
   const toggleSelect = (id: string) => {
     setSelected((prev) =>
@@ -49,7 +68,7 @@ export default function RenewalsPage() {
     );
   };
 
-  const toggleSelectAll = (rows: LicenseRow[]) => {
+  const toggleSelectAll = (rows: CompanyRow[]) => {
     const ids = rows.map((r) => r.id);
     const allSelected = ids.every((id) => selected.includes(id));
 
@@ -60,17 +79,23 @@ export default function RenewalsPage() {
     }
   };
 
-  function exportCSV(rows: LicenseRow[]) {
+  const exportCSV = (rows: CompanyRow[]) => {
     if (!rows.length) return;
 
-    const headers = ["Product", "License Key", "Expires At", "Status", "Renewal State"];
+    const headers = [
+      "Company",
+      "Annual Price",
+      "Renewal Date",
+      "License Count",
+      "Renewal State",
+    ];
 
-    const csvRows = rows.map((lic) => [
-      lic.productName || "Unnamed Product",
-      lic.licenseKey,
-      lic.expiresAt || "Unknown",
-      lic.status,
-      renewalState(lic.expiresAt),
+    const csvRows = rows.map((c) => [
+      c.name,
+      c.annual_price,
+      c.renewal_date || "Unknown",
+      c.license_count,
+      renewalState(c.renewal_date),
     ]);
 
     const csvContent =
@@ -91,321 +116,120 @@ export default function RenewalsPage() {
     link.click();
 
     URL.revokeObjectURL(url);
-  }
+  };
 
-  async function bulkNotify() {
-    if (!selected.length) return alert("No items selected.");
+  const sendReminder = async (id: string) => {
+    const res = await fetch("/api/admin/renewals/notify-company", {
+      method: "POST",
+      body: JSON.stringify({ id }),
+    });
+    const json = await res.json();
+    alert(json.message || "Reminder sent.");
+  };
 
-    const res = await fetch("/api/admin/renewals/bulk-notify", {
+  const bulkNotify = async () => {
+    if (!selected.length) return alert("No companies selected.");
+
+    const res = await fetch("/api/admin/renewals/bulk-notify-company", {
       method: "POST",
       body: JSON.stringify({ ids: selected }),
     });
 
     const json = await res.json();
-    alert(json.message);
-  }
+    alert(json.message || "Notifications sent.");
+  };
 
-  async function bulkMarkRenewed() {
-    if (!selected.length) return alert("No items selected.");
-
-    const res = await fetch("/api/admin/renewals/bulk-mark-renewed", {
-      method: "POST",
-      body: JSON.stringify({ ids: selected }),
-    });
-
-    const json = await res.json();
-    alert(json.message);
-    loadRenewals();
-  }
-
-  async function bulkGenerateInvoices() {
-    if (!selected.length) return alert("No items selected.");
-
-    const res = await fetch("/api/admin/renewals/bulk-generate-invoices", {
-      method: "POST",
-      body: JSON.stringify({ ids: selected }),
-    });
-
-    const json = await res.json();
-    alert(json.message);
-  }
-
-  const loadRenewals = useCallback(async () => {
+  const loadCompanies = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
 
-    const { data, error } = await supabase
-      .from("License")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize),
+    });
 
-    if (error) {
-      console.error("Renewals fetch error:", error);
-      setErrorMsg("Failed to load renewals.");
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (month) params.set("month", month);
+    if (year) params.set("year", year);
+
+    const res = await fetch(`/api/admin/renewals?${params.toString()}`);
+    const json = await res.json();
+
+    if (!json.success) {
+      setErrorMsg(json.message || "Failed to load renewals.");
       setLoading(false);
       return;
     }
 
-    const raw = (data || []) as any[];
-
-    const licenseList: LicenseRow[] = raw.map((r) => ({
-      id: r.id,
-      productName: r.productName ?? null,
-      licenseKey: r.licenseKey,
-      expiresAt: r.expires_at ?? null,
-      tenantId: r.user_id ?? null,
-      userId: r.user_id ?? null,
-      status: r.status,
-      createdAt: r.created_at,
-    }));
-
-    setLicenses(licenseList);
-
-    setProducts(
-      Array.from(
-        new Set(
-          licenseList
-            .map((l) => l.productName)
-            .filter((v): v is string => typeof v === "string")
-        )
-      )
-    );
-
-    setTenants(
-      Array.from(
-        new Set(
-          licenseList
-            .map((l) => l.tenantId)
-            .filter((v): v is string => typeof v === "string")
-        )
-      )
-    );
-
-    setStatuses(
-      Array.from(
-        new Set(
-          licenseList
-            .map((l) => l.status)
-            .filter((v): v is string => typeof v === "string")
-        )
-      )
-    );
-
-    const now = new Date();
-
-    const dueSoonList = licenseList.filter((lic) => {
-      if (!lic.expiresAt) return false;
-      const exp = new Date(lic.expiresAt);
-      const diff = exp.getTime() - now.getTime();
-      return diff > 0 && diff < 30 * 24 * 60 * 60 * 1000;
-    });
-
-    const expiredList = licenseList.filter((lic) => {
-      if (!lic.expiresAt) return false;
-      const exp = new Date(lic.expiresAt);
-      return exp.getTime() < now.getTime();
-    });
-
-    setDueSoon(dueSoonList);
-    setExpired(expiredList);
+    setCompanies(json.data || []);
+    setTotalCount(json.total || 0);
     setLoading(false);
-  }, [supabase]);
+  }, [page, debouncedSearch, month, year]);
 
   useEffect(() => {
-    loadRenewals();
-  }, [loadRenewals]);
+    loadCompanies();
+  }, [loadCompanies]);
 
-  function renewalState(expiresAt: string | null) {
-    if (!expiresAt) return "Unknown";
-
-    const now = new Date();
-    const exp = new Date(expiresAt);
-    const diff = exp.getTime() - now.getTime();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-
-    if (days > 30) return `${days} days left`;
-    if (days > 0) return `${days} days (due soon)`;
-    if (days === 0) return "Expires today";
-    return `${Math.abs(days)} days expired`;
-  }
-
-  const filterList = useCallback(
-    (list: LicenseRow[]) => {
-      const s = search.toLowerCase().trim();
-
-      return list.filter((l) => {
-        const matchesProduct = productFilter ? l.productName === productFilter : true;
-        const matchesTenant = tenantFilter ? l.tenantId === tenantFilter : true;
-        const matchesStatus = statusFilter ? l.status === statusFilter : true;
-
-        const matchesSearch =
-          !s ||
-          l.productName?.toLowerCase().includes(s) ||
-          l.licenseKey.toLowerCase().includes(s) ||
-          l.status.toLowerCase().includes(s);
-
-        return matchesProduct && matchesTenant && matchesStatus && matchesSearch;
-      });
-    },
-    [search, productFilter, tenantFilter, statusFilter]
-  );
-
-  const sortedList = useCallback(
-    (list: LicenseRow[]) => {
-      return [...list].sort((a, b) => {
-        const A = (a[sortKey] || "").toString().toLowerCase();
-        const B = (b[sortKey] || "").toString().toLowerCase();
-
-        if (A < B) return sortDirection === "asc" ? -1 : 1;
-        if (A > B) return sortDirection === "asc" ? 1 : -1;
-        return 0;
-      });
-    },
-    [sortKey, sortDirection]
-  );
-
-  const combinedList = useMemo(() => {
-    const merged = [...dueSoon, ...expired];
-    return sortedList(filterList(merged));
-  }, [dueSoon, expired, filterList, sortedList]);
-
-  const paginated = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return combinedList.slice(start, start + pageSize);
-  }, [combinedList, page]);
-
-  const totalPages = Math.ceil(combinedList.length / pageSize);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
     <div className="p-6 space-y-8 max-w-7xl mx-auto">
-
-      {/* TITLE */}
       <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
         Renewals
       </h1>
 
-      {/* HEADER ACTIONS */}
-      <div className="flex justify-between items-center">
-        <div></div>
-
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => exportCSV(combinedList)}
-            className="px-5 py-3 bg-teal-600 text-white rounded-lg shadow hover:brightness-110"
-          >
-            Export CSV
-          </button>
-
-          <button
-            type="button"
-            onClick={loadRenewals}
-            className="px-5 py-3 border rounded-lg bg-white shadow hover:bg-slate-50"
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      {/* ERROR */}
-      {errorMsg && (
-        <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded">
-          {errorMsg}
-        </p>
-      )}
-
-      {/* BULK ACTION BAR */}
-      {selected.length > 0 && (
-        <div className="mb-4 p-4 bg-slate-100 border rounded-xl flex items-center gap-4 shadow">
-          <span className="font-semibold text-slate-800">
-            {selected.length} selected
-          </span>
-
-          <button
-            onClick={() =>
-              exportCSV(combinedList.filter((x) => selected.includes(x.id)))
-            }
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm shadow hover:brightness-110"
-          >
-            Export CSV
-          </button>
-
-          <button
-            onClick={bulkNotify}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm shadow hover:brightness-110"
-          >
-            Notify Tenants
-          </button>
-
-          <button
-            onClick={bulkMarkRenewed}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm shadow hover:brightness-110"
-          >
-            Mark Renewed
-          </button>
-
-          <button
-            onClick={bulkGenerateInvoices}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm shadow hover:brightness-110"
-          >
-            Generate Invoices
-          </button>
-        </div>
-      )}
-
       {/* FILTERS */}
       <div className="flex flex-wrap gap-3 mb-6">
+
+        {/* Search */}
         <input
           type="text"
-          placeholder="Search by product, key, or status..."
+          placeholder="Search by company name..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="px-4 py-3 border rounded-lg shadow-sm flex-1 min-w-[200px] focus:ring-2 focus:ring-purple-400"
+          className="px-4 py-3 border rounded-lg shadow-sm w-full max-w-md focus:ring-2 focus:ring-purple-400"
         />
 
+        {/* Month Filter */}
         <select
-          value={productFilter}
+          value={month}
           onChange={(e) => {
-            setProductFilter(e.target.value);
+            setMonth(e.target.value);
             setPage(1);
           }}
           className="px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
         >
-          <option value="">All Products</option>
-          {products.map((p) => (
-            <option key={p}>{p}</option>
-          ))}
+          <option value="">All Months</option>
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
         </select>
 
+        {/* Year Filter */}
         <select
-          value={tenantFilter}
+          value={year}
           onChange={(e) => {
-            setTenantFilter(e.target.value);
+            setYear(e.target.value);
             setPage(1);
           }}
           className="px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
         >
-          <option value="">All Tenants</option>
-          {tenants.map((t) => (
-            <option key={t}>{t}</option>
-          ))}
-        </select>
-
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setPage(1);
-          }}
-          className="px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
-        >
-          <option value="">All Statuses</option>
-          {statuses.map((s) => (
-            <option key={s}>{s}</option>
-          ))}
+          <option value="">All Years</option>
+          <option value="2025">2025</option>
+          <option value="2026">2026</option>
+          <option value="2027">2027</option>
         </select>
       </div>
 
@@ -417,118 +241,96 @@ export default function RenewalsPage() {
               <th className="p-4 text-left">
                 <input
                   type="checkbox"
-                  onChange={() => toggleSelectAll(paginated)}
+                  onChange={() => toggleSelectAll(companies)}
                   checked={
-                    paginated.length > 0 &&
-                    paginated.every((x) => selected.includes(x.id))
+                    companies.length > 0 &&
+                    companies.every((x) => selected.includes(x.id))
                   }
                 />
               </th>
 
-              <th
-                className="p-4 text-left cursor-pointer select-none font-semibold"
-                onClick={() => setSortKey("productName")}
-              >
-                Product{" "}
-                {sortKey === "productName" &&
-                  (sortDirection === "asc" ? "↑" : "↓")}
-              </th>
-
-              <th
-                className="p-4 text-left cursor-pointer select-none font-semibold"
-                onClick={() => setSortKey("licenseKey")}
-              >
-                License Key{" "}
-                {sortKey === "licenseKey" &&
-                  (sortDirection === "asc" ? "↑" : "↓")}
-              </th>
-
-              <th
-                className="p-4 text-left cursor-pointer select-none font-semibold"
-                onClick={() => setSortKey("expiresAt")}
-              >
-                Expires At{" "}
-                {sortKey === "expiresAt" &&
-                  (sortDirection === "asc" ? "↑" : "↓")}
-              </th>
-
-              <th
-                className="p-4 text-left cursor-pointer select-none font-semibold"
-                onClick={() => setSortKey("status")}
-              >
-                Status{" "}
-                {sortKey === "status" &&
-                  (sortDirection === "asc" ? "↑" : "↓")}
-              </th>
-
-              <th className="p-4 text-left font-semibold">Details</th>
+              <th className="p-4 text-left font-semibold">Company</th>
+              <th className="p-4 text-left font-semibold">Annual Price</th>
+              <th className="p-4 text-left font-semibold">Renewal Date</th>
+              <th className="p-4 text-left font-semibold">Licenses</th>
+              <th className="p-4 text-left font-semibold">Status</th>
+              <th className="p-4 text-left font-semibold">Actions</th>
             </tr>
           </thead>
 
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-slate-500">
+                <td colSpan={7} className="p-6 text-center text-slate-500">
                   Loading renewals…
                 </td>
               </tr>
             )}
 
-            {!loading && paginated.length === 0 && (
+            {!loading && companies.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-slate-500">
+                <td colSpan={7} className="p-6 text-center text-slate-500">
                   No results found.
                 </td>
               </tr>
             )}
 
             {!loading &&
-              paginated.map((lic, index) => (
+              companies.map((c) => (
                 <tr
-                  key={`${lic.id}-${index}`}
-                  className="border-b hover:bg-slate-50 transition even:bg-slate-50/30"
+                  key={c.id}
+                  className={`border-b hover:bg-slate-50 transition ${rowColorClass(
+                    c.renewal_date
+                  )}`}
                 >
                   <td className="p-4">
                     <input
                       type="checkbox"
-                      checked={selected.includes(lic.id)}
-                      onChange={() => toggleSelect(lic.id)}
+                      checked={selected.includes(c.id)}
+                      onChange={() => toggleSelect(c.id)}
                     />
                   </td>
 
-                  <td className="p-4 font-medium">
-                    {lic.productName || "Unnamed Product"}
-                  </td>
+                  <td className="p-4 font-medium">{c.name}</td>
 
-                  <td className="p-4 font-mono text-xs text-slate-700 break-all">
-                    {lic.licenseKey}
+                  <td className="p-4">
+                    ₦{Number(c.annual_price).toLocaleString()}
                   </td>
 
                   <td className="p-4">
-                    {lic.expiresAt || (
-                      <span className="text-slate-500 italic">Unknown</span>
-                    )}
+                    {c.renewal_date
+                      ? new Date(c.renewal_date).toLocaleDateString()
+                      : "Unknown"}
                   </td>
+
+                  <td className="p-4">{c.license_count}</td>
 
                   <td className="p-4">
                     <span
                       className={`px-2 py-1 rounded-lg text-xs font-semibold ${
-                        renewalState(lic.expiresAt).includes("expired")
+                        renewalState(c.renewal_date).includes("expired")
                           ? "bg-red-100 text-red-700"
-                          : renewalState(lic.expiresAt).includes("due soon") ||
-                            renewalState(lic.expiresAt).includes("today")
+                          : renewalState(c.renewal_date).includes("due soon") ||
+                            renewalState(c.renewal_date).includes("today")
                           ? "bg-yellow-100 text-yellow-700"
                           : "bg-blue-100 text-blue-700"
                       }`}
                     >
-                      {renewalState(lic.expiresAt)}
+                      {renewalState(c.renewal_date)}
                     </span>
                   </td>
 
-                  <td className="p-4">
+                  <td className="p-4 flex gap-2">
+                    <button
+                      onClick={() => sendReminder(c.id)}
+                      className="text-blue-600 hover:underline font-medium text-xs"
+                    >
+                      Remind
+                    </button>
+
                     <a
-                      href={`/admin/renewals/${lic.id}`}
-                      className="text-teal-600 hover:underline font-medium"
+                      href={`/admin/renewals/${c.id}`}
+                      className="text-teal-600 hover:underline font-medium text-xs"
                     >
                       View
                     </a>
@@ -544,7 +346,7 @@ export default function RenewalsPage() {
         <div className="flex justify-between items-center mt-6">
           <button
             disabled={page === 1}
-            onClick={() => setPage(page - 1)}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
             className={`px-4 py-2 border rounded-lg ${
               page === 1
                 ? "opacity-40 cursor-not-allowed"
@@ -572,7 +374,7 @@ export default function RenewalsPage() {
 
           <button
             disabled={page === totalPages}
-            onClick={() => setPage(page + 1)}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             className={`px-4 py-2 border rounded-lg ${
               page === totalPages
                 ? "opacity-40 cursor-not-allowed"

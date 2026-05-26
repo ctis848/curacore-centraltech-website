@@ -27,6 +27,28 @@ export default function RenewAnnualPage() {
     setLoading(true);
     setError("");
 
+    const url = new URL(window.location.href);
+    const companyIdFromLink = url.searchParams.get("company_id");
+
+    // ⭐ PRIORITY 1 — Magic link (NO LOGIN REQUIRED)
+    if (companyIdFromLink) {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("id, name, annual_price, renewal_date, license_count")
+        .eq("id", companyIdFromLink)
+        .single();
+
+      if (error || !data) {
+        setError("Invalid or expired renewal link.");
+        setLoading(false);
+        return;
+      }
+
+      prepareCompany(data);
+      return;
+    }
+
+    // ⭐ PRIORITY 2 — Logged-in user fallback
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -63,9 +85,14 @@ export default function RenewAnnualPage() {
       return;
     }
 
+    prepareCompany(companyData);
+  }
+
+  function prepareCompany(companyData: any) {
     const today = new Date();
     let renewal = new Date(companyData.renewal_date);
 
+    // If expired, push renewal forward 1 year
     if (renewal < today) {
       renewal.setFullYear(renewal.getFullYear() + 1);
     }
@@ -130,12 +157,10 @@ export default function RenewAnnualPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-10">
 
-      {/* Title */}
       <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
         Renew Annual Payment
       </h1>
 
-      {/* Company Card */}
       <div className="rounded-2xl shadow-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-6 space-y-4">
 
         <div className="flex items-center justify-between">
@@ -173,7 +198,6 @@ export default function RenewAnnualPage() {
         </div>
       </div>
 
-      {/* Pay Now Button */}
       <button
         onClick={processPayment}
         disabled={processing}
@@ -198,7 +222,6 @@ export default function RenewAnnualPage() {
           activated.
         </p>
 
-        {/* BANK DETAILS */}
         <div className="bg-slate-100 rounded-xl p-4 space-y-2">
           <p className="text-sm"><strong>Bank:</strong> Titan Bank</p>
           <p className="text-sm"><strong>Account Number:</strong> 0000729810</p>
@@ -206,10 +229,8 @@ export default function RenewAnnualPage() {
           <p className="text-xs text-slate-500">(This is your dedicated Paystack DVA)</p>
         </div>
 
-        {/* BUTTONS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-          {/* OPTION A — COPY ACCOUNT NUMBER */}
           <button
             onClick={() => navigator.clipboard.writeText("0000729810")}
             className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
@@ -217,7 +238,6 @@ export default function RenewAnnualPage() {
             Copy Account Number
           </button>
 
-          {/* OPTION B — I HAVE PAID */}
           <button
             onClick={() => alert("Thank you! Paystack will automatically verify your transfer within a few minutes.")}
             className="w-full py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition"
@@ -225,7 +245,6 @@ export default function RenewAnnualPage() {
             I Have Paid — Confirm Transfer
           </button>
 
-          {/* OPTION C — UPLOAD PROOF */}
           <label className="w-full py-3 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition text-center cursor-pointer">
             Upload Proof of Payment
             <input
@@ -236,7 +255,6 @@ export default function RenewAnnualPage() {
             />
           </label>
 
-          {/* OPTION D — OPEN BANK APP */}
           <button
             onClick={() => {
               window.location.href = "intent://bankapp#Intent;scheme=bank;end";
@@ -247,7 +265,6 @@ export default function RenewAnnualPage() {
           </button>
         </div>
 
-        {/* OPTION E — BIG GREEN BUTTON */}
         <button
           onClick={() => alert("Please transfer to Titan Bank 0000729810. Your renewal will activate automatically.")}
           className="w-full py-4 text-lg font-bold rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl hover:brightness-110 transition"

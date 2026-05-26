@@ -8,6 +8,20 @@ const PAYSTACK_BASE = "https://api.paystack.co";
 
 export async function POST(request: Request) {
   try {
+    if (!APP_URL) {
+      return NextResponse.json(
+        { error: "NEXT_PUBLIC_APP_URL is missing" },
+        { status: 500 }
+      );
+    }
+
+    if (!PAYSTACK_SECRET_KEY) {
+      return NextResponse.json(
+        { error: "PAYSTACK_SECRET_KEY is missing" },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
 
     const email = String(body?.email || "").trim();
@@ -19,27 +33,54 @@ export async function POST(request: Request) {
     const type = String(body?.type || "").trim();
     const couponCode = body?.couponCode || null;
 
+    // -------------------------------
+    // VALIDATION
+    // -------------------------------
     if (!email || !email.includes("@"))
-      return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Valid email is required" },
+        { status: 400 }
+      );
 
     if (!companyName)
-      return NextResponse.json({ error: "Company name is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Company name is required" },
+        { status: 400 }
+      );
 
     if (!plan)
-      return NextResponse.json({ error: "Plan is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Plan is required" },
+        { status: 400 }
+      );
 
     if (!quantity || quantity <= 0)
-      return NextResponse.json({ error: "Valid quantity is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Valid quantity is required" },
+        { status: 400 }
+      );
 
     if (!annualFee || annualFee <= 0)
-      return NextResponse.json({ error: "Valid annual fee is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Valid annual fee is required" },
+        { status: 400 }
+      );
 
     if (!amount || amount <= 0)
-      return NextResponse.json({ error: "Valid amount is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Valid amount is required" },
+        { status: 400 }
+      );
 
     if (!type)
-      return NextResponse.json({ error: "Payment type is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Payment type is required" },
+        { status: 400 }
+      );
 
+    // -------------------------------
+    // METADATA (Webhook + Admin Dashboard)
+    // -------------------------------
     const metadata = {
       type,
       email,
@@ -58,20 +99,33 @@ export async function POST(request: Request) {
       ],
     };
 
-    const reference = `CC-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+    // -------------------------------
+    // Generate reference
+    // -------------------------------
+    const reference = `CC-${Date.now()}-${Math.floor(
+      Math.random() * 100000
+    )}`;
 
+    // -------------------------------
+    // PAYSTACK PAYLOAD
+    // -------------------------------
     const paystackPayload = {
       email,
       amount: amount * 100,
       currency: "NGN",
       reference,
       metadata,
-      callback_url: `${APP_URL}/payment/callback?reference=${reference}`,
 
-      // ⭐ VALID CHANNELS (DVA + CARD + BANK + USSD)
+      // ⭐ Unified callback page
+      callback_url: `${APP_URL}/payment/status?reference=${reference}`,
+
+      // ⭐ VALID CHANNELS (CARD + BANK + TRANSFER + USSD + QR)
       channels: ["card", "bank", "bank_transfer", "ussd", "qr"],
     };
 
+    // -------------------------------
+    // Initialize Paystack
+    // -------------------------------
     const response = await fetch(`${PAYSTACK_BASE}/transaction/initialize`, {
       method: "POST",
       headers: {
@@ -83,6 +137,7 @@ export async function POST(request: Request) {
 
     const raw = await response.text();
 
+    // Paystack sometimes returns HTML when rate-limited
     if (raw.startsWith("<")) {
       return NextResponse.json(
         { error: "Paystack returned HTML. Invalid payload." },
@@ -109,8 +164,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       authorization_url: data.data.authorization_url,
+      reference,
     });
-
   } catch (error) {
     console.error("🔥 SERVER CRASH:", error);
     return NextResponse.json(

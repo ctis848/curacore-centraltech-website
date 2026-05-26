@@ -1,15 +1,13 @@
 // app/api/payments/webhook/route.ts
+"use server";
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { sendReceiptEmail } from "@/lib/email/sendReceiptEmail";
 
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
-const BREVO_API_KEY = process.env.BREVO_API_KEY!;
-
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body: any = await req.json();
     const event = body?.event;
     const tx = body?.data;
 
@@ -21,47 +19,79 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, message: "Ignored event" });
     }
 
-    const reference = tx.reference;
-    const email = tx.customer?.email;
-    const amount = tx.amount / 100;
-    const metadata = tx.metadata || {};
+    const reference: string = tx.reference;
+    const email: string | undefined = tx.customer?.email;
+    const amount: number = tx.amount / 100;
+    const currency: string = tx.currency;
+    const metadata: any = tx.metadata || {};
 
     const supabase = supabaseServer();
 
     // ----------------------------------------------------
     // IDEMPOTENCY CHECK
     // ----------------------------------------------------
-    const { data: existingPayment } = await supabase
+    const { data: existingPayment, error: existingPaymentError } = await supabase
       .from("Payment")
       .select("id")
       .eq("reference", reference)
       .maybeSingle();
+
+    if (existingPaymentError) {
+      console.error("Error checking existing payment:", existingPaymentError);
+    }
 
     if (existingPayment) {
       return NextResponse.json({ success: true, message: "Already processed" });
     }
 
     // ----------------------------------------------------
-    // CHECK IF USER EXISTS
+    // FIND OR CREATE CLIENT
     // ----------------------------------------------------
-    const { data: existingUser } = await supabase
-      .from("auth.users")
-      .select("id, email")
-      .eq("email", email)
-      .maybeSingle();
+    let clientId: string | null = metadata.clientId ?? null;
 
-    const userId = existingUser?.id ?? null;
+    if (!clientId && email) {
+      const { data: existingClient, error: existingClientError } = await supabase
+        .from("Client")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (existingClientError) {
+        console.error("Error checking existing client:", existingClientError);
+      }
+
+      if (existingClient) {
+        clientId = existingClient.id;
+      } else {
+        const { data: newClient, error: newClientError } = await supabase
+          .from("Client")
+          .insert({
+            companyname: metadata.companyName ?? "Unknown Company",
+            email,
+            phone: metadata.phone ?? null,
+            address: metadata.address ?? null,
+          })
+          .select()
+          .single();
+
+        if (newClientError) {
+          console.error("Error creating client:", newClientError);
+        } else {
+          clientId = newClient?.id ?? null;
+        }
+      }
+    }
 
     // ----------------------------------------------------
     // INSERT PAYMENT RECORD
+    // (Only fields guaranteed by your Payment table schema)
     // ----------------------------------------------------
-    const { data: payment } = await supabase
+    const { data: payment, error: paymentError } = await supabase
       .from("Payment")
       .insert({
-        userid: userId,
-        email,
+        userid: null,
         amount,
-        currency: tx.currency,
+        currency,
         status: "SUCCESS",
         reference,
         gateway: "PAYSTACK",
@@ -70,123 +100,88 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    // ----------------------------------------------------
-    // CREATE INVOICE
-    // ----------------------------------------------------
-    await supabase.from("Invoice").insert({
-      payment_id: payment.id,
-      userid: userId,
-      email,
-      amount,
-      reference,
-      created_at: new Date().toISOString(),
-    });
+    if (paymentError) {
+      console.error("Error inserting payment:", paymentError);
+    }
 
     // ----------------------------------------------------
     // LICENSE PURCHASE FLOW
     // ----------------------------------------------------
-    if (metadata.type === "NEW_LICENSE_PURCHASE") {
-      const quantity = Number(metadata.quantity) || 0;
+    if (metadata.type === "NEW_LICENSE_PURCHASE" && clientId) {
+      const quantity = Number(metadata.quantity) || 1;
+      const plan = (metadata.plan as string | undefined) ?? "starter";
 
-      if (userId) {
-        const { data: client } = await supabase
-          .from("Clients")
-          .select("totalLicenses")
-          .eq("userid", userId)
-          .maybeSingle();
+      for (let i = 0; i < quantity; i++) {
+        const { error: licenseError } = await supabase.from("License").insert({
+          clientId,
+          status: "ACTIVE",
+          productName: plan,
+          licenseKey: crypto.randomUUID(),
+          purchasedAt: new Date().toISOString(),
+          activatedAt: new Date().toISOString(),
+          annualFeePercent: 20,
+          renewalstatus: "NOT_DUE",
+          renewalduedate: new Date(
+            new Date().setFullYear(new Date().getFullYear() + 1)
+          ).toISOString(),
+        });
 
-        const newTotal = (client?.totalLicenses || 0) + quantity;
-
-        await supabase
-          .from("Clients")
-          .update({ totalLicenses: newTotal })
-          .eq("userid", userId);
+        if (licenseError) {
+          console.error("Error creating license:", licenseError);
+        }
       }
-
-      await supabase.from("LicensePurchases").insert({
-        userid: userId,
-        email,
-        quantity,
-        amount,
-        reference,
-        created_at: new Date().toISOString(),
-      });
     }
 
     // ----------------------------------------------------
     // ANNUAL RENEWAL FLOW
     // ----------------------------------------------------
-    if (metadata.type === "ANNUAL_RENEWAL" && userId) {
-      const { data: billing } = await supabase
-        .from("ClientBilling")
-        .select("next_renewal_date")
-        .eq("userId", userId)
-        .maybeSingle();
+    if (metadata.type === "ANNUAL_RENEWAL" && clientId) {
+      const { data: licenses, error: licensesError } = await supabase
+        .from("License")
+        .select("id, renewalduedate")
+        .eq("clientId", clientId);
 
-      const current = billing?.next_renewal_date
-        ? new Date(billing.next_renewal_date)
-        : new Date();
+      if (licensesError) {
+        console.error("Error fetching licenses for renewal:", licensesError);
+      }
 
-      const nextRenewal = new Date(
-        current.setFullYear(current.getFullYear() + 1)
-      ).toISOString();
+      for (const lic of licenses ?? []) {
+        const baseDate = lic.renewalduedate
+          ? new Date(lic.renewalduedate)
+          : new Date();
+        baseDate.setFullYear(baseDate.getFullYear() + 1);
 
-      await supabase
-        .from("ClientBilling")
-        .update({
-          next_renewal_date: nextRenewal,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("userId", userId);
+        const { error: updateError } = await supabase
+          .from("License")
+          .update({
+            renewalduedate: baseDate.toISOString(),
+            renewalstatus: "NOT_DUE",
+          })
+          .eq("id", lic.id);
 
-      await supabase.from("AnnualPaymentHistory").insert({
-        userid: userId,
-        amount,
-        reference,
-        status: "SUCCESS",
-        paidat: new Date().toISOString(),
-        licensecount: metadata.licenseCount ?? 0,
-      });
-    }
-
-    // ----------------------------------------------------
-    // ⭐ SERVICE PAYMENT FLOW (NEW)
-    // ----------------------------------------------------
-    if (metadata.type === "SERVICE_PAYMENT") {
-      const requestId = metadata.requestId;
-
-      // Mark latest service invoice as paid
-      await supabase
-        .from("ServiceInvoices")
-        .update({
-          paid: true,
-          reference,
-          paid_at: new Date().toISOString(),
-        })
-        .eq("requestId", requestId);
-
-      // Mark service request as completed (optional)
-      await supabase
-        .from("ServiceRequests")
-        .update({ status: "completed" })
-        .eq("id", requestId);
+        if (updateError) {
+          console.error("Error updating license renewal:", updateError);
+        }
+      }
     }
 
     // ----------------------------------------------------
     // SEND RECEIPT EMAIL TO CUSTOMER
     // ----------------------------------------------------
-    await sendReceiptEmail({
-      to: email,
-      amount,
-      currency: tx.currency,
-      reference,
-      licenseId: metadata.licenseId ?? null,
-      companyName: metadata.companyName ?? "",
-      plan: metadata.plan ?? "",
-      quantity: metadata.quantity ?? "",
-      type: metadata.type ?? "",
-      isAdmin: false,
-    });
+    if (email) {
+      await sendReceiptEmail({
+        to: email,
+        amount,
+        currency,
+        reference,
+        licenseId: metadata.licenseId ?? null,
+        companyName: metadata.companyName ?? "",
+        plan: metadata.plan ?? "",
+        quantity: metadata.quantity ?? "",
+        type: metadata.type ?? "",
+        isAdmin: false,
+      });
+    }
 
     // ----------------------------------------------------
     // SEND RECEIPT EMAIL TO ADMIN
@@ -194,7 +189,7 @@ export async function POST(req: NextRequest) {
     await sendReceiptEmail({
       to: "info@ctistech.com",
       amount,
-      currency: tx.currency,
+      currency,
       reference,
       licenseId: metadata.licenseId ?? null,
       companyName: metadata.companyName ?? "",
@@ -203,31 +198,6 @@ export async function POST(req: NextRequest) {
       type: metadata.type ?? "",
       isAdmin: true,
     });
-
-    // ----------------------------------------------------
-    // ADMIN NOTIFICATION (BREVO)
-    // ----------------------------------------------------
-    if (BREVO_API_KEY) {
-      await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "api-key": BREVO_API_KEY,
-        },
-        body: JSON.stringify({
-          sender: { name: "CTIS Tech", email: "no-reply@ctistech.com" },
-          to: [{ email: "info@ctistech.com" }],
-          subject: "New Payment Received",
-          htmlContent: `
-            <h2>New Payment Notification</h2>
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Amount:</strong> ${amount} ${tx.currency}</p>
-            <p><strong>Reference:</strong> ${reference}</p>
-            <p><strong>Status:</strong> SUCCESS</p>
-          `,
-        }),
-      });
-    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

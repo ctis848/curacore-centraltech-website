@@ -10,14 +10,6 @@ const PAYSTACK_BASE = "https://api.paystack.co";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-
-    const invoiceId = body?.invoiceId;
-    const amount = Number(body?.amount);
-    const type = body?.type;
-
-    const isNewPurchase = !invoiceId && type === "NEW_LICENSE_PURCHASE";
-
     if (!APP_URL) {
       return NextResponse.json(
         { error: "NEXT_PUBLIC_APP_URL is missing" },
@@ -32,6 +24,18 @@ export async function POST(request: Request) {
       );
     }
 
+    const body = await request.json();
+
+    const invoiceId = body?.invoiceId as string | undefined;
+    const amount = Number(body?.amount);
+    const type = body?.type as
+      | "NEW_LICENSE_PURCHASE"
+      | "ANNUAL_RENEWAL"
+      | "INVOICE_PAYMENT"
+      | undefined;
+
+    const isNewPurchase = !invoiceId && type === "NEW_LICENSE_PURCHASE";
+
     const supabase = supabaseServer();
     const { data: sessionData } = await supabase.auth.getUser();
     const user = sessionData?.user || null;
@@ -39,7 +43,7 @@ export async function POST(request: Request) {
     // -------------------------------
     // EMAIL VALIDATION
     // -------------------------------
-    let email = user?.email || body?.email;
+    let email: string | undefined = user?.email || body?.email;
 
     if (!email || !email.includes("@")) {
       return NextResponse.json(
@@ -59,7 +63,10 @@ export async function POST(request: Request) {
     }
 
     let finalAmount = Math.round(amount);
-    let metadata: any = { userId: user?.id || null };
+    let metadata: any = {
+      userId: user?.id || null,
+      email,
+    };
 
     // -------------------------------
     // INVOICE PAYMENT
@@ -78,7 +85,7 @@ export async function POST(request: Request) {
         );
       }
 
-      if (invoice.userId !== user?.id) {
+      if (invoice.userId && invoice.userId !== user?.id) {
         return NextResponse.json(
           { error: "You cannot pay another user's invoice" },
           { status: 403 }
@@ -96,8 +103,8 @@ export async function POST(request: Request) {
       finalAmount = Number(invoice.amount);
 
       metadata = {
+        ...metadata,
         invoiceId: invoice.id,
-        userId: user?.id || null,
         description: "Invoice Payment",
         type: "INVOICE_PAYMENT",
       };
@@ -107,7 +114,14 @@ export async function POST(request: Request) {
     // NEW LICENSE PURCHASE
     // -------------------------------
     if (isNewPurchase) {
-      const { companyName, plan, quantity, annualFee } = body;
+      const {
+        companyName,
+        plan,
+        quantity,
+        annualFee,
+        clientId,
+        licenseId,
+      } = body;
 
       if (!companyName || !companyName.trim()) {
         return NextResponse.json(
@@ -117,14 +131,15 @@ export async function POST(request: Request) {
       }
 
       metadata = {
-        userId: user?.id || null,
+        ...metadata,
         description: "New License Purchase",
         type: "NEW_LICENSE_PURCHASE",
-        plan,
-        quantity,
-        email,
+        plan: plan ?? "",
+        quantity: quantity ?? 1,
         companyName,
-        annualFee,
+        annualFee: annualFee ?? null,
+        clientId: clientId ?? null,
+        licenseId: licenseId ?? null,
       };
     }
 
@@ -132,10 +147,17 @@ export async function POST(request: Request) {
     // ANNUAL RENEWAL
     // -------------------------------
     if (type === "ANNUAL_RENEWAL" && !invoiceId && !isNewPurchase) {
+      const { licenseId, clientId, companyName, plan, quantity } = body;
+
       metadata = {
-        userId: user?.id || null,
+        ...metadata,
         description: "Annual Subscription Renewal",
         type: "ANNUAL_RENEWAL",
+        licenseId: licenseId ?? null,
+        clientId: clientId ?? null,
+        companyName: companyName ?? "",
+        plan: plan ?? "",
+        quantity: quantity ?? 1,
       };
     }
 
@@ -161,7 +183,7 @@ export async function POST(request: Request) {
         currency: "NGN",
         reference,
         metadata,
-        callback_url: `${APP_URL}/payment/callback?reference=${reference}`,
+        callback_url: `${APP_URL}/payment/status?reference=${reference}`,
       }),
     });
 
@@ -178,11 +200,11 @@ export async function POST(request: Request) {
     // Optional: notify user
     // -------------------------------
     await sendEmail({
-      to: email,
+      to: email as string, // ⭐ FIXED TS ERROR
       subject: "Payment Initiated",
       html: `
         <h2>Your payment is being processed</h2>
-        <p>Description: <strong>${metadata.description}</strong></p>
+        <p>Description: <strong>${metadata.description ?? "Payment"}</strong></p>
         <p>Amount: <strong>₦${finalAmount.toLocaleString()}</strong></p>
         <p>Reference: <strong>${reference}</strong></p>
       `,
@@ -190,9 +212,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       authorization_url: data.data.authorization_url,
+      reference,
     });
   } catch (error) {
-    console.error("Paystack error:", error);
+    console.error("Paystack callback init error:", error);
     return NextResponse.json(
       { error: "Something went wrong initializing payment" },
       { status: 500 }

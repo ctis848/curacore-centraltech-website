@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import AnimatedSuccess from "@/components/AnimatedSuccess";
 
 interface PaymentInfo {
   amount: number;
@@ -12,8 +15,6 @@ interface PaymentInfo {
 
 function SuccessContent() {
   const params = useSearchParams();
-
-  // ⭐ FIX: Safe access
   const reference = params?.get("reference") ?? null;
 
   const [loading, setLoading] = useState(true);
@@ -29,6 +30,7 @@ function SuccessContent() {
       }
 
       try {
+        // Verify payment with backend
         const res = await fetch(`/api/payments/verify?reference=${reference}`);
         const data = await res.json();
 
@@ -38,6 +40,7 @@ function SuccessContent() {
           return;
         }
 
+        // Fetch user payment history
         const historyRes = await fetch("/api/my-history");
         const historyData = await historyRes.json();
 
@@ -63,12 +66,18 @@ function SuccessContent() {
   }, [reference]);
 
   if (loading)
-    return <div className="p-6 text-center">Verifying payment…</div>;
+    return (
+      <div className="p-6 text-center text-lg font-medium">
+        Verifying payment…
+      </div>
+    );
 
   if (error)
     return (
-      <div className="max-w-md mx-auto mt-20 p-6 bg-white shadow rounded-xl text-center">
-        <h1 className="text-xl font-bold text-red-600 mb-3">Verification Failed</h1>
+      <div className="max-w-md mx-auto mt-28 p-6 bg-white shadow rounded-xl text-center">
+        <h1 className="text-xl font-bold text-red-600 mb-3">
+          Verification Failed
+        </h1>
         <p className="text-gray-600 mb-4">{error}</p>
         <a
           href="/client/renew-annual"
@@ -80,13 +89,17 @@ function SuccessContent() {
     );
 
   return (
-    <div className="max-w-md mx-auto mt-20 p-6 bg-white shadow rounded-xl text-center">
-      <h1 className="text-2xl font-bold mb-4 text-emerald-600">
+    <div className="max-w-md mx-auto mt-28 p-8 bg-white shadow-xl rounded-2xl text-center">
+
+      {/* ⭐ ANIMATED SUCCESS SCREEN */}
+      <AnimatedSuccess />
+
+      <h1 className="text-3xl font-extrabold mb-3 text-emerald-600">
         Payment Successful
       </h1>
 
       <p className="text-gray-700 mb-4">
-        Your annual renewal payment has been verified successfully.
+        Your payment has been verified successfully.
       </p>
 
       {payment && (
@@ -98,7 +111,7 @@ function SuccessContent() {
 
           {payment.licenseCount && (
             <p>
-              <strong>Licenses Renewed:</strong> {payment.licenseCount}
+              <strong>Licenses Purchased:</strong> {payment.licenseCount}
             </p>
           )}
 
@@ -126,8 +139,16 @@ function SuccessContent() {
 
 export default function PaymentSuccessPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-center">Loading…</div>}>
-      <SuccessContent />
-    </Suspense>
+    <>
+      <Navbar />
+
+      <div className="min-h-screen bg-gray-50 pb-20">
+        <Suspense fallback={<div className="p-6 text-center">Loading…</div>}>
+          <SuccessContent />
+        </Suspense>
+      </div>
+
+      <Footer />
+    </>
   );
 }
