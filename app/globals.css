@@ -136,7 +136,7 @@
 }
 
 /* -------------------------------------
-   ⭐ Custom Utility Classes (Fix Build Error)
+   ⭐ Custom Utility Classes
 -------------------------------------- */
 @layer utilities {
   .bg-accent {
@@ -165,8 +165,7 @@
 }
 
 /* ============================================================
-   ✨ NEW ANIMATIONS FOR ADVANCED TESTIMONIAL SYSTEM
-   (3D Tilt, Shine, Parallax, Floating Glows, Marquee)
+   ✨ ADVANCED ANIMATIONS (Testimonial System, Effects, etc.)
 ============================================================ */
 
 /* Floating glowing accents */
