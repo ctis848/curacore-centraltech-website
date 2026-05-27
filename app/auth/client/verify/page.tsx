@@ -1,13 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function ClientEmailVerificationPage() {
   const router = useRouter();
   const supabase = supabaseBrowser();
+  const searchParams = useSearchParams();
+
+  // ⭐ FIX: Prevent "possibly null" error
+  const email = searchParams?.get("email") ?? "";
 
   const [code, setCode] = useState("");
   const [msg, setMsg] = useState("");
@@ -18,9 +22,11 @@ export default function ClientEmailVerificationPage() {
     setLoading(true);
     setMsg("");
 
+    // ⭐ FIX: Supabase requires email + token + type
     const { error } = await supabase.auth.verifyOtp({
       type: "email",
       token: code,
+      email,
     });
 
     if (error) {
@@ -58,7 +64,7 @@ export default function ClientEmailVerificationPage() {
           </h2>
 
           <p className="text-center text-sm text-slate-600 dark:text-gray-300 mb-4">
-            We sent a 6‑digit verification code to your email.
+            We sent a 6‑digit verification code to <strong>{email}</strong>.
           </p>
 
           {msg && (
@@ -96,7 +102,7 @@ export default function ClientEmailVerificationPage() {
           </form>
 
           <p className="text-center text-sm text-slate-600 dark:text-gray-300 mt-4">
-            Didn’t receive the code?  
+            Didn’t receive the code?
             <button
               type="button"
               onClick={() => router.refresh()}
