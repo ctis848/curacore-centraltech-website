@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import Toast from "@/components/Toast";
 
 interface CompanyRow {
   id: string;
@@ -25,14 +26,23 @@ export default function RenewalsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const [month, setMonth] = useState(""); // NEW
-  const [year, setYear] = useState("");   // NEW
+  const [month, setMonth] = useState("");
+  const [year, setYear] = useState("");
 
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [totalCount, setTotalCount] = useState(0);
 
   const [selected, setSelected] = useState<string[]>([]);
+
+  // ⭐ Toast State
+  const [toastMessage, setToastMessage] = useState("");
+  const [showToast, setShowToast] = useState(false);
+
+  const showSuccess = (msg: string) => {
+    setToastMessage(msg);
+    setShowToast(true);
+  };
 
   // Debounce search
   useEffect(() => {
@@ -118,17 +128,18 @@ export default function RenewalsPage() {
     URL.revokeObjectURL(url);
   };
 
+  // ⭐ FIX: Replace alert() with toast
   const sendReminder = async (id: string) => {
     const res = await fetch("/api/admin/renewals/notify-company", {
       method: "POST",
       body: JSON.stringify({ id }),
     });
     const json = await res.json();
-    alert(json.message || "Reminder sent.");
+    showSuccess(json.message || "Reminder sent successfully");
   };
 
   const bulkNotify = async () => {
-    if (!selected.length) return alert("No companies selected.");
+    if (!selected.length) return showSuccess("No companies selected");
 
     const res = await fetch("/api/admin/renewals/bulk-notify-company", {
       method: "POST",
@@ -136,7 +147,7 @@ export default function RenewalsPage() {
     });
 
     const json = await res.json();
-    alert(json.message || "Notifications sent.");
+    showSuccess(json.message || "Bulk reminders sent");
   };
 
   const loadCompanies = useCallback(async () => {
@@ -181,7 +192,6 @@ export default function RenewalsPage() {
       {/* FILTERS */}
       <div className="flex flex-wrap gap-3 mb-6">
 
-        {/* Search */}
         <input
           type="text"
           placeholder="Search by company name..."
@@ -193,7 +203,6 @@ export default function RenewalsPage() {
           className="px-4 py-3 border rounded-lg shadow-sm w-full max-w-md focus:ring-2 focus:ring-purple-400"
         />
 
-        {/* Month Filter */}
         <select
           value={month}
           onChange={(e) => {
@@ -203,21 +212,13 @@ export default function RenewalsPage() {
           className="px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
         >
           <option value="">All Months</option>
-          <option value="1">January</option>
-          <option value="2">February</option>
-          <option value="3">March</option>
-          <option value="4">April</option>
-          <option value="5">May</option>
-          <option value="6">June</option>
-          <option value="7">July</option>
-          <option value="8">August</option>
-          <option value="9">September</option>
-          <option value="10">October</option>
-          <option value="11">November</option>
-          <option value="12">December</option>
+          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+            <option key={m} value={m}>
+              {new Date(0, m - 1).toLocaleString("en", { month: "long" })}
+            </option>
+          ))}
         </select>
 
-        {/* Year Filter */}
         <select
           value={year}
           onChange={(e) => {
@@ -320,17 +321,18 @@ export default function RenewalsPage() {
                     </span>
                   </td>
 
-                  <td className="p-4 flex gap-2">
+                  {/* ⭐ FIXED ACTION BUTTONS */}
+                  <td className="p-4 flex items-center gap-3">
                     <button
                       onClick={() => sendReminder(c.id)}
-                      className="text-blue-600 hover:underline font-medium text-xs"
+                      className="text-blue-600 hover:text-blue-800 font-semibold text-xs"
                     >
                       Remind
                     </button>
 
                     <a
                       href={`/admin/renewals/${c.id}`}
-                      className="text-teal-600 hover:underline font-medium text-xs"
+                      className="text-teal-600 hover:text-teal-800 font-semibold text-xs"
                     >
                       View
                     </a>
@@ -385,6 +387,13 @@ export default function RenewalsPage() {
           </button>
         </div>
       )}
+
+      {/* ⭐ SUCCESS TOAST */}
+      <Toast
+        message={toastMessage}
+        show={showToast}
+        onClose={() => setShowToast(false)}
+      />
     </div>
   );
 }
