@@ -5,6 +5,12 @@ import { randomUUID } from "crypto";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// ⭐ MACHINE KEY VALIDATION (same rules as frontend)
+function isValidMachineKey(value: string) {
+  const regex = /^[A-Z0-9\-]{10,300}$/;
+  return regex.test(value.trim());
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -21,11 +27,31 @@ export async function POST(req: Request) {
     // -------------------------------
     // VALIDATION
     // -------------------------------
-    if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-    if (!userEmail) return NextResponse.json({ error: "Missing userEmail" }, { status: 400 });
-    if (!companyName) return NextResponse.json({ error: "Missing companyName" }, { status: 400 });
-    if (!productName) return NextResponse.json({ error: "Missing productName" }, { status: 400 });
-    if (!requestKey) return NextResponse.json({ error: "Missing requestKey" }, { status: 400 });
+    if (!userId)
+      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+
+    if (!userEmail)
+      return NextResponse.json({ error: "Missing userEmail" }, { status: 400 });
+
+    if (!companyName)
+      return NextResponse.json({ error: "Missing companyName" }, { status: 400 });
+
+    if (!productName)
+      return NextResponse.json({ error: "Missing productName" }, { status: 400 });
+
+    if (!requestKey)
+      return NextResponse.json({ error: "Missing requestKey" }, { status: 400 });
+
+    // ⭐ STRICT MACHINE KEY VALIDATION
+    if (!isValidMachineKey(requestKey)) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid License Request Key format. Only A–Z, 0–9, dashes, minimum 10 characters.",
+        },
+        { status: 400 }
+      );
+    }
 
     // -------------------------------
     // INSERT INTO LicenseRequest TABLE
@@ -57,7 +83,7 @@ export async function POST(req: Request) {
     }
 
     // -------------------------------
-    // RETURN SUCCESS IMMEDIATELY
+    // SUCCESS RESPONSE (IMMEDIATE)
     // -------------------------------
     const response = NextResponse.json({
       success: true,
@@ -66,14 +92,14 @@ export async function POST(req: Request) {
     });
 
     // -------------------------------
-    // SEND EMAILS USING BREVO DIRECTLY
+    // SEND EMAILS USING BREVO (ASYNC)
     // -------------------------------
     const apiKey = process.env.BREVO_API_KEY;
-    const notifyEmail = process.env.NOTIFY_EMAIL; // same as contact API
+    const notifyEmail = process.env.NOTIFY_EMAIL;
 
     if (!apiKey || !notifyEmail) {
       console.error("Missing Brevo API environment variables");
-      return response; // still return success
+      return response;
     }
 
     // ADMIN EMAIL
@@ -114,7 +140,7 @@ export async function POST(req: Request) {
       `,
     };
 
-    // SEND EMAILS IN BACKGROUND
+    // BACKGROUND EMAIL SENDING
     (async () => {
       try {
         await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -144,7 +170,6 @@ export async function POST(req: Request) {
     })();
 
     return response;
-
   } catch (err) {
     console.error("🔥 SERVER ERROR:", err);
     return NextResponse.json(
