@@ -61,25 +61,25 @@ export default function RenewAnnualPage() {
       return;
     }
 
-    const { data: membership, error: membershipError } = await supabase
+    const { data: membership } = await supabase
       .from("user_companies")
       .select("company_id")
       .eq("user_id", user.id)
       .single();
 
-    if (membershipError || !membership?.company_id) {
+    if (!membership?.company_id) {
       setError("Company not found for this user.");
       setLoading(false);
       return;
     }
 
-    const { data: companyData, error: companyError } = await supabase
+    const { data: companyData } = await supabase
       .from("companies")
       .select("id, name, annual_price, renewal_date, license_count")
       .eq("id", membership.company_id)
       .single();
 
-    if (companyError || !companyData) {
+    if (!companyData) {
       setError("Unable to load company billing details.");
       setLoading(false);
       return;
@@ -92,7 +92,7 @@ export default function RenewAnnualPage() {
     const today = new Date();
     let renewal = new Date(companyData.renewal_date);
 
-    // If expired, push renewal forward 1 year
+    // ⭐ Auto-correct expired renewal dates
     if (renewal < today) {
       renewal.setFullYear(renewal.getFullYear() + 1);
     }
@@ -109,6 +109,7 @@ export default function RenewAnnualPage() {
     if (!company) return;
 
     setProcessing(true);
+    setError("");
 
     try {
       const res = await fetch("/api/license/renew", {
@@ -120,15 +121,16 @@ export default function RenewAnnualPage() {
       const data = await res.json();
 
       if (!res.ok || !data.authorization_url) {
-        alert(data.error || "Unable to start renewal payment.");
+        setError(data.error || "Unable to start renewal payment.");
         setProcessing(false);
         return;
       }
 
+      // ⭐ Direct redirect to Paystack
       window.location.href = data.authorization_url;
     } catch (err) {
       console.error("Payment error:", err);
-      alert("Unable to start payment.");
+      setError("Unable to start payment.");
       setProcessing(false);
     }
   }
@@ -155,16 +157,18 @@ export default function RenewAnnualPage() {
     );
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-10">
+    <div className="p-6 max-w-4xl mx-auto space-y-12">
 
+      {/* TITLE */}
       <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
         Renew Annual Payment
       </h1>
 
-      <div className="rounded-2xl shadow-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-6 space-y-4">
+      {/* COMPANY SUMMARY CARD */}
+      <div className="rounded-3xl shadow-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-8 space-y-6">
 
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-800">
+          <h2 className="text-2xl font-bold text-slate-900">
             {company.name}
           </h2>
 
@@ -173,56 +177,59 @@ export default function RenewAnnualPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-4">
 
-          <div className="p-4 rounded-xl bg-gradient-to-br from-purple-100 to-purple-200 shadow-sm">
+          <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-100 to-purple-200 shadow-md">
             <p className="text-xs text-slate-600">Total Licenses Allowed</p>
-            <p className="text-2xl font-bold text-purple-800">
+            <p className="mt-2 text-3xl font-extrabold text-purple-800">
               {company.license_count}
             </p>
           </div>
 
-          <div className="p-4 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 shadow-sm">
+          <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-200 shadow-md">
             <p className="text-xs text-slate-600">Next Renewal Date</p>
-            <p className="text-2xl font-bold text-blue-800">
+            <p className="mt-2 text-3xl font-extrabold text-blue-800">
               {new Date(company.renewal_date).toLocaleDateString()}
             </p>
           </div>
         </div>
 
-        <div className="p-5 rounded-xl bg-gradient-to-br from-green-100 to-emerald-200 shadow-sm mt-4">
+        <div className="p-6 rounded-2xl bg-gradient-to-br from-green-100 to-emerald-200 shadow-md mt-4">
           <p className="text-xs text-slate-600">Annual Fee</p>
-          <p className="text-3xl font-extrabold text-emerald-700">
+          <p className="mt-2 text-4xl font-extrabold text-emerald-700">
             ₦{company.annual_price.toLocaleString()}
           </p>
         </div>
       </div>
 
+      {/* PAY BUTTON */}
       <button
         onClick={processPayment}
         disabled={processing}
-        className={`w-full py-4 text-lg font-bold rounded-xl shadow-lg transition transform active:scale-95 ${
+        className={`w-full py-5 text-xl font-bold rounded-2xl shadow-xl transition-all active:scale-95 ${
           processing
             ? "bg-gray-400 cursor-not-allowed text-white"
-            : "bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:shadow-xl hover:brightness-110"
+            : "bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:shadow-2xl hover:brightness-110"
         }`}
       >
-        {processing ? "Processing Payment…" : `Pay ₦${company.annual_price.toLocaleString()} Securely`}
+        {processing
+          ? "Processing Payment…"
+          : `Pay ₦${company.annual_price.toLocaleString()} Securely`}
       </button>
 
       {/* BANK TRANSFER OPTION */}
-      <div className="bg-white/80 backdrop-blur-xl border border-slate-200 rounded-2xl p-6 shadow-lg space-y-6">
-        <h2 className="text-lg font-semibold text-slate-900">
+      <div className="bg-white/90 backdrop-blur-xl border border-slate-200 rounded-3xl p-8 shadow-xl space-y-8">
+        <h2 className="text-xl font-bold text-slate-900">
           Pay by Bank Transfer (Titan Bank)
         </h2>
 
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-slate-700 leading-relaxed">
           You can also pay directly into our dedicated virtual account. Your
           payment will be automatically detected and your renewal will be
-          activated.
+          activated instantly.
         </p>
 
-        <div className="bg-slate-100 rounded-xl p-4 space-y-2">
+        <div className="bg-slate-100 rounded-2xl p-6 space-y-3 shadow-inner">
           <p className="text-sm"><strong>Bank:</strong> Titan Bank</p>
           <p className="text-sm"><strong>Account Number:</strong> 0000729810</p>
           <p className="text-sm"><strong>Account Name:</strong> Central Tech Information System Ltd</p>
@@ -239,7 +246,7 @@ export default function RenewAnnualPage() {
           </button>
 
           <button
-            onClick={() => alert("Thank you! Paystack will automatically verify your transfer within a few minutes.")}
+            onClick={() => alert("Thank you! Paystack will automatically verify your transfer shortly.")}
             className="w-full py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition"
           >
             I Have Paid — Confirm Transfer
@@ -256,9 +263,7 @@ export default function RenewAnnualPage() {
           </label>
 
           <button
-            onClick={() => {
-              window.location.href = "intent://bankapp#Intent;scheme=bank;end";
-            }}
+            onClick={() => window.location.href = "intent://bankapp#Intent;scheme=bank;end"}
             className="w-full py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition"
           >
             Open Bank App
@@ -267,7 +272,7 @@ export default function RenewAnnualPage() {
 
         <button
           onClick={() => alert("Please transfer to Titan Bank 0000729810. Your renewal will activate automatically.")}
-          className="w-full py-4 text-lg font-bold rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl hover:brightness-110 transition"
+          className="w-full py-4 text-lg font-bold rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-xl hover:shadow-2xl hover:brightness-110 transition"
         >
           Pay by Bank Transfer (Titan Bank)
         </button>
