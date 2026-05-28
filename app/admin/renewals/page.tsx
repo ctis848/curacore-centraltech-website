@@ -26,14 +26,16 @@ export default function RenewalsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const [month, setMonth] = useState("");
-  const [year, setYear] = useState("");
-
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [totalCount, setTotalCount] = useState(0);
 
   const [selected, setSelected] = useState<string[]>([]);
+
+  // ⭐ Collapsible sections
+  const [open3, setOpen3] = useState(true);   // open by default
+  const [open7, setOpen7] = useState(false);
+  const [open30, setOpen30] = useState(false);
 
   // ⭐ Toast State
   const [toastMessage, setToastMessage] = useState("");
@@ -50,6 +52,7 @@ export default function RenewalsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
+  // ⭐ Renewal Logic
   const renewalState = (renewal_date: string | null) => {
     if (!renewal_date) return "Unknown";
 
@@ -58,17 +61,18 @@ export default function RenewalsPage() {
     const diff = exp.getTime() - now.getTime();
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
 
-    if (days > 30) return `${days} days left`;
-    if (days > 0) return `${days} days (due soon)`;
-    if (days === 0) return "Due today";
-    return `${Math.abs(days)} days expired`;
+    if (days <= 3 && days >= 0) return "Due in 3 days";
+    if (days <= 7 && days > 3) return "Due in 7 days";
+    if (days <= 30 && days > 7) return "Due in 30 days";
+
+    return "Not in range";
   };
 
   const rowColorClass = (renewal_date: string | null) => {
     const state = renewalState(renewal_date);
-    if (state.includes("expired")) return "bg-red-50";
-    if (state.includes("due soon") || state.includes("today")) return "bg-yellow-50";
-    if (state.includes("days left")) return "bg-green-50";
+    if (state.includes("3 days")) return "bg-red-50";
+    if (state.includes("7 days")) return "bg-orange-50";
+    if (state.includes("30 days")) return "bg-yellow-50";
     return "";
   };
 
@@ -128,7 +132,7 @@ export default function RenewalsPage() {
     URL.revokeObjectURL(url);
   };
 
-  // ⭐ FIX: Replace alert() with toast
+  // ⭐ Auto-email reminder
   const sendReminder = async (id: string) => {
     const res = await fetch("/api/admin/renewals/notify-company", {
       method: "POST",
@@ -138,18 +142,20 @@ export default function RenewalsPage() {
     showSuccess(json.message || "Reminder sent successfully");
   };
 
-  const bulkNotify = async () => {
-    if (!selected.length) return showSuccess("No companies selected");
+  const bulkNotify = async (rows: CompanyRow[]) => {
+    const ids = rows.map((r) => r.id);
+    if (!ids.length) return showSuccess("No companies selected");
 
     const res = await fetch("/api/admin/renewals/bulk-notify-company", {
       method: "POST",
-      body: JSON.stringify({ ids: selected }),
+      body: JSON.stringify({ ids }),
     });
 
     const json = await res.json();
     showSuccess(json.message || "Bulk reminders sent");
   };
 
+  // ⭐ Load companies
   const loadCompanies = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
@@ -160,8 +166,6 @@ export default function RenewalsPage() {
     });
 
     if (debouncedSearch) params.set("search", debouncedSearch);
-    if (month) params.set("month", month);
-    if (year) params.set("year", year);
 
     const res = await fetch(`/api/admin/renewals?${params.toString()}`);
     const json = await res.json();
@@ -175,7 +179,7 @@ export default function RenewalsPage() {
     setCompanies(json.data || []);
     setTotalCount(json.total || 0);
     setLoading(false);
-  }, [page, debouncedSearch, month, year]);
+  }, [page, debouncedSearch]);
 
   useEffect(() => {
     loadCompanies();
@@ -183,164 +187,208 @@ export default function RenewalsPage() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
+  // ⭐ Filter into 3 categories
+  const due3 = companies.filter((c) => renewalState(c.renewal_date).includes("3 days"));
+  const due7 = companies.filter((c) => renewalState(c.renewal_date).includes("7 days"));
+  const due30 = companies.filter((c) => renewalState(c.renewal_date).includes("30 days"));
+
+  // ⭐ Reusable table component
+  const renderTable = (rows: CompanyRow[]) => (
+    <table className="w-full text-sm">
+      <thead className="bg-slate-100 sticky top-0 z-10">
+        <tr className="border-b text-slate-700">
+          <th className="p-4 text-left">
+            <input
+              type="checkbox"
+              onChange={() => toggleSelectAll(rows)}
+              checked={rows.length > 0 && rows.every((x) => selected.includes(x.id))}
+            />
+          </th>
+          <th className="p-4 text-left font-semibold">Company</th>
+          <th className="p-4 text-left font-semibold">Annual Price</th>
+          <th className="p-4 text-left font-semibold">Renewal Date</th>
+          <th className="p-4 text-left font-semibold">Licenses</th>
+          <th className="p-4 text-left font-semibold">Status</th>
+          <th className="p-4 text-left font-semibold">Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {rows.map((c) => (
+          <tr
+            key={c.id}
+            className={`border-b hover:bg-slate-50 transition ${rowColorClass(c.renewal_date)}`}
+          >
+            <td className="p-4">
+              <input
+                type="checkbox"
+                checked={selected.includes(c.id)}
+                onChange={() => toggleSelect(c.id)}
+              />
+            </td>
+
+            <td className="p-4 font-medium">{c.name}</td>
+
+            <td className="p-4">₦{Number(c.annual_price).toLocaleString()}</td>
+
+            <td className="p-4">
+              {c.renewal_date
+                ? new Date(c.renewal_date).toLocaleDateString()
+                : "Unknown"}
+            </td>
+
+            <td className="p-4">{c.license_count}</td>
+
+            <td className="p-4">
+              <span
+                className={`px-2 py-1 rounded-lg text-xs font-semibold ${
+                  renewalState(c.renewal_date).includes("3 days")
+                    ? "bg-red-100 text-red-700"
+                    : renewalState(c.renewal_date).includes("7 days")
+                    ? "bg-orange-100 text-orange-700"
+                    : "bg-yellow-100 text-yellow-700"
+                }`}
+              >
+                {renewalState(c.renewal_date)}
+              </span>
+            </td>
+
+            <td className="p-4 flex items-center gap-3">
+              <button
+                onClick={() => sendReminder(c.id)}
+                className="text-blue-600 hover:text-blue-800 font-semibold text-xs"
+              >
+                Remind
+              </button>
+
+              <a
+                href={`/admin/renewals/${c.id}`}
+                className="text-teal-600 hover:text-teal-800 font-semibold text-xs"
+              >
+                View
+              </a>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
   return (
     <div className="p-6 space-y-8 max-w-7xl mx-auto">
       <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
         Renewals
       </h1>
 
-      {/* FILTERS */}
-      <div className="flex flex-wrap gap-3 mb-6">
+      {/* SEARCH */}
+      <input
+        type="text"
+        placeholder="Search by company name..."
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setPage(1);
+        }}
+        className="px-4 py-3 border rounded-lg shadow-sm w-full max-w-md focus:ring-2 focus:ring-purple-400"
+      />
 
-        <input
-          type="text"
-          placeholder="Search by company name..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="px-4 py-3 border rounded-lg shadow-sm w-full max-w-md focus:ring-2 focus:ring-purple-400"
-        />
-
-        <select
-          value={month}
-          onChange={(e) => {
-            setMonth(e.target.value);
-            setPage(1);
-          }}
-          className="px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
+      {/* 🔴 SECTION — 3 DAYS */}
+      <div className="bg-white shadow-xl rounded-2xl border border-slate-200">
+        <button
+          onClick={() => setOpen3(!open3)}
+          className="w-full flex justify-between items-center px-6 py-4 text-left font-bold text-red-700"
         >
-          <option value="">All Months</option>
-          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-            <option key={m} value={m}>
-              {new Date(0, m - 1).toLocaleString("en", { month: "long" })}
-            </option>
-          ))}
-        </select>
+          <span>🔴 Due in 3 Days ({due3.length})</span>
+          <span>{open3 ? "▲" : "▼"}</span>
+        </button>
 
-        <select
-          value={year}
-          onChange={(e) => {
-            setYear(e.target.value);
-            setPage(1);
-          }}
-          className="px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
-        >
-          <option value="">All Years</option>
-          <option value="2025">2025</option>
-          <option value="2026">2026</option>
-          <option value="2027">2027</option>
-        </select>
+        {open3 && (
+          <div className="p-4">
+            {renderTable(due3)}
+
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => bulkNotify(due3)}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700"
+              >
+                Send Bulk Reminders
+              </button>
+
+              <button
+                onClick={() => exportCSV(due3)}
+                className="px-4 py-2 bg-slate-700 text-white rounded-lg shadow hover:bg-slate-800"
+              >
+                Export CSV
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* TABLE */}
-      <div className="overflow-x-auto bg-white shadow-xl rounded-2xl border border-slate-200">
-        <table className="w-full text-sm">
-          <thead className="bg-gradient-to-r from-slate-100 to-slate-200 sticky top-0 z-10">
-            <tr className="border-b text-slate-700">
-              <th className="p-4 text-left">
-                <input
-                  type="checkbox"
-                  onChange={() => toggleSelectAll(companies)}
-                  checked={
-                    companies.length > 0 &&
-                    companies.every((x) => selected.includes(x.id))
-                  }
-                />
-              </th>
+      {/* 🟠 SECTION — 7 DAYS */}
+      <div className="bg-white shadow-xl rounded-2xl border border-slate-200">
+        <button
+          onClick={() => setOpen7(!open7)}
+          className="w-full flex justify-between items-center px-6 py-4 text-left font-bold text-orange-700"
+        >
+          <span>🟠 Due in 7 Days ({due7.length})</span>
+          <span>{open7 ? "▲" : "▼"}</span>
+        </button>
 
-              <th className="p-4 text-left font-semibold">Company</th>
-              <th className="p-4 text-left font-semibold">Annual Price</th>
-              <th className="p-4 text-left font-semibold">Renewal Date</th>
-              <th className="p-4 text-left font-semibold">Licenses</th>
-              <th className="p-4 text-left font-semibold">Status</th>
-              <th className="p-4 text-left font-semibold">Actions</th>
-            </tr>
-          </thead>
+        {open7 && (
+          <div className="p-4">
+            {renderTable(due7)}
 
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={7} className="p-6 text-center text-slate-500">
-                  Loading renewals…
-                </td>
-              </tr>
-            )}
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => bulkNotify(due7)}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg shadow hover:bg-orange-700"
+              >
+                Send Bulk Reminders
+              </button>
 
-            {!loading && companies.length === 0 && (
-              <tr>
-                <td colSpan={7} className="p-6 text-center text-slate-500">
-                  No results found.
-                </td>
-              </tr>
-            )}
+              <button
+                onClick={() => exportCSV(due7)}
+                className="px-4 py-2 bg-slate-700 text-white rounded-lg shadow hover:bg-slate-800"
+              >
+                Export CSV
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
-            {!loading &&
-              companies.map((c) => (
-                <tr
-                  key={c.id}
-                  className={`border-b hover:bg-slate-50 transition ${rowColorClass(
-                    c.renewal_date
-                  )}`}
-                >
-                  <td className="p-4">
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(c.id)}
-                      onChange={() => toggleSelect(c.id)}
-                    />
-                  </td>
+      {/* 🟡 SECTION — 30 DAYS */}
+      <div className="bg-white shadow-xl rounded-2xl border border-slate-200">
+        <button
+          onClick={() => setOpen30(!open30)}
+          className="w-full flex justify-between items-center px-6 py-4 text-left font-bold text-yellow-700"
+        >
+          <span>🟡 Due in 30 Days ({due30.length})</span>
+          <span>{open30 ? "▲" : "▼"}</span>
+        </button>
 
-                  <td className="p-4 font-medium">{c.name}</td>
+        {open30 && (
+          <div className="p-4">
+            {renderTable(due30)}
 
-                  <td className="p-4">
-                    ₦{Number(c.annual_price).toLocaleString()}
-                  </td>
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => bulkNotify(due30)}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-lg shadow hover:bg-yellow-700"
+              >
+                Send Bulk Reminders
+              </button>
 
-                  <td className="p-4">
-                    {c.renewal_date
-                      ? new Date(c.renewal_date).toLocaleDateString()
-                      : "Unknown"}
-                  </td>
-
-                  <td className="p-4">{c.license_count}</td>
-
-                  <td className="p-4">
-                    <span
-                      className={`px-2 py-1 rounded-lg text-xs font-semibold ${
-                        renewalState(c.renewal_date).includes("expired")
-                          ? "bg-red-100 text-red-700"
-                          : renewalState(c.renewal_date).includes("due soon") ||
-                            renewalState(c.renewal_date).includes("today")
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-blue-100 text-blue-700"
-                      }`}
-                    >
-                      {renewalState(c.renewal_date)}
-                    </span>
-                  </td>
-
-                  {/* ⭐ FIXED ACTION BUTTONS */}
-                  <td className="p-4 flex items-center gap-3">
-                    <button
-                      onClick={() => sendReminder(c.id)}
-                      className="text-blue-600 hover:text-blue-800 font-semibold text-xs"
-                    >
-                      Remind
-                    </button>
-
-                    <a
-                      href={`/admin/renewals/${c.id}`}
-                      className="text-teal-600 hover:text-teal-800 font-semibold text-xs"
-                    >
-                      View
-                    </a>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
+              <button
+                onClick={() => exportCSV(due30)}
+                className="px-4 py-2 bg-slate-700 text-white rounded-lg shadow hover:bg-slate-800"
+              >
+                Export CSV
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* PAGINATION */}
@@ -350,9 +398,7 @@ export default function RenewalsPage() {
             disabled={page === 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             className={`px-4 py-2 border rounded-lg ${
-              page === 1
-                ? "opacity-40 cursor-not-allowed"
-                : "hover:bg-slate-50"
+              page === 1 ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-50"
             }`}
           >
             Previous
@@ -364,9 +410,7 @@ export default function RenewalsPage() {
                 key={p}
                 onClick={() => setPage(p)}
                 className={`px-3 py-1 border rounded-lg ${
-                  p === page
-                    ? "bg-slate-900 text-white"
-                    : "hover:bg-slate-50"
+                  p === page ? "bg-slate-900 text-white" : "hover:bg-slate-50"
                 }`}
               >
                 {p}

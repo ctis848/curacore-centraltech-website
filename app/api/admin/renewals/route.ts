@@ -7,63 +7,74 @@ export async function GET(req: Request) {
 
     const page = Number(searchParams.get("page") || 1);
     const pageSize = Number(searchParams.get("pageSize") || 10);
-
     const search = searchParams.get("search")?.toLowerCase() || "";
-    const month = searchParams.get("month"); // e.g. "6"
-    const year = searchParams.get("year");   // e.g. "2026"
 
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    // ⭐ STEP 1 — BASE QUERY (NO PAGINATION YET)
+    // ⭐ TODAY
+    const today = new Date();
+    const todayISO = today.toISOString().split("T")[0];
+
+    // ⭐ 3 DAYS
+    const threeDays = new Date();
+    threeDays.setDate(today.getDate() + 3);
+    const threeDaysISO = threeDays.toISOString().split("T")[0];
+
+    // ⭐ 7 DAYS
+    const sevenDays = new Date();
+    sevenDays.setDate(today.getDate() + 7);
+    const sevenDaysISO = sevenDays.toISOString().split("T")[0];
+
+    // ⭐ 1 MONTH (30 days)
+    const oneMonth = new Date();
+    oneMonth.setDate(today.getDate() + 30);
+    const oneMonthISO = oneMonth.toISOString().split("T")[0];
+
+    // ⭐ BASE QUERY
     let query = supabaseAdmin
       .from("companies")
       .select("*", { count: "exact" })
-      .not("renewal_date", "is", null);
+      .not("renewal_date", "is", null)
+      .gte("renewal_date", todayISO) // future only
+      .lte("renewal_date", oneMonthISO); // within 30 days max
 
-    // ⭐ STEP 2 — SEARCH FILTER
+    // ⭐ SEARCH FILTER
     if (search) {
-      const s = `%${search}%`;
-      query = query.ilike("name", s);
+      query = query.ilike("name", `%${search}%`);
     }
 
-    // ⭐ STEP 3 — MONTH FILTER
-    if (month) {
-      const y = year || new Date().getFullYear();
-      const m = Number(month);
-
-      query = query
-        .gte("renewal_date", `${y}-${String(m).padStart(2, "0")}-01`)
-        .lt("renewal_date", `${y}-${String(m + 1).padStart(2, "0")}-01`);
-    }
-
-    // ⭐ STEP 4 — YEAR FILTER
-    if (!month && year) {
-      query = query
-        .gte("renewal_date", `${year}-01-01`)
-        .lte("renewal_date", `${year}-12-31`);
-    }
-
-    // ⭐ STEP 5 — ORDER BY RENEWAL DATE
+    // ⭐ ORDER BY UPCOMING FIRST
     query = query.order("renewal_date", { ascending: true });
 
-    // ⭐ STEP 6 — APPLY PAGINATION LAST
+    // ⭐ PAGINATION
     query = query.range(from, to);
 
     const { data, error, count } = await query;
 
     if (error) {
-      console.error("Companies fetch error:", error);
+      console.error("Renewals fetch error:", error);
       return NextResponse.json(
         { success: false, message: error.message },
         { status: 500 }
       );
     }
 
+    // ⭐ FILTER EXACTLY THE 3 CONDITIONS
+    const filtered = data.filter((company) => {
+      const date = company.renewal_date;
+
+      return (
+        (date <= oneMonthISO && date >= todayISO) || // within 30 days
+        (date <= sevenDaysISO && date >= todayISO) || // within 7 days
+        (date <= threeDaysISO && date >= todayISO) // within 3 days
+      );
+    });
+
     return NextResponse.json({
       success: true,
-      data,
-      total: count || 0,
+      data: filtered,
+      total: filtered.length,
       page,
       pageSize,
     });

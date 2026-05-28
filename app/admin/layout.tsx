@@ -24,12 +24,15 @@ import {
   BanknotesIcon,
   WrenchScrewdriverIcon,
   ClipboardDocumentCheckIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 
 // -----------------------------
 // TYPES
 // -----------------------------
-type NavSection = { section: string };
+type NavSection = { section: string; icon: ElementType; key: string };
 type NavItem = {
   label: string;
   href: string;
@@ -45,38 +48,37 @@ type NavEntry = NavSection | NavItem;
 const userRole = "superadmin";
 
 // -----------------------------
-// NAV ITEMS (UPDATED WITH NEW SECTION)
+// NAV ITEMS (WITH ICONS + COLLAPSIBLE SUPPORT)
 // -----------------------------
 const navItems: NavEntry[] = [
-  { section: "General" },
+  { section: "General", icon: HomeIcon, key: "general" },
   { label: "Dashboard", href: "/admin", icon: HomeIcon },
 
-  { section: "Licensing" },
+  { section: "Licensing", icon: KeyIcon, key: "licensing" },
   { label: "Licenses", href: "/admin/licenses", icon: KeyIcon },
   { label: "Active Licenses", href: "/admin/active-licenses", icon: KeyIcon },
   { label: "License Requests", href: "/admin/license-requests", icon: ClipboardDocumentListIcon },
   { label: "Send License", href: "/admin/send-license", icon: KeyIcon, roles: ["admin", "superadmin"] },
 
-  { section: "Finance" },
+  { section: "Finance", icon: CurrencyDollarIcon, key: "finance" },
   { label: "Payments", href: "/admin/payments", icon: CreditCardIcon },
   { label: "Annual Fees", href: "/admin/annual-fees", icon: CurrencyDollarIcon },
   { label: "Renewals", href: "/admin/renewals", icon: ClockIcon },
   { label: "Renewal Analytics", href: "/admin/renewals/analytics", icon: ChartBarIcon },
 
-  { section: "Transfer Payments" },
+  { section: "Transfer Payments", icon: BanknotesIcon, key: "transfers" },
   { label: "Transfer Approvals", href: "/admin/transfers", icon: BanknotesIcon },
 
-  { section: "Clients & Purchases" },
+  { section: "Clients & Purchases", icon: UserGroupIcon, key: "clients" },
   { label: "Clients", href: "/admin/clients", icon: UserGroupIcon },
   { label: "License Purchases", href: "/admin/license-purchases", icon: DocumentDuplicateIcon },
   { label: "Invoices", href: "/admin/invoices", icon: DocumentTextIcon },
 
-  // ⭐ NEW SECTION ADDED HERE
-  { section: "On‑Site Support" },
+  { section: "On‑Site Support", icon: WrenchScrewdriverIcon, key: "onsite" },
   { label: "Service Requests", href: "/admin/service-requests", icon: ClipboardDocumentCheckIcon },
   { label: "Service Analytics", href: "/admin/service-analytics", icon: ChartBarIcon },
 
-  { section: "Management" },
+  { section: "Management", icon: Cog6ToothIcon, key: "management" },
   { label: "Tenants", href: "/admin/tenants", icon: BuildingOfficeIcon },
   { label: "Users", href: "/admin/users", icon: UserGroupIcon, roles: ["superadmin"] },
   { label: "Support", href: "/admin/support", icon: ChatBubbleLeftRightIcon },
@@ -101,11 +103,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
-  const isActive = (href: string) => {
-    if (!pathname) return false;
-    if (href === "/admin") return pathname === "/admin";
-    return pathname.startsWith(href);
+  const isActive = (href: string) => pathname?.startsWith(href);
+
+  const toggleSection = (key: string) => {
+    setExpanded(expanded === key ? null : key);
   };
 
   return (
@@ -140,15 +143,30 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {visibleItems.map((item, index) => {
             if ("section" in item) {
+              const SectionIcon = item.icon;
+              const isOpen = expanded === item.key;
+
               return (
-                <div key={`section-${index}`} className="mt-4 mb-1">
-                  {!collapsed ? (
-                    <div className="text-xs font-semibold text-slate-500 px-3 tracking-wide">
-                      {item.section}
-                    </div>
-                  ) : (
-                    <div className="h-6"></div>
-                  )}
+                <div key={`section-${index}`} className="mt-4">
+                  <button
+                    onClick={() => toggleSection(item.key)}
+                    className={`flex items-center justify-between w-full px-3 py-2 rounded-lg text-xs font-semibold tracking-wide
+                      ${collapsed ? "justify-center" : ""}
+                      ${isOpen ? "text-blue-600" : "text-slate-500"}
+                    `}
+                  >
+                    <span className="flex items-center gap-2">
+                      <SectionIcon className="w-4 h-4" />
+                      {!collapsed && item.section}
+                    </span>
+
+                    {!collapsed &&
+                      (isOpen ? (
+                        <ChevronDownIcon className="w-4 h-4" />
+                      ) : (
+                        <ChevronRightIcon className="w-4 h-4" />
+                      ))}
+                  </button>
                 </div>
               );
             }

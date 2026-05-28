@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { getRenewalEmailHtml } from "@/lib/email/renewalTemplates";
 
 export async function POST(req: Request) {
   try {
@@ -13,54 +14,58 @@ export async function POST(req: Request) {
       planName,
       amountDue,
       paymentLink,
-      type, // "30days" or "7days"
+      type, // "30days" | "7days" | "3days" | "1day" | "today" | "overdue"
     } = await req.json();
 
-    if (!companyEmail || !companyName || !dueDate || !amountDue || !paymentLink) {
+    // 1️⃣ Validate required fields
+    if (
+      !companyEmail ||
+      !companyName ||
+      !dueDate ||
+      !amountDue ||
+      !paymentLink ||
+      !type
+    ) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 }
       );
     }
 
+    // 2️⃣ Load environment variables
     const apiKey = process.env.BREVO_API_KEY;
     const notifyEmail = process.env.NOTIFY_EMAIL;
 
-    const subject =
-      type === "30days"
-        ? `Your Annual Subscription is Due in 30 Days`
-        : `Your Annual Subscription is Due in 7 Days`;
+    if (!apiKey || !notifyEmail) {
+      return NextResponse.json(
+        { success: false, error: "Missing Brevo API credentials" },
+        { status: 500 }
+      );
+    }
 
-    const intro =
-      type === "30days"
-        ? `This is a reminder that your annual subscription will be due in 30 days.`
-        : `This is a final reminder that your annual subscription will be due in 7 days.`;
+    // 3️⃣ Generate full HTML + subject using your advanced template
+    const { subject, html } = getRenewalEmailHtml({
+      clientName: contactName || companyName,
+      paymentLink,
+      type,
+    });
 
+    // 4️⃣ Build Brevo payload
     const payload = {
-      sender: { name: "CTIS Subscription", email: notifyEmail },
+      sender: { name: "CentralCore EMR", email: notifyEmail },
       to: [{ email: companyEmail }],
       cc: [{ email: notifyEmail }],
       subject,
-      htmlContent: `
-        <h2>Annual Subscription Reminder</h2>
-        <p>Hello ${contactName},</p>
-        <p>${intro}</p>
-
-        <p><strong>Company:</strong> ${companyName}</p>
-        <p><strong>Plan:</strong> ${planName}</p>
-        <p><strong>Renewal Date:</strong> ${dueDate}</p>
-        <p><strong>Amount Due:</strong> ₦${amountDue}</p>
-
-        <p>Renew using the secure link below:</p>
-        <p><a href="${paymentLink}">${paymentLink}</a></p>
-
-        <p>Thank you.</p>
-      `,
+      htmlContent: html,
     };
 
+    // 5️⃣ Send email via Brevo
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
-      headers: { "api-key": apiKey!, "Content-Type": "application/json" },
+      headers: {
+        "api-key": apiKey,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(payload),
     });
 
@@ -72,10 +77,15 @@ export async function POST(req: Request) {
       );
     }
 
+    // 6️⃣ Success
     return NextResponse.json({ success: true });
-  } catch (err) {
+  } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: "Internal server error", details: String(err) },
+      {
+        success: false,
+        error: "Internal server error",
+        details: err.message || String(err),
+      },
       { status: 500 }
     );
   }

@@ -21,7 +21,7 @@ export default function RenewalAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState("All Years");
 
-  // Load licenses
+  // ⭐ Load license data
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -37,7 +37,7 @@ export default function RenewalAnalyticsPage() {
         return;
       }
 
-      const list: LicenseRow[] = (data || []).map((r: any) => ({
+      const formatted: LicenseRow[] = (data || []).map((r: any) => ({
         id: r.id,
         productName: r.productName ?? null,
         licenseKey: r.licenseKey,
@@ -48,28 +48,27 @@ export default function RenewalAnalyticsPage() {
         createdAt: r.created_at,
       }));
 
-      setLicenses(list);
+      setLicenses(formatted);
       setLoading(false);
     }
 
     load();
   }, [supabase]);
 
-  // Extract available years
+  // ⭐ Extract available years
   const years = useMemo(() => {
     const set = new Set<string>();
 
     licenses.forEach((lic) => {
       if (lic.expiresAt) {
-        const y = new Date(lic.expiresAt).getFullYear().toString();
-        set.add(y);
+        set.add(new Date(lic.expiresAt).getFullYear().toString());
       }
     });
 
     return ["All Years", ...Array.from(set)];
   }, [licenses]);
 
-  // Filter by year
+  // ⭐ Filter by selected year
   const filteredLicenses = useMemo(() => {
     if (year === "All Years") return licenses;
 
@@ -79,7 +78,7 @@ export default function RenewalAnalyticsPage() {
     });
   }, [licenses, year]);
 
-  // Monthly analytics
+  // ⭐ Monthly analytics
   const monthlyData = useMemo(() => {
     const map: Record<
       string,
@@ -112,7 +111,7 @@ export default function RenewalAnalyticsPage() {
     return map;
   }, [filteredLicenses]);
 
-  // Summary totals
+  // ⭐ Summary totals
   const summary = useMemo(() => {
     let total = 0;
     let dueSoon = 0;
@@ -135,10 +134,8 @@ export default function RenewalAnalyticsPage() {
         Renewal Analytics
       </h1>
 
-      {/* HEADER FILTER */}
-      <div className="flex justify-between items-center">
-        <div></div>
-
+      {/* YEAR FILTER */}
+      <div className="flex justify-end">
         <select
           value={year}
           onChange={(e) => setYear(e.target.value)}
@@ -158,7 +155,7 @@ export default function RenewalAnalyticsPage() {
         </div>
 
         <div className="p-6 bg-white shadow-xl rounded-2xl border border-slate-200">
-          <p className="text-sm text-slate-500">Due Soon</p>
+          <p className="text-sm text-slate-500">Due Soon (≤ 30 days)</p>
           <p className="text-3xl font-extrabold text-yellow-600">{summary.dueSoon}</p>
         </div>
 
@@ -168,7 +165,7 @@ export default function RenewalAnalyticsPage() {
         </div>
       </div>
 
-      {/* MONTH TABLE */}
+      {/* MONTHLY TABLE */}
       <div className="overflow-x-auto bg-white shadow-xl rounded-2xl border border-slate-200 mt-8">
         <table className="w-full text-sm">
           <thead className="bg-gradient-to-r from-slate-100 to-slate-200 sticky top-0 z-10">
