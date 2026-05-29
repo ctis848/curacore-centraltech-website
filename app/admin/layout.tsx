@@ -48,7 +48,7 @@ type NavEntry = NavSection | NavItem;
 const userRole = "superadmin";
 
 // -----------------------------
-// NAV ITEMS (WITH ICONS + COLLAPSIBLE SUPPORT)
+// NAV ITEMS
 // -----------------------------
 const navItems: NavEntry[] = [
   { section: "General", icon: HomeIcon, key: "general" },
@@ -99,7 +99,11 @@ const visibleItems = navItems.filter((item) => {
 // -----------------------------
 // COMPONENT
 // -----------------------------
-export default function AdminLayout({ children }: { children: ReactNode }) {
+export default function AdminLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -274,7 +278,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        <main className="p-6">{children}</main>
+        <main className="p-6">
+          {/* PAGE TITLE (NEW) */}
+          <h1 className="text-2xl font-bold mb-4 text-slate-800">
+            {pathname?.split("/").pop()?.replace("-", " ").toUpperCase()}
+          </h1>
+
+          {children}
+        </main>
       </div>
     </div>
   );
