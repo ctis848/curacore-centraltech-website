@@ -1,56 +1,57 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+export const revalidate = 60; // 60s cache for Next.js (ISR-style)
+
+type Bucket = "DUE_3" | "DUE_7" | "DUE_30" | "EXPIRED" | "OTHER" | "UNKNOWN";
+
+function getRenewalBucket(renewalDate: string | null): Bucket {
+  if (!renewalDate) return "UNKNOWN";
+
+  const now = new Date();
+  const exp = new Date(renewalDate);
+
+  now.setHours(0, 0, 0, 0);
+  exp.setHours(0, 0, 0, 0);
+
+  const diff = exp.getTime() - now.getTime();
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+  if (days < 0) return "EXPIRED";
+  if (days <= 3) return "DUE_3";
+  if (days <= 7) return "DUE_7";
+  if (days <= 30) return "DUE_30";
+  return "OTHER";
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
 
-    const page = Number(searchParams.get("page") || 1);
-    const pageSize = Number(searchParams.get("pageSize") || 10);
     const search = searchParams.get("search")?.toLowerCase() || "";
 
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    // ⭐ TODAY
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const todayISO = today.toISOString().split("T")[0];
 
-    // ⭐ 3 DAYS
-    const threeDays = new Date();
-    threeDays.setDate(today.getDate() + 3);
-    const threeDaysISO = threeDays.toISOString().split("T")[0];
-
-    // ⭐ 7 DAYS
-    const sevenDays = new Date();
-    sevenDays.setDate(today.getDate() + 7);
-    const sevenDaysISO = sevenDays.toISOString().split("T")[0];
-
-    // ⭐ 1 MONTH (30 days)
     const oneMonth = new Date();
     oneMonth.setDate(today.getDate() + 30);
+    oneMonth.setHours(0, 0, 0, 0);
     const oneMonthISO = oneMonth.toISOString().split("T")[0];
 
-    // ⭐ BASE QUERY
     let query = supabaseAdmin
       .from("companies")
-      .select("*", { count: "exact" })
+      .select("*")
       .not("renewal_date", "is", null)
-      .gte("renewal_date", todayISO) // future only
-      .lte("renewal_date", oneMonthISO); // within 30 days max
+      .gte("renewal_date", todayISO)
+      .lte("renewal_date", oneMonthISO)
+      .order("renewal_date", { ascending: true });
 
-    // ⭐ SEARCH FILTER
     if (search) {
       query = query.ilike("name", `%${search}%`);
     }
 
-    // ⭐ ORDER BY UPCOMING FIRST
-    query = query.order("renewal_date", { ascending: true });
-
-    // ⭐ PAGINATION
-    query = query.range(from, to);
-
-    const { data, error, count } = await query;
+    const { data, error } = await query;
 
     if (error) {
       console.error("Renewals fetch error:", error);
@@ -60,25 +61,29 @@ export async function GET(req: Request) {
       );
     }
 
-    // ⭐ FILTER EXACTLY THE 3 CONDITIONS
-    const filtered = data.filter((company) => {
-      const date = company.renewal_date;
+    const grouped = {
+      DUE_3: [] as any[],
+      DUE_7: [] as any[],
+      DUE_30: [] as any[],
+    };
 
-      return (
-        (date <= oneMonthISO && date >= todayISO) || // within 30 days
-        (date <= sevenDaysISO && date >= todayISO) || // within 7 days
-        (date <= threeDaysISO && date >= todayISO) // within 3 days
-      );
-    });
+    for (const company of data || []) {
+      const bucket = getRenewalBucket(company.renewal_date);
+
+      if (bucket === "DUE_3") grouped.DUE_3.push(company);
+      else if (bucket === "DUE_7") grouped.DUE_7.push(company);
+      else if (bucket === "DUE_30") grouped.DUE_30.push(company);
+    }
 
     return NextResponse.json({
       success: true,
-      data: filtered,
-      total: filtered.length,
-      page,
-      pageSize,
+      grouped,
+      counts: {
+        DUE_3: grouped.DUE_3.length,
+        DUE_7: grouped.DUE_7.length,
+        DUE_30: grouped.DUE_30.length,
+      },
     });
-
   } catch (err: any) {
     console.error("Renewals API error:", err);
     return NextResponse.json(
