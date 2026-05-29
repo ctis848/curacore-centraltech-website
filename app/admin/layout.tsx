@@ -24,15 +24,12 @@ import {
   BanknotesIcon,
   WrenchScrewdriverIcon,
   ClipboardDocumentCheckIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
-  Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 
 // -----------------------------
 // TYPES
 // -----------------------------
-type NavSection = { section: string; icon: ElementType; key: string };
+type NavSection = { section: string };
 type NavItem = {
   label: string;
   href: string;
@@ -43,7 +40,7 @@ type NavItem = {
 type NavEntry = NavSection | NavItem;
 
 // -----------------------------
-// ROLE (Replace with real auth later)
+// ROLE
 // -----------------------------
 const userRole = "superadmin";
 
@@ -51,38 +48,41 @@ const userRole = "superadmin";
 // NAV ITEMS
 // -----------------------------
 const navItems: NavEntry[] = [
-  { section: "General", icon: HomeIcon, key: "general" },
+  { section: "General" },
   { label: "Dashboard", href: "/admin", icon: HomeIcon },
 
-  { section: "Licensing", icon: KeyIcon, key: "licensing" },
+  { section: "Licensing" },
   { label: "Licenses", href: "/admin/licenses", icon: KeyIcon },
   { label: "Active Licenses", href: "/admin/active-licenses", icon: KeyIcon },
   { label: "License Requests", href: "/admin/license-requests", icon: ClipboardDocumentListIcon },
   { label: "Send License", href: "/admin/send-license", icon: KeyIcon, roles: ["admin", "superadmin"] },
 
-  { section: "Finance", icon: CurrencyDollarIcon, key: "finance" },
+  { section: "Finance" },
   { label: "Payments", href: "/admin/payments", icon: CreditCardIcon },
   { label: "Annual Fees", href: "/admin/annual-fees", icon: CurrencyDollarIcon },
   { label: "Renewals", href: "/admin/renewals", icon: ClockIcon },
   { label: "Renewal Analytics", href: "/admin/renewals/analytics", icon: ChartBarIcon },
 
-  { section: "Transfer Payments", icon: BanknotesIcon, key: "transfers" },
+  { section: "Transfer Payments" },
   { label: "Transfer Approvals", href: "/admin/transfers", icon: BanknotesIcon },
 
-  { section: "Clients & Purchases", icon: UserGroupIcon, key: "clients" },
+  { section: "Clients & Purchases" },
   { label: "Clients", href: "/admin/clients", icon: UserGroupIcon },
   { label: "License Purchases", href: "/admin/license-purchases", icon: DocumentDuplicateIcon },
   { label: "Invoices", href: "/admin/invoices", icon: DocumentTextIcon },
 
-  { section: "On‑Site Support", icon: WrenchScrewdriverIcon, key: "onsite" },
+  { section: "On‑Site Support" },
   { label: "Service Requests", href: "/admin/service-requests", icon: ClipboardDocumentCheckIcon },
   { label: "Service Analytics", href: "/admin/service-analytics", icon: ChartBarIcon },
 
-  { section: "Management", icon: Cog6ToothIcon, key: "management" },
+  { section: "Management" },
   { label: "Tenants", href: "/admin/tenants", icon: BuildingOfficeIcon },
   { label: "Users", href: "/admin/users", icon: UserGroupIcon, roles: ["superadmin"] },
   { label: "Support", href: "/admin/support", icon: ChatBubbleLeftRightIcon },
   { label: "Coupons", href: "/admin/coupons", icon: TagIcon },
+
+  // ⭐ ADDED: CRON LOGS
+  { label: "Cron Logs", href: "/admin/cron-logs", icon: ClockIcon, roles: ["superadmin"] },
 
   { label: "Logout", href: "/api/auth/admin-logout", icon: XMarkIcon, logout: true },
 ];
@@ -99,20 +99,17 @@ const visibleItems = navItems.filter((item) => {
 // -----------------------------
 // COMPONENT
 // -----------------------------
-export default function AdminLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const pathname = usePathname();
+export default function AdminLayout({ children }: { children: ReactNode }) {
+  // ⭐ FIX: pathname is ALWAYS a string
+  const pathname = usePathname() ?? "";
+
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
 
-  const isActive = (href: string) => pathname?.startsWith(href);
-
-  const toggleSection = (key: string) => {
-    setExpanded(expanded === key ? null : key);
+  const isActive = (href: string) => {
+    if (!pathname) return false;
+    if (href === "/admin") return pathname === "/admin";
+    return pathname.startsWith(href);
   };
 
   return (
@@ -147,30 +144,15 @@ export default function AdminLayout({
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {visibleItems.map((item, index) => {
             if ("section" in item) {
-              const SectionIcon = item.icon;
-              const isOpen = expanded === item.key;
-
               return (
-                <div key={`section-${index}`} className="mt-4">
-                  <button
-                    onClick={() => toggleSection(item.key)}
-                    className={`flex items-center justify-between w-full px-3 py-2 rounded-lg text-xs font-semibold tracking-wide
-                      ${collapsed ? "justify-center" : ""}
-                      ${isOpen ? "text-blue-600" : "text-slate-500"}
-                    `}
-                  >
-                    <span className="flex items-center gap-2">
-                      <SectionIcon className="w-4 h-4" />
-                      {!collapsed && item.section}
-                    </span>
-
-                    {!collapsed &&
-                      (isOpen ? (
-                        <ChevronDownIcon className="w-4 h-4" />
-                      ) : (
-                        <ChevronRightIcon className="w-4 h-4" />
-                      ))}
-                  </button>
+                <div key={`section-${index}`} className="mt-4 mb-1">
+                  {!collapsed ? (
+                    <div className="text-xs font-semibold text-slate-500 px-3 tracking-wide">
+                      {item.section}
+                    </div>
+                  ) : (
+                    <div className="h-6"></div>
+                  )}
                 </div>
               );
             }
@@ -278,14 +260,7 @@ export default function AdminLayout({
           </button>
         </header>
 
-        <main className="p-6">
-          {/* PAGE TITLE (NEW) */}
-          <h1 className="text-2xl font-bold mb-4 text-slate-800">
-            {pathname?.split("/").pop()?.replace("-", " ").toUpperCase()}
-          </h1>
-
-          {children}
-        </main>
+        <main className="p-6">{children}</main>
       </div>
     </div>
   );
