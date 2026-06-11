@@ -1,31 +1,15 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { differenceInDays } from "date-fns";
 
 export const revalidate = 60;
 
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-
-    const page = Number(searchParams.get("page") || 1);
-    const pageSize = Number(searchParams.get("pageSize") || 10);
-    const search = searchParams.get("search")?.toLowerCase() || "";
-
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    let query = supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("companies")
-      .select("*", { count: "exact" })
-      .not("renewal_date", "is", null)
-      .order("renewal_date", { ascending: true })
-      .range(from, to);
-
-    if (search) {
-      query = query.ilike("name", `%${search}%`);
-    }
-
-    const { data, error, count } = await query;
+      .select("*")
+      .not("renewal_date", "is", null);
 
     if (error) {
       console.error("Renewals fetch error:", error);
@@ -35,10 +19,35 @@ export async function GET(req: Request) {
       );
     }
 
+    const today = new Date();
+
+    const expired: any[] = [];
+    const dueIn3: any[] = [];
+    const dueIn7: any[] = [];
+    const dueIn30: any[] = [];
+
+    for (const company of data) {
+      const renewalDate = new Date(company.renewal_date);
+      const daysLeft = differenceInDays(renewalDate, today);
+
+      if (daysLeft < 0) {
+        expired.push(company);
+      } else if (daysLeft <= 3) {
+        dueIn3.push(company);
+      } else if (daysLeft <= 7) {
+        dueIn7.push(company);
+      } else if (daysLeft <= 30) {
+        dueIn30.push(company);
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      data,
-      total: count || 0,
+      expired,
+      dueIn3,
+      dueIn7,
+      dueIn30,
+      total: data.length,
     });
   } catch (err: any) {
     console.error("Renewals API error:", err);
