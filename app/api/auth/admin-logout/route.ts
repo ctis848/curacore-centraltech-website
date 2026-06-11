@@ -9,13 +9,17 @@ export async function POST(req: Request) {
 }
 
 function handleLogout(req: Request) {
-  const redirectUrl = new URL("/admin/login", req.url);
+  // FIX: Correct login URL
+  const redirectUrl = new URL("/auth/admin/login", req.url);
 
   const res = NextResponse.redirect(redirectUrl);
 
+  // Clear admin session cookie
   res.cookies.set("admin_session", "", {
-    maxAge: 0,
+    httpOnly: true,
+    secure: true,
     path: "/",
+    maxAge: 0,
   });
 
   return res;
