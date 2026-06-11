@@ -433,7 +433,7 @@ export default function BuyLicensePage() {
           {/* BANK TRANSFER MODULE — EXACT SAME AS RENEW PAGE */}
           <div className="bg-white/80 backdrop-blur-xl border border-slate-200 rounded-2xl p-6 shadow-lg space-y-6 mt-10">
             <h2 className="text-lg font-semibold text-slate-900">
-              Pay by Bank Transfer (Titan Bank)
+              Pay by Bank Transfer (First Bank Nigeria)
             </h2>
 
             <p className="text-sm text-slate-700">
@@ -445,10 +445,10 @@ export default function BuyLicensePage() {
             {/* BANK DETAILS */}
             <div className="bg-slate-100 rounded-xl p-4 space-y-2">
               <p className="text-sm">
-                <strong>Bank:</strong> Titan Bank
+                <strong>Bank:</strong> First Bank Nigeria
               </p>
               <p className="text-sm">
-                <strong>Account Number:</strong> 0000729810
+                <strong>Account Number:</strong> 2022362320
               </p>
               <p className="text-sm">
                 <strong>Account Name:</strong> Central Tech Information System
@@ -463,7 +463,7 @@ export default function BuyLicensePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* OPTION A — COPY ACCOUNT NUMBER */}
               <button
-                onClick={() => navigator.clipboard.writeText("0000729810")}
+                onClick={() => navigator.clipboard.writeText("2022362320")}
                 className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
               >
                 Copy Account Number
@@ -510,12 +510,12 @@ export default function BuyLicensePage() {
             <button
               onClick={() =>
                 alert(
-                  "Please transfer to Titan Bank 0000729810. Your license will activate automatically once Paystack detects the payment."
+                  "Please transfer to First Bank Nigeria 2022362320. Your license will activate automatically once Paystack detects the payment."
                 )
               }
               className="w-full py-4 text-lg font-bold rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl hover:brightness-110 transition"
             >
-              Pay by Bank Transfer (Titan Bank)
+              Pay by Bank Transfer (First Bank Nigeria)
             </button>
 
             <p className="text-xs text-slate-500 text-center">

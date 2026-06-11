@@ -56,8 +56,8 @@ export default function TransferPaymentPage() {
         <p className="text-lg font-semibold">Bank Transfer Details</p>
 
         <div className="space-y-2 text-gray-700">
-          <p><strong>Bank:</strong> Titan Bank</p>
-          <p><strong>Account Number:</strong> 0000729810</p>
+          <p><strong>Bank:</strong> First Bank Nigeria</p>
+          <p><strong>Account Number:</strong> 2022362320</p>
           <p><strong>Account Name:</strong> Central Tech Information System Ltd</p>
         </div>
 
