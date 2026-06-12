@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { useEffect, useState, useMemo, use } from "react";
+import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -12,32 +12,60 @@ interface Machine {
   company_id: string;
   active: boolean;
   created_at: string;
-  device_name: string | null;
-  ip_address: string | null;
+  last_seen?: string | null;
 }
 
-type SortColumn = "device_id" | "created_at" | "device_name" | "ip_address" | "active";
+interface Company {
+  id: string;
+  name: string;
+  license_count: number;
+}
+
+type SortColumn = "device_id" | "created_at" | "active";
 type SortDirection = "asc" | "desc";
 
-export default function MachineHistoryPage() {
-  const supabase = supabaseBrowser();
+interface CompanyMachinesApiResponse {
+  success: boolean;
+  company?: Company;
+  machines?: Machine[];
+  message?: string;
+  error?: unknown;
+}
 
-  const [rows, setRows] = useState<Machine[]>([]);
+export default function AdminCompanyMachinesPage({ params }: any) {
+  const router = useRouter();
+
+  // ⭐ Next.js 16 — unwrap params safely
+  const { id: companyId } = use<{ id: string }>(params);
+
+  // ⭐ Prevent undefined ID from breaking API
+  if (!companyId) {
+    return (
+      <div className="p-6 text-red-600 text-lg font-semibold">
+        Invalid company ID.  
+        <button
+          onClick={() => router.push("/admin/company")}
+          className="ml-4 px-4 py-2 bg-slate-800 text-white rounded-lg"
+        >
+          Back
+        </button>
+      </div>
+    );
+  }
+
+  const [company, setCompany] = useState<Company | null>(null);
+  const [machines, setMachines] = useState<Machine[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
-  const [deviceFilter, setDeviceFilter] = useState("");
-  const [ipFilter, setIpFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
 
   const [sortField, setSortField] = useState<SortColumn>("created_at");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
 
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 12;
 
   const [selected, setSelected] = useState<Machine | null>(null);
 
@@ -54,42 +82,35 @@ export default function MachineHistoryPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [companyId]);
 
   async function loadData() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      setLoading(true);
+      setError(null);
 
-    if (!user) {
-      setRows([]);
+      const res = await fetch(`/api/admin/company/${companyId}/machines`);
+      const json: CompanyMachinesApiResponse = await res.json();
+
+      if (!json.success) {
+        setError(json.message || "Failed to load company machines.");
+
+        if (res.status === 404) {
+          router.push("/admin/company");
+        }
+
+        setLoading(false);
+        return;
+      }
+
+      setCompany(json.company ?? null);
+      setMachines(json.machines ?? []);
       setLoading(false);
-      return;
-    }
-
-    // 1️⃣ Get user's company
-    const { data: companyUser } = await supabase
-      .from("CompanyUsers")
-      .select("company_id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!companyUser) {
-      setRows([]);
+    } catch (err) {
+      console.error("Load error:", err);
+      setError("An unexpected error occurred while loading machines.");
       setLoading(false);
-      return;
     }
-
-    // 2️⃣ Load machines for that company
-    const { data, error } = await supabase
-      .from("machines")
-      .select("*")
-      .eq("company_id", companyUser.company_id);
-
-    if (error) console.error(error);
-
-    setRows(data || []);
-    setLoading(false);
   }
 
   function handleSort(field: SortColumn) {
@@ -106,50 +127,20 @@ export default function MachineHistoryPage() {
     return sortDir === "asc" ? " ▲" : " ▼";
   }
 
-  function applyDateFilter(created: string) {
-    if (!created) return false;
-    const createdDate = new Date(created).getTime();
-    if (dateFrom) {
-      const from = new Date(dateFrom).getTime();
-      if (createdDate < from) return false;
-    }
-    if (dateTo) {
-      const to = new Date(dateTo).getTime();
-      if (createdDate > to) return false;
-    }
-    return true;
-  }
-
   const processed = useMemo(() => {
-    let list = [...rows];
+    let list = [...machines];
 
     const s = search.toLowerCase();
 
     list = list.filter((r) => {
-      const matchesSearch =
-        r.device_id.toLowerCase().includes(s) ||
-        (r.device_name ?? "").toLowerCase().includes(s);
-
-      const matchesDevice =
-        (r.device_name ?? "").toLowerCase().includes(deviceFilter.toLowerCase());
-
-      const matchesIp =
-        (r.ip_address ?? "").toLowerCase().includes(ipFilter.toLowerCase());
+      const matchesSearch = r.device_id.toLowerCase().includes(s);
 
       const matchesStatus =
         statusFilter === "ALL" ||
         (statusFilter === "ACTIVE" && r.active) ||
         (statusFilter === "INACTIVE" && !r.active);
 
-      const matchesDate = applyDateFilter(r.created_at);
-
-      return (
-        matchesSearch &&
-        matchesDevice &&
-        matchesIp &&
-        matchesStatus &&
-        matchesDate
-      );
+      return matchesSearch && matchesStatus;
     });
 
     list.sort((a, b) => {
@@ -162,17 +153,7 @@ export default function MachineHistoryPage() {
     });
 
     return list;
-  }, [
-    rows,
-    search,
-    deviceFilter,
-    ipFilter,
-    statusFilter,
-    dateFrom,
-    dateTo,
-    sortField,
-    sortDir,
-  ]);
+  }, [machines, search, statusFilter, sortField, sortDir]);
 
   const totalPages = Math.ceil(processed.length / pageSize) || 1;
   const currentPage = Math.min(page, totalPages);
@@ -184,11 +165,9 @@ export default function MachineHistoryPage() {
   function exportCSV() {
     const headers = [
       "Machine ID",
-      "Device ID",
+      "Machine Key",
       "Activated On",
       "Activation Age",
-      "Device Name",
-      "IP Address",
       "Status",
     ];
 
@@ -197,8 +176,6 @@ export default function MachineHistoryPage() {
       r.device_id,
       new Date(r.created_at).toLocaleString(),
       getActivationAge(r.created_at),
-      r.device_name || "",
-      r.ip_address || "",
       r.active ? "Active" : "Inactive",
     ]);
 
@@ -210,7 +187,7 @@ export default function MachineHistoryPage() {
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = "machine_history.csv";
+    a.download = `${company?.name ?? "company"}_machines.csv`;
     a.click();
 
     URL.revokeObjectURL(url);
@@ -220,201 +197,128 @@ export default function MachineHistoryPage() {
     const worksheet = XLSX.utils.json_to_sheet(
       processed.map((r) => ({
         MachineID: r.id,
-        DeviceID: r.device_id,
+        MachineKey: r.device_id,
         ActivatedOn: r.created_at,
         ActivationAge: getActivationAge(r.created_at),
-        DeviceName: r.device_name,
-        IPAddress: r.ip_address,
         Status: r.active ? "Active" : "Inactive",
       }))
     );
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Machine History");
-    XLSX.writeFile(workbook, "machine_history.xlsx");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Machines");
+    XLSX.writeFile(workbook, `${company?.name ?? "company"}_machines.xlsx`);
   }
 
   function exportPDF() {
     const doc = new jsPDF();
-    doc.text("Machine Activation History", 14, 10);
+    doc.text(`${company?.name ?? "Company"} - Machine List`, 14, 10);
 
     autoTable(doc, {
-      head: [
-        [
-          "Machine ID",
-          "Device ID",
-          "Activated On",
-          "Device",
-          "IP",
-          "Status",
-        ],
-      ],
+      head: [["Machine ID", "Machine Key", "Activated On", "Status"]],
       body: processed.map((r) => [
         r.id,
         r.device_id,
         r.created_at,
-        r.device_name ?? "",
-        r.ip_address ?? "",
         r.active ? "Active" : "Inactive",
       ]),
     });
 
-    doc.save("machine_history.pdf");
+    doc.save(`${company?.name ?? "company"}_machines.pdf`);
   }
 
-  if (loading)
+  if (error) {
     return (
-      <p className="p-6 text-lg text-slate-600 animate-pulse">
-        Loading machine history…
-      </p>
+      <div className="p-6 max-w-3xl mx-auto space-y-4">
+        <h1 className="text-2xl font-bold text-red-600">Error</h1>
+        <p className="text-slate-700">{error}</p>
+        <button
+          onClick={() => router.push("/admin/company")}
+          className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:brightness-110"
+        >
+          Back to Companies
+        </button>
+      </div>
     );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto space-y-8">
+        <div className="h-8 w-64 bg-slate-200 rounded animate-pulse" />
+        <div className="h-20 w-full bg-slate-200 rounded-xl animate-pulse" />
+        <div className="h-32 w-full bg-slate-200 rounded-xl animate-pulse" />
+        <div className="h-64 w-full bg-slate-200 rounded-xl animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!company) {
+    router.push("/admin/company");
+    return null;
+  }
+
+  const activeCount = machines.filter((m) => m.active).length;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
+    <div className="p-6 max-w-7xl mx-auto space-y-8">
 
       <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
-        Machine Activation History
+        {company.name} — Machines
       </h1>
 
-      {/* FILTER BAR */}
+      <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6">
+        <p className="text-lg font-semibold text-slate-700">
+          License Usage:{" "}
+          <span className="text-blue-600">
+            {activeCount} / {company.license_count}
+          </span>
+        </p>
+      </div>
+
       <div className="p-6 bg-white rounded-xl shadow-md border border-slate-200 space-y-4">
 
         <input
           type="text"
-          placeholder="🔍 Search by device ID or device name..."
+          placeholder="🔍 Search by machine key..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 px-4 py-3 border rounded-lg shadow-sm w-full focus:ring-2 focus:ring-purple-400"
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-          <input
-            type="text"
-            placeholder="Device name"
-            value={deviceFilter}
-            onChange={(e) => setDeviceFilter(e.target.value)}
-            className="px-3 py-2 border rounded-lg shadow-sm"
-          />
-
-          <input
-            type="text"
-            placeholder="IP address"
-            value={ipFilter}
-            onChange={(e) => setIpFilter(e.target.value)}
-            className="px-3 py-2 border rounded-lg shadow-sm"
-          />
-
-          <select
-            className="px-3 py-2 border rounded-lg shadow-sm"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="ALL">All Status</option>
-            <option value="ACTIVE">Active Only</option>
-            <option value="INACTIVE">Inactive Only</option>
-          </select>
-        </div>
-
-        {/* DATE FILTERS */}
-        <div className="flex flex-wrap gap-3 items-center">
-
-          <div className="flex flex-col">
-            <label className="text-xs text-slate-600">From</label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="px-3 py-2 border rounded-lg shadow-sm"
-            />
-          </div>
-
-          <div className="flex flex-col">
-            <label className="text-xs text-slate-600">To</label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="px-3 py-2 border rounded-lg shadow-sm"
-            />
-          </div>
-
-          <button
-            onClick={() => {
-              const now = new Date();
-              const from = new Date();
-              from.setDate(now.getDate() - 7);
-              setDateFrom(from.toISOString().slice(0, 10));
-              setDateTo(now.toISOString().slice(0, 10));
-            }}
-            className="px-3 py-2 text-xs bg-purple-200 rounded-lg hover:bg-purple-300"
-          >
-            Last 7 Days
-          </button>
-
-          <button
-            onClick={() => {
-              const now = new Date();
-              const from = new Date();
-              from.setDate(now.getDate() - 30);
-              setDateFrom(from.toISOString().slice(0, 10));
-              setDateTo(now.toISOString().slice(0, 10));
-            }}
-            className="px-3 py-2 text-xs bg-purple-200 rounded-lg hover:bg-purple-300"
-          >
-            Last 30 Days
-          </button>
-
-          <button
-            onClick={() => {
-              const now = new Date();
-              const from = new Date(now.getFullYear(), 0, 1);
-              const to = new Date(now.getFullYear(), 11, 31);
-              setDateFrom(from.toISOString().slice(0, 10));
-              setDateTo(to.toISOString().slice(0, 10));
-            }}
-            className="px-3 py-2 text-xs bg-blue-200 rounded-lg hover:bg-blue-300"
-          >
-            This Year
-          </button>
-
-          <button
-            onClick={() => {
-              setDateFrom("");
-              setDateTo("");
-            }}
-            className="px-3 py-2 text-xs bg-slate-200 rounded-lg hover:bg-slate-300"
-          >
-            Clear Dates
-          </button>
-        </div>
+        <select
+          className="px-3 py-2 border rounded-lg shadow-sm"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="ALL">All Status</option>
+          <option value="ACTIVE">Active Only</option>
+          <option value="INACTIVE">Inactive Only</option>
+        </select>
       </div>
 
-      {/* EXPORT BUTTONS */}
       <div className="flex flex-wrap gap-3">
         <button
           onClick={exportCSV}
-          className="px-5 py-3 rounded-lg bg-gradient-to-r from-slate-700 to-slate-900 text-white font-semibold shadow hover:brightness-110"
+          className="px-5 py-3 rounded-lg bg-slate-800 text-white font-semibold shadow hover:brightness-110"
         >
           Export CSV
         </button>
 
         <button
           onClick={exportExcel}
-          className="px-5 py-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold shadow hover:brightness-110"
+          className="px-5 py-3 rounded-lg bg-green-600 text-white font-semibold shadow hover:brightness-110"
         >
           Export Excel
         </button>
 
         <button
           onClick={exportPDF}
-          className="px-5 py-3 rounded-lg bg-gradient-to-r from-red-500 to-red-700 text-white font-semibold shadow hover:brightness-110"
+          className="px-5 py-3 rounded-lg bg-red-600 text-white font-semibold shadow hover:brightness-110"
         >
           Export PDF
         </button>
       </div>
 
-      {/* TABLE */}
       <div className="overflow-x-auto bg-white rounded-xl shadow-lg border border-slate-200">
         <table className="min-w-full text-sm">
           <thead className="bg-gradient-to-r from-purple-200 to-blue-200 text-slate-700">
@@ -423,7 +327,7 @@ export default function MachineHistoryPage() {
                 className="px-4 py-3 text-left font-semibold cursor-pointer"
                 onClick={() => handleSort("device_id")}
               >
-                Device ID{getSortIcon("device_id")}
+                Machine Key{getSortIcon("device_id")}
               </th>
 
               <th
@@ -435,20 +339,6 @@ export default function MachineHistoryPage() {
 
               <th className="px-4 py-3 text-left font-semibold">
                 Activation Age
-              </th>
-
-              <th
-                className="px-4 py-3 text-left font-semibold cursor-pointer"
-                onClick={() => handleSort("device_name")}
-              >
-                Device Name{getSortIcon("device_name")}
-              </th>
-
-              <th
-                className="px-4 py-3 text-left font-semibold cursor-pointer"
-                onClick={() => handleSort("ip_address")}
-              >
-                IP Address{getSortIcon("ip_address")}
               </th>
 
               <th
@@ -472,8 +362,6 @@ export default function MachineHistoryPage() {
                 <td className="px-4 py-3 text-blue-700 font-semibold">
                   {getActivationAge(row.created_at)}
                 </td>
-                <td className="px-4 py-3">{row.device_name || "Unknown"}</td>
-                <td className="px-4 py-3">{row.ip_address || "Unknown"}</td>
                 <td className="px-4 py-3">
                   {row.active ? (
                     <span className="text-green-600 font-bold">Active</span>
@@ -487,7 +375,7 @@ export default function MachineHistoryPage() {
                     onClick={() => setSelected(row)}
                     className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                   >
-                    View Details
+                    View
                   </button>
                 </td>
               </tr>
@@ -496,7 +384,6 @@ export default function MachineHistoryPage() {
         </table>
       </div>
 
-      {/* PAGINATION */}
       <div className="flex justify-between items-center mt-6">
         <button
           disabled={currentPage === 1}
@@ -519,7 +406,6 @@ export default function MachineHistoryPage() {
         </button>
       </div>
 
-      {/* MODAL */}
       {selected && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 animate-fadeIn">
@@ -530,11 +416,9 @@ export default function MachineHistoryPage() {
 
             <div className="space-y-2 text-slate-700">
               <p><strong>Machine ID:</strong> {selected.id}</p>
-              <p><strong>Device ID:</strong> {selected.device_id}</p>
+              <p><strong>Machine Key:</strong> {selected.device_id}</p>
               <p><strong>Activated On:</strong> {new Date(selected.created_at).toLocaleString()}</p>
               <p><strong>Activation Age:</strong> {getActivationAge(selected.created_at)}</p>
-              <p><strong>Device Name:</strong> {selected.device_name || "Unknown"}</p>
-              <p><strong>IP Address:</strong> {selected.ip_address || "Unknown"}</p>
               <p>
                 <strong>Status:</strong>{" "}
                 {selected.active ? (
@@ -548,7 +432,7 @@ export default function MachineHistoryPage() {
             <div className="mt-6 text-right">
               <button
                 onClick={() => setSelected(null)}
-                className="px-5 py-2 bg-gradient-to-r from-slate-700 to-slate-900 text-white rounded-lg hover:brightness-110 shadow"
+                className="px-5 py-2 bg-slate-800 text-white rounded-lg hover:brightness-110 shadow"
               >
                 Close
               </button>
@@ -557,6 +441,7 @@ export default function MachineHistoryPage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

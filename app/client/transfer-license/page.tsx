@@ -7,7 +7,7 @@ export default function TransferLicensePage() {
   const supabase = supabaseBrowser();
 
   const [oldMachineId, setOldMachineId] = useState("");
-  const [newRequestKey, setNewRequestKey] = useState("");
+  const [newDeviceId, setNewDeviceId] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
@@ -17,7 +17,7 @@ export default function TransferLicensePage() {
     setMsg("");
     setError("");
 
-    if (!oldMachineId.trim() || !newRequestKey.trim()) {
+    if (!oldMachineId.trim() || !newDeviceId.trim()) {
       setError("Both fields are required.");
       return;
     }
@@ -25,6 +25,7 @@ export default function TransferLicensePage() {
     try {
       setLoading(true);
 
+      // Ensure user is logged in
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -34,47 +35,25 @@ export default function TransferLicensePage() {
         return;
       }
 
-      const { data: activation, error: actErr } = await supabase
-        .from("MachineActivation")
-        .select("id, licenseId")
-        .eq("machineId", oldMachineId.trim())
-        .single();
+      // Call the admin machine transfer API
+      const res = await fetch("/api/admin/licenses/transfer", {
+        method: "POST",
+        body: JSON.stringify({
+          old_machine_id: oldMachineId.trim(),
+          new_device_id: newDeviceId.trim(),
+        }),
+      });
 
-      if (actErr || !activation) {
-        setError("Old machine ID not found or not associated with any license.");
+      const json = await res.json();
+
+      if (!json.success) {
+        setError(json.message || "Unable to transfer license.");
         return;
       }
 
-      const { data: license, error: licErr } = await supabase
-        .from("License")
-        .select("id, userId")
-        .eq("id", activation.licenseId)
-        .single();
-
-      if (licErr || !license || license.userId !== user.id) {
-        setError("This license does not belong to your account.");
-        return;
-      }
-
-      const { error: insertErr } = await supabase
-        .from("LicenseTransferRequest")
-        .insert({
-          userId: user.id,
-          licenseId: license.id,
-          oldMachineId: oldMachineId.trim(),
-          newRequestKey: newRequestKey.trim(),
-          status: "PENDING",
-        });
-
-      if (insertErr) {
-        console.error(insertErr);
-        setError("Unable to submit transfer request.");
-        return;
-      }
-
-      setMsg("Transfer request submitted successfully. Our team will review it.");
+      setMsg("License transferred successfully. You can now activate the new machine.");
       setOldMachineId("");
-      setNewRequestKey("");
+      setNewDeviceId("");
     } catch (err) {
       console.error(err);
       setError("Unexpected error occurred.");
@@ -85,13 +64,10 @@ export default function TransferLicensePage() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-8">
-
-      {/* Title */}
       <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
         Transfer License
       </h1>
 
-      {/* Form Container */}
       <form
         onSubmit={handleTransfer}
         className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 space-y-6"
@@ -105,21 +81,21 @@ export default function TransferLicensePage() {
             className="w-full px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
             value={oldMachineId}
             onChange={(e) => setOldMachineId(e.target.value)}
-            placeholder="Old machine ID / fingerprint..."
+            placeholder="Enter the old machine ID..."
           />
         </div>
 
-        {/* New Request Key */}
+        {/* New Device ID */}
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-slate-700">
-            New Machine License Request Key
+            New Machine Device ID
           </label>
           <textarea
             className="w-full px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-purple-400"
             rows={5}
-            value={newRequestKey}
-            onChange={(e) => setNewRequestKey(e.target.value)}
-            placeholder="Paste the new machine's License Request Key..."
+            value={newDeviceId}
+            onChange={(e) => setNewDeviceId(e.target.value)}
+            placeholder="Paste the new machine's Device ID or Request Key..."
           />
         </div>
 
@@ -136,7 +112,7 @@ export default function TransferLicensePage() {
           </p>
         )}
 
-        {/* Submit Button */}
+        {/* Submit */}
         <button
           type="submit"
           disabled={loading}

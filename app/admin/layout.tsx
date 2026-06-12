@@ -10,7 +10,6 @@ import {
   KeyIcon,
   ClipboardDocumentListIcon,
   CreditCardIcon,
-  CurrencyDollarIcon,
   ChatBubbleLeftRightIcon,
   ChartBarIcon,
   ClockIcon,
@@ -19,17 +18,20 @@ import {
   TagIcon,
   Bars3Icon,
   XMarkIcon,
-  DocumentDuplicateIcon,
   DocumentTextIcon,
-  BanknotesIcon,
   WrenchScrewdriverIcon,
+  ChevronDownIcon,
   ClipboardDocumentCheckIcon,
 } from "@heroicons/react/24/outline";
 
-// -----------------------------
-// TYPES
-// -----------------------------
-type NavSection = { section: string };
+/* -----------------------------
+   ROLE (dynamic in real system)
+------------------------------*/
+const userRole = "superadmin";
+
+/* -----------------------------
+   NAV STRUCTURE
+------------------------------*/
 type NavItem = {
   label: string;
   href: string;
@@ -37,77 +39,91 @@ type NavItem = {
   roles?: string[];
   logout?: boolean;
 };
-type NavEntry = NavSection | NavItem;
 
-// -----------------------------
-// ROLE
-// -----------------------------
-const userRole = "superadmin";
+type NavGroup = {
+  section: string;
+  items: NavItem[];
+};
 
-// -----------------------------
-// NAV ITEMS
-// -----------------------------
-const navItems: NavEntry[] = [
-  { section: "General" },
-  { label: "Dashboard", href: "/admin", icon: HomeIcon },
+const navItems: NavGroup[] = [
+  {
+    section: "General",
+    items: [
+      { label: "Dashboard", href: "/admin", icon: HomeIcon },
+    ],
+  },
 
-  { section: "Licensing" },
-  { label: "Licenses", href: "/admin/licenses", icon: KeyIcon },
-  { label: "Active Licenses", href: "/admin/active-licenses", icon: KeyIcon },
-  { label: "License Requests", href: "/admin/license-requests", icon: ClipboardDocumentListIcon },
-  { label: "Send License", href: "/admin/send-license", icon: KeyIcon, roles: ["admin", "superadmin"] },
+  {
+    section: "Licensing System",
+    items: [
+      { label: "License Overview", href: "/admin/license-overview", icon: ChartBarIcon },
+      { label: "Machine History", href: "/admin/machine-history", icon: WrenchScrewdriverIcon },
+      { label: "Active Licenses", href: "/admin/active-licenses", icon: KeyIcon },
+      { label: "License Requests", href: "/admin/license-requests", icon: ClipboardDocumentListIcon },
+      { label: "Renewals", href: "/admin/renewals", icon: ClockIcon },
+    ],
+  },
 
-  { section: "Finance" },
-  { label: "Payments", href: "/admin/payments", icon: CreditCardIcon },
-  { label: "Annual Fees", href: "/admin/annual-fees", icon: CurrencyDollarIcon },
-  { label: "Renewals", href: "/admin/renewals", icon: ClockIcon },
-  { label: "Renewal Analytics", href: "/admin/renewals/analytics", icon: ChartBarIcon },
+  {
+    section: "Finance",
+    items: [
+      { label: "Payments", href: "/admin/payments", icon: CreditCardIcon },
+      { label: "Invoices", href: "/admin/invoices", icon: DocumentTextIcon },
+    ],
+  },
 
-  { section: "Transfer Payments" },
-  { label: "Transfer Approvals", href: "/admin/transfers", icon: BanknotesIcon },
+  {
+    section: "Companies",
+    items: [
+      { label: "Companies", href: "/admin/company", icon: BuildingOfficeIcon },
+    ],
+  },
 
-  { section: "Clients & Purchases" },
-  { label: "Clients", href: "/admin/clients", icon: UserGroupIcon },
-  { label: "License Purchases", href: "/admin/license-purchases", icon: DocumentDuplicateIcon },
-  { label: "Invoices", href: "/admin/invoices", icon: DocumentTextIcon },
+  {
+    section: "Support",
+    items: [
+      { label: "Support Tickets", href: "/admin/support", icon: ChatBubbleLeftRightIcon },
+      { label: "Service Requests", href: "/admin/service-requests", icon: ClipboardDocumentCheckIcon },
+    ],
+  },
 
-  { section: "On‑Site Support" },
-  { label: "Service Requests", href: "/admin/service-requests", icon: ClipboardDocumentCheckIcon },
-  { label: "Service Analytics", href: "/admin/service-analytics", icon: ChartBarIcon },
+  {
+    section: "Management",
+    items: [
+      { label: "Coupons", href: "/admin/coupons", icon: TagIcon },
+      { label: "Cron Logs", href: "/admin/cron-logs", icon: ClockIcon, roles: ["superadmin"] },
+      { label: "Users", href: "/admin/users", icon: UserGroupIcon, roles: ["superadmin"] },
+    ],
+  },
 
-  { section: "Management" },
-  { label: "Tenants", href: "/admin/tenants", icon: BuildingOfficeIcon },
-  { label: "Users", href: "/admin/users", icon: UserGroupIcon, roles: ["superadmin"] },
-  { label: "Support", href: "/admin/support", icon: ChatBubbleLeftRightIcon },
-  { label: "Coupons", href: "/admin/coupons", icon: TagIcon },
-
-  // ⭐ ADDED: CRON LOGS
-  { label: "Cron Logs", href: "/admin/cron-logs", icon: ClockIcon, roles: ["superadmin"] },
-
-  { label: "Logout", href: "/api/auth/admin-logout", icon: XMarkIcon, logout: true },
+  {
+    section: "Account",
+    items: [
+      { label: "Logout", href: "/api/auth/admin-logout", icon: XMarkIcon, logout: true },
+    ],
+  },
 ];
 
-// -----------------------------
-// FILTER BY ROLE
-// -----------------------------
-const visibleItems = navItems.filter((item) => {
-  if ("section" in item) return true;
-  if (!item.roles) return true;
-  return item.roles.includes(userRole);
-});
-
-// -----------------------------
-// COMPONENT
-// -----------------------------
+/* -----------------------------
+   COMPONENT
+------------------------------*/
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  // ⭐ FIX: pathname is ALWAYS a string
   const pathname = usePathname() ?? "";
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // independent toggle state
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (section: string) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
+
   const isActive = (href: string) => {
-    if (!pathname) return false;
     if (href === "/admin") return pathname === "/admin";
     return pathname.startsWith(href);
   };
@@ -141,54 +157,77 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
 
         {/* NAVIGATION */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {visibleItems.map((item, index) => {
-            if ("section" in item) {
-              return (
-                <div key={`section-${index}`} className="mt-4 mb-1">
-                  {!collapsed ? (
-                    <div className="text-xs font-semibold text-slate-500 px-3 tracking-wide">
-                      {item.section}
-                    </div>
-                  ) : (
-                    <div className="h-6"></div>
-                  )}
-                </div>
-              );
-            }
+        <nav className="flex-1 px-3 py-4 space-y-2 overflow-y-auto">
 
-            const active = isActive(item.href);
-            const Icon = item.icon;
-
-            const content = (
-              <div
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200
-                  ${
-                    active
-                      ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg scale-[1.03]"
-                      : "text-slate-700 hover:bg-slate-100"
-                  }
-                `}
-              >
-                <Icon className="w-5 h-5" />
-                {!collapsed && item.label}
-              </div>
-            );
-
-            if (item.logout) {
-              return (
-                <form key={item.href} action="/api/auth/admin-logout" method="post">
-                  <button className="w-full text-left">{content}</button>
-                </form>
-              );
-            }
+          {navItems.map((group, index) => {
+            const isOpen = openSections[group.section] ?? true;
 
             return (
-              <Link key={item.href} href={item.href}>
-                {content}
-              </Link>
+              <div key={index} className="mb-2">
+
+                {/* SECTION HEADER */}
+                <button
+                  onClick={() => toggleSection(group.section)}
+                  className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-slate-600 uppercase tracking-wide hover:bg-slate-100 rounded-lg transition"
+                >
+                  <span>{group.section}</span>
+                  <ChevronDownIcon
+                    className={`w-4 h-4 transition-transform ${
+                      isOpen ? "rotate-180" : "rotate-0"
+                    }`}
+                  />
+                </button>
+
+                {/* SECTION ITEMS */}
+                <div
+                  className={`overflow-hidden transition-all duration-300 ${
+                    isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+                  }`}
+                >
+                  {group.items
+                    .filter((item) => !item.roles || item.roles.includes(userRole))
+                    .map((item) => {
+                      const active = isActive(item.href);
+                      const Icon = item.icon;
+
+                      const content = (
+                        <div
+                          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200
+                            ${
+                              active
+                                ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg scale-[1.03]"
+                                : "text-slate-700 hover:bg-slate-100"
+                            }
+                          `}
+                        >
+                          <Icon
+                            className={`w-5 h-5 ${
+                              active ? "text-white" : "text-slate-600"
+                            }`}
+                          />
+                          {!collapsed && item.label}
+                        </div>
+                      );
+
+                      if (item.logout) {
+                        return (
+                          <form key={item.href} action={item.href} method="post">
+                            <button className="w-full text-left">{content}</button>
+                          </form>
+                        );
+                      }
+
+                      return (
+                        <Link key={item.href} href={item.href}>
+                          {content}
+                        </Link>
+                      );
+                    })}
+                </div>
+              </div>
             );
           })}
+
         </nav>
       </aside>
 
@@ -203,50 +242,38 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </div>
 
           <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-            {visibleItems.map((item, index) => {
-              if ("section" in item) {
-                return (
-                  <div key={`m-section-${index}`} className="text-xs font-semibold text-slate-500 mt-4 mb-1 px-3">
-                    {item.section}
-                  </div>
-                );
-              }
+            {navItems.map((group, index) => (
+              <div key={index}>
+                <div className="text-xs font-semibold text-slate-500 mt-4 mb-1 px-3">
+                  {group.section}
+                </div>
 
-              const active = isActive(item.href);
-              const Icon = item.icon;
+                {group.items
+                  .filter((item) => !item.roles || item.roles.includes(userRole))
+                  .map((item) => {
+                    const active = isActive(item.href);
+                    const Icon = item.icon;
 
-              if (item.logout) {
-                return (
-                  <form key={item.href} action="/api/auth/admin-logout" method="post">
-                    <button
-                      onClick={() => setMobileOpen(false)}
-                      className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50"
-                    >
-                      <Icon className="w-5 h-5" />
-                      {item.label}
-                    </button>
-                  </form>
-                );
-              }
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition
-                    ${
-                      active
-                        ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
-                        : "text-slate-700 hover:bg-slate-100"
-                    }
-                  `}
-                >
-                  <Icon className="w-5 h-5" />
-                  {item.label}
-                </Link>
-              );
-            })}
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileOpen(false)}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition
+                          ${
+                            active
+                              ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                              : "text-slate-700 hover:bg-slate-100"
+                          }
+                        `}
+                      >
+                        <Icon className="w-5 h-5" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+              </div>
+            ))}
           </nav>
         </aside>
       )}

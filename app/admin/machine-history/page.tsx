@@ -14,18 +14,28 @@ interface Machine {
   created_at: string;
   device_name: string | null;
   ip_address: string | null;
+  companies: {
+    name: string;
+  } | null;
 }
 
-type SortColumn = "device_id" | "created_at" | "device_name" | "ip_address" | "active";
+type SortColumn =
+  | "device_id"
+  | "created_at"
+  | "device_name"
+  | "ip_address"
+  | "active"
+  | "company";
 type SortDirection = "asc" | "desc";
 
-export default function MachineHistoryPage() {
+export default function AdminMachineHistoryPage() {
   const supabase = supabaseBrowser();
 
   const [rows, setRows] = useState<Machine[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("ALL");
   const [deviceFilter, setDeviceFilter] = useState("");
   const [ipFilter, setIpFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -37,7 +47,7 @@ export default function MachineHistoryPage() {
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
 
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 15;
 
   const [selected, setSelected] = useState<Machine | null>(null);
 
@@ -57,34 +67,10 @@ export default function MachineHistoryPage() {
   }, []);
 
   async function loadData() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-
-    // 1️⃣ Get user's company
-    const { data: companyUser } = await supabase
-      .from("CompanyUsers")
-      .select("company_id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!companyUser) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-
-    // 2️⃣ Load machines for that company
     const { data, error } = await supabase
       .from("machines")
-      .select("*")
-      .eq("company_id", companyUser.company_id);
+      .select("*, companies(name)")
+      .order("created_at", { ascending: false });
 
     if (error) console.error(error);
 
@@ -128,7 +114,12 @@ export default function MachineHistoryPage() {
     list = list.filter((r) => {
       const matchesSearch =
         r.device_id.toLowerCase().includes(s) ||
-        (r.device_name ?? "").toLowerCase().includes(s);
+        (r.device_name ?? "").toLowerCase().includes(s) ||
+        (r.companies?.name ?? "").toLowerCase().includes(s);
+
+      const matchesCompany =
+        companyFilter === "ALL" ||
+        r.companies?.name === companyFilter;
 
       const matchesDevice =
         (r.device_name ?? "").toLowerCase().includes(deviceFilter.toLowerCase());
@@ -145,6 +136,7 @@ export default function MachineHistoryPage() {
 
       return (
         matchesSearch &&
+        matchesCompany &&
         matchesDevice &&
         matchesIp &&
         matchesStatus &&
@@ -153,8 +145,15 @@ export default function MachineHistoryPage() {
     });
 
     list.sort((a, b) => {
-      const A = (a[sortField] ?? "").toString().toLowerCase();
-      const B = (b[sortField] ?? "").toString().toLowerCase();
+      const A =
+        sortField === "company"
+          ? (a.companies?.name ?? "").toLowerCase()
+          : (a[sortField] ?? "").toString().toLowerCase();
+
+      const B =
+        sortField === "company"
+          ? (b.companies?.name ?? "").toLowerCase()
+          : (b[sortField] ?? "").toString().toLowerCase();
 
       if (A < B) return sortDir === "asc" ? -1 : 1;
       if (A > B) return sortDir === "asc" ? 1 : -1;
@@ -165,6 +164,7 @@ export default function MachineHistoryPage() {
   }, [
     rows,
     search,
+    companyFilter,
     deviceFilter,
     ipFilter,
     statusFilter,
@@ -185,6 +185,7 @@ export default function MachineHistoryPage() {
     const headers = [
       "Machine ID",
       "Device ID",
+      "Company",
       "Activated On",
       "Activation Age",
       "Device Name",
@@ -195,6 +196,7 @@ export default function MachineHistoryPage() {
     const rowsCSV = processed.map((r) => [
       r.id,
       r.device_id,
+      r.companies?.name ?? "",
       new Date(r.created_at).toLocaleString(),
       getActivationAge(r.created_at),
       r.device_name || "",
@@ -210,7 +212,7 @@ export default function MachineHistoryPage() {
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = "machine_history.csv";
+    a.download = "admin_machine_history.csv";
     a.click();
 
     URL.revokeObjectURL(url);
@@ -221,6 +223,7 @@ export default function MachineHistoryPage() {
       processed.map((r) => ({
         MachineID: r.id,
         DeviceID: r.device_id,
+        Company: r.companies?.name,
         ActivatedOn: r.created_at,
         ActivationAge: getActivationAge(r.created_at),
         DeviceName: r.device_name,
@@ -231,18 +234,19 @@ export default function MachineHistoryPage() {
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Machine History");
-    XLSX.writeFile(workbook, "machine_history.xlsx");
+    XLSX.writeFile(workbook, "admin_machine_history.xlsx");
   }
 
   function exportPDF() {
     const doc = new jsPDF();
-    doc.text("Machine Activation History", 14, 10);
+    doc.text("Admin Machine Activation History", 14, 10);
 
     autoTable(doc, {
       head: [
         [
           "Machine ID",
           "Device ID",
+          "Company",
           "Activated On",
           "Device",
           "IP",
@@ -252,6 +256,7 @@ export default function MachineHistoryPage() {
       body: processed.map((r) => [
         r.id,
         r.device_id,
+        r.companies?.name ?? "",
         r.created_at,
         r.device_name ?? "",
         r.ip_address ?? "",
@@ -259,7 +264,7 @@ export default function MachineHistoryPage() {
       ]),
     });
 
-    doc.save("machine_history.pdf");
+    doc.save("admin_machine_history.pdf");
   }
 
   if (loading)
@@ -270,10 +275,10 @@ export default function MachineHistoryPage() {
     );
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
+    <div className="p-6 max-w-7xl mx-auto space-y-8">
 
       <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
-        Machine Activation History
+        Admin Machine Activation History
       </h1>
 
       {/* FILTER BAR */}
@@ -281,13 +286,28 @@ export default function MachineHistoryPage() {
 
         <input
           type="text"
-          placeholder="🔍 Search by device ID or device name..."
+          placeholder="🔍 Search by device ID, device name, or company..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 px-4 py-3 border rounded-lg shadow-sm w-full focus:ring-2 focus:ring-purple-400"
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+
+          <select
+            className="px-3 py-2 border rounded-lg shadow-sm"
+            value={companyFilter}
+            onChange={(e) => setCompanyFilter(e.target.value)}
+          >
+            <option value="ALL">All Companies</option>
+            {Array.from(new Set(rows.map((r) => r.companies?.name)))
+              .filter(Boolean)
+              .map((c) => (
+                <option key={c} value={c ?? ""}>
+                  {c}
+                </option>
+              ))}
+          </select>
 
           <input
             type="text"
@@ -428,6 +448,13 @@ export default function MachineHistoryPage() {
 
               <th
                 className="px-4 py-3 text-left font-semibold cursor-pointer"
+                onClick={() => handleSort("company")}
+              >
+                Company{getSortIcon("company")}
+              </th>
+
+              <th
+                className="px-4 py-3 text-left font-semibold cursor-pointer"
                 onClick={() => handleSort("created_at")}
               >
                 Activated On{getSortIcon("created_at")}
@@ -466,6 +493,7 @@ export default function MachineHistoryPage() {
             {paginated.map((row) => (
               <tr key={row.id} className="border-b hover:bg-slate-50 transition">
                 <td className="px-4 py-3 font-mono break-all">{row.device_id}</td>
+                <td className="px-4 py-3">{row.companies?.name}</td>
                 <td className="px-4 py-3">
                   {new Date(row.created_at).toLocaleString()}
                 </td>
@@ -531,6 +559,7 @@ export default function MachineHistoryPage() {
             <div className="space-y-2 text-slate-700">
               <p><strong>Machine ID:</strong> {selected.id}</p>
               <p><strong>Device ID:</strong> {selected.device_id}</p>
+              <p><strong>Company:</strong> {selected.companies?.name ?? "Unknown"}</p>
               <p><strong>Activated On:</strong> {new Date(selected.created_at).toLocaleString()}</p>
               <p><strong>Activation Age:</strong> {getActivationAge(selected.created_at)}</p>
               <p><strong>Device Name:</strong> {selected.device_name || "Unknown"}</p>
@@ -557,6 +586,7 @@ export default function MachineHistoryPage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
