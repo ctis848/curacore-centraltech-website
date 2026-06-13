@@ -3,26 +3,42 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { verifyAdminSession } from "@/lib/adminSession";
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next({
-    request: { headers: req.headers },
-  });
+  const { pathname } = req.nextUrl;
 
-  // Allow CORS preflight + static assets
-  if (req.method === "OPTIONS") return res;
-  if (
-    req.nextUrl.pathname.startsWith("/_next") ||
-    req.nextUrl.pathname.startsWith("/favicon") ||
-    req.nextUrl.pathname.startsWith("/assets")
-  ) {
-    return res;
+  // ⭐ PUBLIC ROUTES (must be handled BEFORE Supabase)
+  const publicExact = ["/unauthorized"];
+  const publicPrefixes = [
+    "/auth/client/login",
+    "/auth/client/signup",
+    "/auth/client/forgot-password",
+    "/auth/admin/login",
+    "/superadmin/login",
+  ];
+
+  const isPublic =
+    publicExact.includes(pathname) ||
+    publicPrefixes.some((p) => pathname.startsWith(p));
+
+  // ⭐ Allow public routes to load normally
+  if (isPublic) {
+    return NextResponse.next();
   }
 
-  // ⭐ EXCLUDE ALL API ROUTES
-  if (req.nextUrl.pathname.startsWith("/api")) {
-    return res;
+  // ⭐ Allow static assets + OPTIONS
+  if (
+    req.method === "OPTIONS" ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/assets")
+  ) {
+    return NextResponse.next();
+  }
+
+  // ⭐ Allow all API routes
+  if (pathname.startsWith("/api")) {
+    return NextResponse.next();
   }
 
   // ⭐ Supabase SSR client (correct cookie adapter)
@@ -46,32 +62,13 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  return handleAuth(req, res, supabase);
+  return handleAuth(req, supabase);
 }
 
-async function handleAuth(req: NextRequest, res: NextResponse, supabase: any) {
+async function handleAuth(req: NextRequest, supabase: any) {
   const { pathname } = req.nextUrl;
 
-  // PUBLIC ROUTES
-  const publicExact = ["/unauthorized"];
-  const publicPrefixes = [
-    "/auth/client/login",
-    "/auth/client/signup",
-    "/auth/client/forgot-password",
-    "/auth/admin/login",
-    "/superadmin/login",
-  ];
-
-  const isPublic =
-    publicExact.includes(pathname) ||
-    publicPrefixes.some((p) => pathname.startsWith(p));
-
-  // ⭐ FIX: Allow admin login page to load without checking Supabase session
-  if (pathname === "/auth/admin/login") {
-    return res;
-  }
-
-  // Get Supabase user
+  // ⭐ Get Supabase user
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -82,24 +79,27 @@ async function handleAuth(req: NextRequest, res: NextResponse, supabase: any) {
     return NextResponse.redirect(url);
   };
 
-  // ⭐ Admin session cookie (signed + secure)
+  // ⭐ Admin session cookie (plain JSON)
   const raw = req.cookies.get("admin_session")?.value;
-  const adminSession = raw ? verifyAdminSession(raw) : null;
 
-  // Public routes allowed
-  if (isPublic) return res;
+  let adminSession = null;
+  try {
+    adminSession = raw ? JSON.parse(raw) : null;
+  } catch {
+    adminSession = null;
+  }
 
-  // SUPERADMIN PROTECTED
+  // ⭐ SUPERADMIN PROTECTED
   if (pathname.startsWith("/superadmin")) {
     if (!user) return redirectTo("/superadmin/login");
 
     const role = user.user_metadata?.role;
     if (role !== "SUPERADMIN") return redirectTo("/unauthorized");
 
-    return res;
+    return NextResponse.next();
   }
 
-  // ADMIN PROTECTED (pages only — NOT APIs)
+  // ⭐ ADMIN PROTECTED
   if (pathname.startsWith("/admin")) {
     if (!user) return redirectTo("/auth/admin/login");
 
@@ -109,19 +109,18 @@ async function handleAuth(req: NextRequest, res: NextResponse, supabase: any) {
       return redirectTo("/unauthorized");
     }
 
-    // ⭐ Must have valid signed admin session
     if (!adminSession) {
       return redirectTo("/auth/admin/login");
     }
 
-    return res;
+    return NextResponse.next();
   }
 
-  // Everything else allowed
-  return res;
+  // ⭐ Everything else allowed
+  return NextResponse.next();
 }
 
-// ⭐ UPDATED MATCHER — API ROUTES REMOVED
+// ⭐ MATCHER
 export const config = {
   matcher: [
     "/superadmin/:path*",
