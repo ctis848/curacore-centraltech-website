@@ -13,7 +13,15 @@ export async function POST(req: Request) {
     {
       cookies: {
         get(name: string) {
-          return req.headers.get("cookie") ?? undefined;
+          // FIX: Return only the cookie value, not the entire header
+          const cookieHeader = req.headers.get("cookie") ?? "";
+          const cookies = Object.fromEntries(
+            cookieHeader.split(";").map((c) => {
+              const [k, v] = c.trim().split("=");
+              return [k, v];
+            })
+          );
+          return cookies[name];
         },
         set(name: string, value: string, options: any) {
           res.cookies.set(name, value, options);
