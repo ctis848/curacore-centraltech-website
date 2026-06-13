@@ -48,9 +48,7 @@ type NavGroup = {
 const navItems: NavGroup[] = [
   {
     section: "General",
-    items: [
-      { label: "Dashboard", href: "/admin", icon: HomeIcon },
-    ],
+    items: [{ label: "Dashboard", href: "/admin", icon: HomeIcon }],
   },
 
   {
@@ -74,9 +72,7 @@ const navItems: NavGroup[] = [
 
   {
     section: "Companies",
-    items: [
-      { label: "Companies", href: "/admin/company", icon: BuildingOfficeIcon },
-    ],
+    items: [{ label: "Companies", href: "/admin/company", icon: BuildingOfficeIcon }],
   },
 
   {
@@ -113,7 +109,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // independent toggle state
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   const toggleSection = (section: string) => {
@@ -158,7 +153,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
         {/* NAVIGATION */}
         <nav className="flex-1 px-3 py-4 space-y-2 overflow-y-auto">
-
           {navItems.map((group, index) => {
             const isOpen = openSections[group.section] ?? true;
 
@@ -234,7 +228,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               </div>
             );
           })}
-
         </nav>
       </aside>
 
@@ -260,6 +253,32 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   .map((item) => {
                     const active = isActive(item.href);
                     const Icon = item.icon;
+
+                    if (item.logout) {
+                      return (
+                        <form
+                          key={item.href}
+                          action="/api/auth/admin-logout"
+                          method="POST"
+                          className="w-full"
+                        >
+                          <button
+                            type="submit"
+                            onClick={() => setMobileOpen(false)}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm w-full text-left
+                              ${
+                                active
+                                  ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                                  : "text-slate-700 hover:bg-slate-100"
+                              }
+                            `}
+                          >
+                            <Icon className="w-5 h-5" />
+                            {item.label}
+                          </button>
+                        </form>
+                      );
+                    }
 
                     return (
                       <Link
