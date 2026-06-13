@@ -11,6 +11,8 @@ async function sendBrevoEmail(toEmail: string, subject: string, html: string) {
     to: [{ email: toEmail }],
     subject,
     htmlContent: html,
+    trackOpens: true,
+    trackClicks: true,
   };
 
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -25,96 +27,120 @@ async function sendBrevoEmail(toEmail: string, subject: string, html: string) {
   return res.ok;
 }
 
-export async function POST(req: Request) {
+export async function GET() {
   try {
-    const { id } = await req.json();
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, message: "Missing company ID" },
-        { status: 400 }
-      );
-    }
-
-    const { data: company, error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("companies")
-      .select("*")
-      .eq("id", id)
-      .single();
+      .select("id, name, renewal_date, annual_amount, email, portal_password")
+      .not("renewal_date", "is", null);
 
-    if (error || !company) {
-      return NextResponse.json(
-        { success: false, message: "Company not found" },
-        { status: 404 }
-      );
+    if (error || !data) {
+      return NextResponse.json({ success: false, message: "DB error" });
     }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const renewalDate = new Date(company.renewal_date);
-    const daysLeft = differenceInDays(renewalDate, today);
+    let sent = 0;
 
-    let subject = "";
-    let html = "";
+    for (const c of data) {
+      const renewalDate = new Date(c.renewal_date);
+      const daysLeft = differenceInDays(renewalDate, today);
 
-    if (daysLeft < 0) {
-      subject = `Your EMR Subscription Has Expired – ${company.name}`;
-      html = `
-        <h2>Subscription Expired</h2>
-        <p>Dear <strong>${company.name}</strong>,</p>
-        <p>Your EMR subscription expired on <strong>${company.renewal_date}</strong>.</p>
-        <p>Please renew immediately to restore full access.</p>
-      `;
-    } else if (daysLeft <= 3) {
-      subject = `Your EMR Subscription Expires in ${daysLeft} Days – ${company.name}`;
-      html = `
-        <h2>Renewal Reminder</h2>
-        <p>Dear <strong>${company.name}</strong>,</p>
-        <p>Your EMR subscription expires in <strong>${daysLeft} days</strong>.</p>
-        <p>Please renew to avoid service interruption.</p>
-      `;
-    } else if (daysLeft <= 7) {
-      subject = `Your EMR Subscription Expires in ${daysLeft} Days – ${company.name}`;
-      html = `
-        <h2>Upcoming Renewal</h2>
-        <p>Dear <strong>${company.name}</strong>,</p>
-        <p>Your EMR subscription expires in <strong>${daysLeft} days</strong>.</p>
-        <p>Please renew soon.</p>
-      `;
-    } else if (daysLeft <= 30) {
-      subject = `Your EMR Subscription Expires in ${daysLeft} Days – ${company.name}`;
-      html = `
-        <h2>Advance Renewal Notice</h2>
-        <p>Dear <strong>${company.name}</strong>,</p>
-        <p>Your EMR subscription expires in <strong>${daysLeft} days</strong>.</p>
-        <p>This is an early reminder to plan your renewal.</p>
-      `;
-    } else {
-      return NextResponse.json({
-        success: false,
-        message: "Company is not within renewal window",
-      });
-    }
+      if (daysLeft > 30) continue;
 
-    const ok = await sendBrevoEmail(
-      company.email || NOTIFY_EMAIL!,
-      subject,
-      html
-    );
+      const subject = `Annual Subscription Renewal – Action Required | ${c.name}`;
 
-    if (!ok) {
-      return NextResponse.json(
-        { success: false, message: "Failed to send email" },
-        { status: 500 }
+      const html = `
+      <div style="font-family: Arial, sans-serif; background:#f5f7fa; padding:20px;">
+        <div style="max-width:600px; margin:auto; background:white; border-radius:10px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+
+          <!-- HEADER -->
+          <div style="background:#1e3a8a; padding:20px; text-align:center;">
+            <img src="https://ctistech.com/logo.png" alt="CTIS Logo" style="width:120px; margin-bottom:10px;" />
+            <h2 style="color:white; margin:0;">Central Tech Information System</h2>
+          </div>
+
+          <!-- BODY -->
+          <div style="padding:25px; color:#333; line-height:1.6;">
+
+            <p>Dear Valued Client, <strong>${c.name}</strong></p>
+
+            <p>This is an official reminder that your EMR Software annual subscription will expire in 
+            <strong>${daysLeft}</strong> days.</p>
+
+            <p>To avoid any interruption in your access to the EMR platform, patient records, reporting tools, and all associated clinical features, kindly proceed with your renewal.</p>
+
+            <p>Your continued access to the EMR system depends on completing this renewal before the due date.</p>
+
+            <h3 style="color:#1e3a8a;">How to Renew Your Subscription:</h3>
+            <ol>
+              <li>Visit our website: <a href="https://www.ctistech.com">www.ctistech.com</a></li>
+              <li>Log in to your Client Portal using your credentials</li>
+              <li>Welcome Back</li>
+              <li>Email: <strong>${c.email}</strong></li>
+              <li>Password: <strong>${c.portal_password || "******"}</strong></li>
+              <li>Scroll down to <strong>Renew Annual Payment</strong></li>
+              <li>Choose your preferred payment method (Card or Bank Transfer)</li>
+            </ol>
+
+            <p><strong>Annual Payment:</strong> ₦${c.annual_amount || "0.00"}</p>
+
+            <!-- RENEW BUTTON -->
+            <div style="text-align:center; margin:30px 0;">
+              <a href="https://www.ctistech.com/client-portal/login"
+                style="background:#1e3a8a; color:white; padding:14px 28px; border-radius:6px; text-decoration:none; font-size:16px; font-weight:bold;">
+                Renew Now
+              </a>
+            </div>
+
+            <p>If you have already renewed your subscription, please disregard this notice.</p>
+
+            <p>Thank you for your continued trust in EMR. We remain committed to delivering reliable, innovative, and professional IT solutions to support your operations.</p>
+          </div>
+
+          <!-- FOOTER -->
+          <div style="background:#f0f0f0; padding:15px; text-align:center; font-size:13px; color:#555;">
+            <p>Central Tech Information System (CTIS)</p>
+            <p><a href="https://www.ctistech.com">www.ctistech.com</a></p>
+            <p>This email includes open & click tracking for service quality.</p>
+          </div>
+
+        </div>
+      </div>
+      `;
+
+      const ok = await sendBrevoEmail(
+        c.email || NOTIFY_EMAIL!,
+        subject,
+        html
       );
+
+      if (ok) sent++;
     }
+
+    await supabaseAdmin.from("cron_logs").insert({
+      status: "success",
+      companies_notified: sent,
+      message: "Full renewal reminders sent",
+    });
 
     return NextResponse.json({
       success: true,
-      message: "Reminder sent successfully",
+      count: sent,
+      message: "Full renewal reminders sent",
     });
+
   } catch (err) {
+    console.error("Cron error:", err);
+
+    await supabaseAdmin.from("cron_logs").insert({
+      status: "failed",
+      companies_notified: 0,
+      message: "Cron failed",
+      error: String(err),
+    });
+
     return NextResponse.json(
       { success: false, message: "Server error" },
       { status: 500 }

@@ -29,7 +29,7 @@ export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from("companies")
-      .select("id, name, renewal_date, annual_price, email")
+      .select("id, name, renewal_date, annual_amount, email, portal_password")
       .not("renewal_date", "is", null);
 
     if (error || !data) {
@@ -45,57 +45,50 @@ export async function GET() {
       const renewalDate = new Date(c.renewal_date);
       const daysLeft = differenceInDays(renewalDate, today);
 
-      let subject = "";
-      let html = "";
+      // Skip companies not within renewal window
+      if (daysLeft > 30) continue;
 
-      // EXPIRED
-      if (daysLeft < 0) {
-        subject = `Your EMR Subscription Has Expired – ${c.name}`;
-        html = `
-          <h2>Subscription Expired</h2>
-          <p>Dear <strong>${c.name}</strong>,</p>
-          <p>Your EMR subscription expired on <strong>${c.renewal_date}</strong>.</p>
-          <p>Please renew immediately to restore full access.</p>
-        `;
-      }
+      // -------------------------------
+      // EMAIL SUBJECT + TEMPLATE
+      // -------------------------------
 
-      // DUE IN 3 DAYS
-      else if (daysLeft <= 3) {
-        subject = `Your EMR Subscription Expires in ${daysLeft} Days – ${c.name}`;
-        html = `
-          <h2>Renewal Reminder</h2>
-          <p>Dear <strong>${c.name}</strong>,</p>
-          <p>Your EMR subscription expires in <strong>${daysLeft} days</strong>.</p>
-          <p>Please renew to avoid service interruption.</p>
-        `;
-      }
+      const subject = `Annual Subscription Renewal – Action Required | ${c.name}`;
 
-      // DUE IN 7 DAYS
-      else if (daysLeft <= 7) {
-        subject = `Your EMR Subscription Expires in ${daysLeft} Days – ${c.name}`;
-        html = `
-          <h2>Upcoming Renewal</h2>
-          <p>Dear <strong>${c.name}</strong>,</p>
-          <p>Your EMR subscription expires in <strong>${daysLeft} days</strong>.</p>
-          <p>Please renew soon.</p>
-        `;
-      }
+      const html = `
+        <p>Dear Valued Client, <strong>${c.name}</strong></p>
 
-      // DUE IN 30 DAYS
-      else if (daysLeft <= 30) {
-        subject = `Your EMR Subscription Expires in ${daysLeft} Days – ${c.name}`;
-        html = `
-          <h2>Advance Renewal Notice</h2>
-          <p>Dear <strong>${c.name}</strong>,</p>
-          <p>Your EMR subscription expires in <strong>${daysLeft} days</strong>.</p>
-          <p>This is an early reminder to plan your renewal.</p>
-        `;
-      }
+        <p>This is an official reminder that your EMR Software annual subscription will expire in 
+        <strong>${daysLeft}</strong> days.</p>
 
-      // NOT DUE — skip
-      else {
-        continue;
-      }
+        <p>To avoid any interruption in your access to the EMR platform, patient records, reporting tools, and all associated clinical features, kindly proceed with your renewal.</p>
+
+        <p>Your continued access to the EMR system depends on completing this renewal before the due date.</p>
+
+        <h3>How to Renew Your Subscription:</h3>
+        <ol>
+          <li>Visit our website: <a href="https://www.ctistech.com">www.ctistech.com</a></li>
+          <li>Log in to your Client Portal using your credentials</li>
+          <li>Welcome Back</li>
+          <li>Email: <strong>${c.email}</strong></li>
+          <li>Password: <strong>${c.portal_password || "******"}</strong></li>
+          <li>Scroll down to <strong>Renew Annual Payment</strong></li>
+          <li>Choose your preferred payment method (Card or Bank Transfer)</li>
+        </ol>
+
+        <p><strong>Annual Payment:</strong> ₦${c.annual_amount || "0.00"}</p>
+
+        <p>If you have already renewed your subscription, please disregard this notice.</p>
+
+        <p>Thank you for your continued trust in EMR. We remain committed to delivering reliable, innovative, and professional IT solutions to support your operations.</p>
+
+        <p>Warm regards,<br/>
+        Central Tech Information System, Support Team (CTIS)<br/>
+        <a href="https://www.ctistech.com">www.ctistech.com</a></p>
+      `;
+
+      // -------------------------------
+      // SEND EMAIL
+      // -------------------------------
 
       const ok = await sendBrevoEmail(
         c.email || NOTIFY_EMAIL!,
@@ -118,6 +111,7 @@ export async function GET() {
       count: sent,
       message: "Full renewal reminders sent",
     });
+
   } catch (err) {
     console.error("Cron error:", err);
 
