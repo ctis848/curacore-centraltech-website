@@ -10,7 +10,11 @@ export async function POST(req: Request) {
     }
 
     // TODO: Fetch invoice amount from Supabase
-    const amount = 50000; // Example: ₦50,000 (in kobo: 50000 * 100)
+    // IMPORTANT: amount MUST be in NAIRA here (e.g., 50000 = ₦50,000)
+    const amount = 50000; // ₦50,000
+
+    // Convert NAIRA → KOBO (Paystack requires kobo)
+    const amountInKobo = amount * 100;
 
     const paystackRes = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
@@ -19,8 +23,8 @@ export async function POST(req: Request) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        email: "customer@example.com", // TODO: Replace with request.email
-        amount: amount * 100, // Paystack uses kobo
+        email: "customer@example.com", // TODO: Replace with real email
+        amount: amountInKobo,          // CORRECT: send kobo
         reference: `CTIS-${id}-${Date.now()}`,
         callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/invoice/${id}/verify`
       })
@@ -36,6 +40,7 @@ export async function POST(req: Request) {
       authorization_url: data.data.authorization_url,
       reference: data.data.reference
     });
+
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

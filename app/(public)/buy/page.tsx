@@ -66,7 +66,7 @@ export default function BuyLicensePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           couponCode: code,
-          amount: baseAmount,
+          amount: Number(baseAmount) || 0,
         }),
       });
 
@@ -97,13 +97,13 @@ export default function BuyLicensePage() {
       setLoading(true);
 
       // Paystack expects amount in kobo
-      const amountInKobo = Math.round(totalAmount * 100);
+      const amountInNaira = Math.round(totalAmount);
 
       const res = await fetch("/api/payments/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: amountInKobo,
+          amount: amountInNaira,
           email,
           companyName,
           plan,
