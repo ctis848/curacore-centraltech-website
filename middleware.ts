@@ -126,7 +126,7 @@ async function handleAuth(req: NextRequest, res: NextResponse, supabase: any) {
 }
 
 // ⭐ UPDATED MATCHER — API ROUTES REMOVED
-export const proxy = {
+export const config = {
   matcher: [
     "/superadmin/:path*",
     "/admin/:path*",
