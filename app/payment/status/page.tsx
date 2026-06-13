@@ -23,50 +23,63 @@ function StatusContent() {
   const [payment, setPayment] = useState<PaymentInfo | null>(null);
 
   useEffect(() => {
-    async function load() {
+    async function verifyPayment() {
       if (!reference) {
         setStatus("failed");
         setLoading(false);
         return;
       }
 
-      try {
-        const res = await fetch(`/api/payments/verify?reference=${reference}`);
-        const data = await res.json();
+      let attempts = 0;
 
-        if (!data || !data.status) {
-          setStatus("failed");
-          setLoading(false);
-          return;
+      while (attempts < 5) {
+        try {
+          const res = await fetch(`/api/payments/verify?reference=${reference}`);
+          const data = await res.json();
+
+          // If backend confirms success
+          if (data?.status === "success") {
+            setStatus("success");
+
+            // Load purchase history
+            const historyRes = await fetch("/api/my-history");
+            const historyData = await historyRes.json();
+
+            const latest = historyData?.find(
+              (h: any) => h.reference === reference
+            );
+
+            setPayment({
+              amount: latest?.amount || 0,
+              reference,
+              paidAt: latest?.paidAt || new Date().toISOString(),
+              licenseCount: latest?.licenseCount,
+            });
+
+            setLoading(false);
+            return;
+          }
+
+          // If backend says pending
+          if (data?.status === "pending") {
+            setStatus("pending");
+          }
+
+        } catch (err) {
+          console.error("Verification error:", err);
         }
 
-        // Backend returns: "success", "failed", "pending"
-        setStatus(data.status as StatusType);
-
-        if (data.status === "success") {
-          const historyRes = await fetch("/api/my-history");
-          const historyData = await historyRes.json();
-
-          const latest = historyData?.find(
-            (h: any) => h.reference === reference
-          );
-
-          setPayment({
-            amount: latest?.amount || 0,
-            reference,
-            paidAt: latest?.paidAt || new Date().toISOString(),
-            licenseCount: latest?.licenseCount,
-          });
-        }
-      } catch (err) {
-        console.error(err);
-        setStatus("failed");
+        // Wait 2 seconds before retry
+        attempts++;
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
+      // After 5 attempts, still no success
+      setStatus("failed");
       setLoading(false);
     }
 
-    load();
+    verifyPayment();
   }, [reference]);
 
   if (loading)
@@ -116,10 +129,10 @@ function StatusContent() {
         )}
 
         <a
-          href="/client/renewal-history"
+          href="/client/login"
           className="inline-block bg-emerald-600 text-white px-4 py-2 rounded font-semibold hover:bg-emerald-700"
         >
-          View Renewal History
+          Go to Client Login
         </a>
       </div>
     );
