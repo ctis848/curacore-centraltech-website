@@ -211,8 +211,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
                       if (item.logout) {
                         return (
-                          <form key={item.href} action={item.href} method="post">
-                            <button className="w-full text-left">{content}</button>
+                          <form
+                            key={item.href}
+                            action="/api/auth/admin-logout"
+                            method="POST"
+                            className="w-full"
+                          >
+                            <button type="submit" className="w-full text-left">
+                              {content}
+                            </button>
                           </form>
                         );
                       }

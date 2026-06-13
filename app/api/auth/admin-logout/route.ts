@@ -1,20 +1,38 @@
+// FILE: app/api/auth/admin-logout/route.ts
 import { NextResponse } from "next/server";
-
-export async function GET(req: Request) {
-  return handleLogout(req);
-}
+import { createServerClient } from "@supabase/ssr";
 
 export async function POST(req: Request) {
-  return handleLogout(req);
-}
+  const res = NextResponse.redirect(new URL("/auth/admin/login", req.url));
 
-function handleLogout(req: Request) {
-  // FIX: Correct login URL
-  const redirectUrl = new URL("/auth/admin/login", req.url);
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          const cookieHeader = req.headers.get("cookie") ?? "";
+          const cookies = Object.fromEntries(
+            cookieHeader.split(";").map((c) => {
+              const [k, v] = c.trim().split("=");
+              return [k, v];
+            })
+          );
+          return cookies[name];
+        },
+        set(name: string, value: string, options: any) {
+          res.cookies.set(name, value, options);
+        },
+        remove(name: string, options: any) {
+          res.cookies.set(name, "", { ...options, maxAge: 0 });
+        },
+      },
+    }
+  );
 
-  const res = NextResponse.redirect(redirectUrl);
+  await supabase.auth.signOut();
 
-  // Clear admin session cookie
+  // Remove admin session cookie
   res.cookies.set("admin_session", "", {
     httpOnly: true,
     secure: true,
