@@ -1,20 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import PasswordRules from "@/components/PasswordRules";
 
 export default function AdminResetPasswordPage() {
-  // ⭐ FIX: Non-null assertion + fallback
-  const params = useSearchParams()!;
-  const token = params.get("token") ?? "";
+  const params = useSearchParams();
+  const token = params?.get("token") ?? "";
 
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ⭐ If token is missing, show error immediately
+  // ⭐ Password strength validation
+  const strength = useMemo(() => {
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    return score;
+  }, [password]);
+
+  const strengthLabel = [
+    "Very Weak",
+    "Weak",
+    "Fair",
+    "Good",
+    "Strong",
+    "Very Strong",
+  ][strength];
+
+  const strengthColor = [
+    "text-red-600",
+    "text-orange-600",
+    "text-yellow-600",
+    "text-blue-600",
+    "text-green-600",
+    "text-green-700",
+  ][strength];
+
   if (!token) {
     return (
       <div className="min-h-screen flex flex-col bg-slate-50">
@@ -83,12 +111,26 @@ export default function AdminResetPasswordPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+
+              {/* ⭐ Password Strength Indicator */}
+              {password.length > 0 && (
+                <p className={`mt-1 text-sm font-semibold ${strengthColor}`}>
+                  Strength: {strengthLabel}
+                </p>
+              )}
+
+              {/* ⭐ NEW: Password Rules Checklist */}
+              <PasswordRules password={password} />
             </div>
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700"
+              disabled={loading || strength < 3} // Require at least "Good"
+              className={`w-full py-3 rounded-lg text-white ${
+                loading || strength < 3
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700"
+              }`}
             >
               {loading ? "Updating..." : "Update Password"}
             </button>

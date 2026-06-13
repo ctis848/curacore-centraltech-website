@@ -1,11 +1,14 @@
 // FILE: app/api/auth/admin-login/route.ts
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { signAdminSession } from "@/lib/adminSession";
 
 export async function POST(req: Request) {
   const { email, password } = await req.json();
 
   const res = NextResponse.json({ success: true });
+  const cookieStore = await cookies();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,13 +16,13 @@ export async function POST(req: Request) {
     {
       cookies: {
         get(name: string) {
-          return req.headers.get("cookie") ?? undefined;
+          return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: any) {
-          res.cookies.set(name, value, options);
+          cookieStore.set(name, value, options);
         },
         remove(name: string, options: any) {
-          res.cookies.set(name, "", { ...options, maxAge: 0 });
+          cookieStore.set(name, "", { ...options, maxAge: 0 });
         },
       },
     }
@@ -47,14 +50,14 @@ export async function POST(req: Request) {
 
   const sessionData = {
     role,
-    expiresAt: Date.now() + 1000 * 60 * 60 * 2, // 2 hours
+    createdAt: Date.now(),
   };
 
-  res.cookies.set("admin_session", JSON.stringify(sessionData), {
+  res.cookies.set("admin_session", signAdminSession(sessionData), {
     httpOnly: true,
     secure: true,
+    sameSite: "strict",
     path: "/",
-    maxAge: 60 * 60 * 2,
   });
 
   return res;

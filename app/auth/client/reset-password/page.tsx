@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import PasswordRules from "@/components/PasswordRules"; // ⭐ NEW
 
 export default function ClientResetPasswordPage() {
   const router = useRouter();
@@ -12,6 +13,35 @@ export default function ClientResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // ⭐ Password strength validation
+  const strength = useMemo(() => {
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    return score;
+  }, [password]);
+
+  const strengthLabel = [
+    "Very Weak",
+    "Weak",
+    "Fair",
+    "Good",
+    "Strong",
+    "Very Strong",
+  ][strength];
+
+  const strengthColor = [
+    "text-red-600",
+    "text-orange-600",
+    "text-yellow-600",
+    "text-blue-600",
+    "text-green-600",
+    "text-green-700",
+  ][strength];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,13 +99,23 @@ export default function ClientResetPasswordPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+
+              {/* ⭐ Password Strength Indicator */}
+              {password.length > 0 && (
+                <p className={`mt-1 text-sm font-semibold ${strengthColor}`}>
+                  Strength: {strengthLabel}
+                </p>
+              )}
+
+              {/* ⭐ NEW: Password Rules Checklist */}
+              <PasswordRules password={password} />
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || strength < 3} // Require at least "Good"
               className={`w-full py-3 text-lg font-bold rounded-lg shadow-lg transition ${
-                loading
+                loading || strength < 3
                   ? "bg-gray-400 cursor-not-allowed text-white"
                   : "bg-teal-600 hover:bg-teal-700 text-white"
               }`}

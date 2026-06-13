@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { verifyAdminSession } from "@/lib/adminSession";
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next({
@@ -23,18 +25,22 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
-  // Supabase SSR client
+  // ⭐ Supabase SSR client (correct cookie adapter)
+  const cookieStore = await cookies();
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name: string) => req.cookies.get(name)?.value,
-        set: (name: string, value: string, options?: any) => {
-          res.cookies.set(name, value, options);
+        get(name: string) {
+          return cookieStore.get(name)?.value;
         },
-        remove: (name: string) => {
-          res.cookies.delete(name);
+        set(name: string, value: string, options: any) {
+          cookieStore.set(name, value, options);
+        },
+        remove(name: string, options: any) {
+          cookieStore.set(name, "", { ...options, maxAge: 0 });
         },
       },
     }
@@ -60,6 +66,11 @@ async function handleAuth(req: NextRequest, res: NextResponse, supabase: any) {
     publicExact.includes(pathname) ||
     publicPrefixes.some((p) => pathname.startsWith(p));
 
+  // ⭐ FIX: Allow admin login page to load without checking Supabase session
+  if (pathname === "/auth/admin/login") {
+    return res;
+  }
+
   // Get Supabase user
   const {
     data: { user },
@@ -71,25 +82,9 @@ async function handleAuth(req: NextRequest, res: NextResponse, supabase: any) {
     return NextResponse.redirect(url);
   };
 
-  // Admin session cookie
-  const adminSessionCookie = req.cookies.get("admin_session")?.value;
-  let adminSession: any = null;
-
-  if (adminSessionCookie) {
-    try {
-      adminSession = JSON.parse(adminSessionCookie);
-
-      if (Date.now() > adminSession.expiresAt) {
-        const logout = redirectTo("/auth/admin/login");
-        logout.cookies.set("admin_session", "", { maxAge: 0 });
-        return logout;
-      }
-    } catch {
-      const logout = redirectTo("/auth/admin/login");
-      logout.cookies.set("admin_session", "", { maxAge: 0 });
-      return logout;
-    }
-  }
+  // ⭐ Admin session cookie (signed + secure)
+  const raw = req.cookies.get("admin_session")?.value;
+  const adminSession = raw ? verifyAdminSession(raw) : null;
 
   // Public routes allowed
   if (isPublic) return res;
@@ -114,6 +109,7 @@ async function handleAuth(req: NextRequest, res: NextResponse, supabase: any) {
       return redirectTo("/unauthorized");
     }
 
+    // ⭐ Must have valid signed admin session
     if (!adminSession) {
       return redirectTo("/auth/admin/login");
     }

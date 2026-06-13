@@ -11,24 +11,17 @@ export async function POST(req: Request) {
     const { email } = await req.json();
 
     if (!email) {
-      return NextResponse.json(
-        { error: "Email is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    // Check if admin exists (do not reveal existence)
-    const { data: admin, error: adminErr } = await supabaseAdmin
-      .from("Admins")
+    // Check if client exists (do not reveal existence)
+    const { data: client } = await supabaseAdmin
+      .from("Clients")
       .select("email")
       .eq("email", email)
       .maybeSingle();
 
-    if (adminErr) {
-      console.error("Admin lookup error:", adminErr);
-    }
-
-    if (!admin) {
+    if (!client) {
       return NextResponse.json({
         message: "If this email is registered, a reset link has been sent.",
       });
@@ -40,40 +33,23 @@ export async function POST(req: Request) {
     const expiresAt = new Date(Date.now() + 1000 * 60 * 30).toISOString(); // 30 mins
 
     // Store token
-    const { error: insertErr } = await supabaseAdmin
-      .from("AdminPasswordResetTokens")
-      .insert({
-        admin_email: email,
-        token_hash: tokenHash,
-        expires_at: expiresAt,
-        used: false,
-      });
-
-    if (insertErr) {
-      console.error("Token insert error:", insertErr);
-      return NextResponse.json(
-        { error: "Unable to process request" },
-        { status: 500 }
-      );
-    }
+    await supabaseAdmin.from("ClientPasswordResetTokens").insert({
+      client_email: email,
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+      used: false,
+    });
 
     // Build reset link
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const resetLink = `${appUrl}/auth/admin/reset-password?token=${rawToken}`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const resetLink = `${appUrl}/auth/client/reset-password?token=${rawToken}`;
 
     // Brevo config
     const apiKey = process.env.BREVO_API_KEY;
     const senderEmail = process.env.NOTIFY_EMAIL;
 
-    if (!apiKey) {
-      console.error("❌ Missing BREVO_API_KEY");
-    }
-    if (!senderEmail) {
-      console.error("❌ Missing NOTIFY_EMAIL");
-    }
-
     if (!apiKey || !senderEmail) {
+      console.error("Brevo config missing");
       return NextResponse.json({
         message: "If this email is registered, a reset link has been sent.",
       });
@@ -81,12 +57,12 @@ export async function POST(req: Request) {
 
     // Email payload
     const payload = {
-      sender: { name: "CentralCore Admin", email: senderEmail },
+      sender: { name: "CentralCore Support", email: senderEmail },
       to: [{ email }],
-      subject: "Admin Password Reset",
+      subject: "Client Password Reset",
       htmlContent: `
-        <h2>Admin Password Reset</h2>
-        <p>You requested a password reset for your admin account.</p>
+        <h2>Password Reset</h2>
+        <p>You requested a password reset for your client account.</p>
         <p>
           <a href="${resetLink}"
              style="padding:12px 20px;background:#2563eb;color:white;border-radius:6px;text-decoration:none;">
@@ -107,22 +83,15 @@ export async function POST(req: Request) {
       body: JSON.stringify(payload),
     });
 
-    const emailText = await emailRes.text();
-
     if (!emailRes.ok) {
-      console.error("❌ BREVO SEND ERROR:", emailText);
-    } else {
-      console.log("✅ BREVO SEND SUCCESS:", emailText);
+      console.error("Brevo error:", await emailRes.text());
     }
 
     return NextResponse.json({
       message: "If this email is registered, a reset link has been sent.",
     });
   } catch (err) {
-    console.error("Forgot password error:", err);
-    return NextResponse.json(
-      { error: "Server error" },
-      { status: 500 }
-    );
+    console.error("Client forgot password error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

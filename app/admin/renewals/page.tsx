@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import Toast from "@/components/Toast";
 
 interface CompanyRow {
@@ -12,11 +12,6 @@ interface CompanyRow {
   license_count: number;
   created_at: string;
 }
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export default function RenewalsPage() {
   const [companies, setCompanies] = useState<CompanyRow[]>([]);
@@ -32,15 +27,15 @@ export default function RenewalsPage() {
 
   const [selected, setSelected] = useState<string[]>([]);
 
-  // Collapsible sections
   const [openExpired, setOpenExpired] = useState(true);
   const [open3, setOpen3] = useState(true);
   const [open7, setOpen7] = useState(false);
   const [open30, setOpen30] = useState(false);
 
-  // Toast State
   const [toastMessage, setToastMessage] = useState("");
   const [showToast, setShowToast] = useState(false);
+
+  const [sending, setSending] = useState(false);
 
   const showSuccess = (msg: string) => {
     setToastMessage(msg);
@@ -57,7 +52,7 @@ export default function RenewalsPage() {
   }, [search]);
 
   // Renewal Logic
-  const renewalState = (renewal_date: string | null) => {
+  const renewalState = useCallback((renewal_date: string | null) => {
     if (!renewal_date) return "Unknown";
 
     const now = new Date();
@@ -67,24 +62,27 @@ export default function RenewalsPage() {
     exp.setHours(0, 0, 0, 0);
 
     const diff = exp.getTime() - now.getTime();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    const days = Math.ceil(diff / 86400000);
 
     if (days < 0) return "Expired";
-    if (days <= 3 && days >= 0) return "Due in 3 days";
-    if (days <= 7 && days > 3) return "Due in 7 days";
-    if (days <= 30 && days > 7) return "Due in 30 days";
+    if (days <= 3) return "Due in 3 days";
+    if (days <= 7) return "Due in 7 days";
+    if (days <= 30) return "Due in 30 days";
 
     return "Not in range";
-  };
+  }, []);
 
-  const rowColorClass = (renewal_date: string | null) => {
-    const state = renewalState(renewal_date);
-    if (state === "Expired") return "bg-rose-50";
-    if (state.includes("3 days")) return "bg-red-50";
-    if (state.includes("7 days")) return "bg-orange-50";
-    if (state.includes("30 days")) return "bg-yellow-50";
-    return "";
-  };
+  const rowColorClass = useCallback(
+    (renewal_date: string | null) => {
+      const state = renewalState(renewal_date);
+      if (state === "Expired") return "bg-rose-50";
+      if (state.includes("3 days")) return "bg-red-50";
+      if (state.includes("7 days")) return "bg-orange-50";
+      if (state.includes("30 days")) return "bg-yellow-50";
+      return "";
+    },
+    [renewalState]
+  );
 
   const toggleSelect = (id: string) => {
     setSelected((prev) =>
@@ -145,25 +143,40 @@ export default function RenewalsPage() {
 
   // Auto-email reminder
   const sendReminder = async (id: string) => {
-    const res = await fetch("/api/admin/renewals/notify-company", {
-      method: "POST",
-      body: JSON.stringify({ id }),
-    });
-    const json = await res.json();
-    showSuccess(json.message || "Reminder sent successfully");
+    try {
+      setSending(true);
+
+      const res = await fetch("/api/admin/renewals/notify-company", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+
+      const json = await res.json();
+      showSuccess(json.message || "Reminder sent successfully");
+    } finally {
+      setSending(false);
+    }
   };
 
   const bulkNotify = async (rows: CompanyRow[]) => {
     const ids = rows.map((r) => r.id);
     if (!ids.length) return showSuccess("No companies selected");
 
-    const res = await fetch("/api/admin/renewals/bulk-notify-company", {
-      method: "POST",
-      body: JSON.stringify({ ids }),
-    });
+    try {
+      setSending(true);
 
-    const json = await res.json();
-    showSuccess(json.message || "Bulk reminders sent");
+      const res = await fetch("/api/admin/renewals/bulk-notify-company", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+
+      const json = await res.json();
+      showSuccess(json.message || "Bulk reminders sent");
+    } finally {
+      setSending(false);
+    }
   };
 
   // Load companies
@@ -198,18 +211,25 @@ export default function RenewalsPage() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-  // Buckets
-  const expired = companies.filter(
-    (c) => renewalState(c.renewal_date) === "Expired"
+  // Buckets (memoized for performance)
+  const expired = useMemo(
+    () => companies.filter((c) => renewalState(c.renewal_date) === "Expired"),
+    [companies, renewalState]
   );
-  const due3 = companies.filter((c) =>
-    renewalState(c.renewal_date).includes("3 days")
+
+  const due3 = useMemo(
+    () => companies.filter((c) => renewalState(c.renewal_date).includes("3 days")),
+    [companies, renewalState]
   );
-  const due7 = companies.filter((c) =>
-    renewalState(c.renewal_date).includes("7 days")
+
+  const due7 = useMemo(
+    () => companies.filter((c) => renewalState(c.renewal_date).includes("7 days")),
+    [companies, renewalState]
   );
-  const due30 = companies.filter((c) =>
-    renewalState(c.renewal_date).includes("30 days")
+
+  const due30 = useMemo(
+    () => companies.filter((c) => renewalState(c.renewal_date).includes("30 days")),
+    [companies, renewalState]
   );
 
   // Reusable table
@@ -290,18 +310,21 @@ export default function RenewalsPage() {
 
               <td className="p-4 flex items-center gap-3">
                 <button
+                  disabled={sending}
                   onClick={() => sendReminder(c.id)}
-                  className="text-blue-600 hover:text-blue-800 font-semibold text-xs"
+                  className={`text-blue-600 hover:text-blue-800 font-semibold text-xs ${
+                    sending ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
                 >
                   Remind
                 </button>
 
-                <a
+                <Link
                   href={`/admin/renewals/${c.id}`}
                   className="text-teal-600 hover:text-teal-800 font-semibold text-xs"
                 >
                   View
-                </a>
+                </Link>
               </td>
             </tr>
           );
@@ -375,6 +398,7 @@ export default function RenewalsPage() {
 
             <div className="flex gap-3 mt-4">
               <button
+                disabled={sending}
                 onClick={() => bulkNotify(expired)}
                 className="px-4 py-2 bg-rose-700 text-white rounded-lg shadow hover:bg-rose-800 font-semibold"
               >
@@ -408,6 +432,7 @@ export default function RenewalsPage() {
 
             <div className="flex gap-3 mt-4">
               <button
+                disabled={sending}
                 onClick={() => bulkNotify(due3)}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700"
               >
@@ -441,6 +466,7 @@ export default function RenewalsPage() {
 
             <div className="flex gap-3 mt-4">
               <button
+                disabled={sending}
                 onClick={() => bulkNotify(due7)}
                 className="px-4 py-2 bg-orange-600 text-white rounded-lg shadow hover:bg-orange-700"
               >
@@ -474,15 +500,16 @@ export default function RenewalsPage() {
 
             <div className="flex gap-3 mt-4">
               <button
-                onClick={() => bulkNotify                (due30)}
-                className="px-4 py-2 bg-yellow-600 text-white rounded-lg shadow hover:bg-yellow-700"
+                disabled={sending}
+                onClick={() => bulkNotify(due30)}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-lg shadow hover:bg-yellow-700 font-semibold"
               >
                 Send Bulk Reminders
               </button>
 
               <button
                 onClick={() => exportCSV(due30)}
-                className="px-4 py-2 bg-slate-700 text-white rounded-lg shadow hover:bg-slate-800"
+                className="px-4 py-2 bg-slate-700 text-white rounded-lg shadow hover:bg-slate-800 font-semibold"
               >
                 Export CSV
               </button>
@@ -545,4 +572,3 @@ export default function RenewalsPage() {
     </div>
   );
 }
-
