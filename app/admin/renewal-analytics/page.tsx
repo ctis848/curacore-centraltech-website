@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
+// -----------------------------------------------------
+// TYPES
+// -----------------------------------------------------
 interface LicenseRow {
   id: string;
   productName: string | null;
@@ -14,6 +17,9 @@ interface LicenseRow {
   createdAt: string;
 }
 
+// -----------------------------------------------------
+// MAIN COMPONENT
+// -----------------------------------------------------
 export default function RenewalAnalyticsPage() {
   const supabase = supabaseBrowser();
 
@@ -21,7 +27,9 @@ export default function RenewalAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState("All Years");
 
-  // ⭐ Load license data
+  // -----------------------------------------------------
+  // LOAD LICENSE DATA
+  // -----------------------------------------------------
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -55,7 +63,9 @@ export default function RenewalAnalyticsPage() {
     load();
   }, [supabase]);
 
-  // ⭐ Extract available years
+  // -----------------------------------------------------
+  // AVAILABLE YEARS
+  // -----------------------------------------------------
   const years = useMemo(() => {
     const set = new Set<string>();
 
@@ -65,10 +75,12 @@ export default function RenewalAnalyticsPage() {
       }
     });
 
-    return ["All Years", ...Array.from(set)];
+    return ["All Years", ...Array.from(set).sort()];
   }, [licenses]);
 
-  // ⭐ Filter by selected year
+  // -----------------------------------------------------
+  // FILTER BY YEAR
+  // -----------------------------------------------------
   const filteredLicenses = useMemo(() => {
     if (year === "All Years") return licenses;
 
@@ -78,22 +90,29 @@ export default function RenewalAnalyticsPage() {
     });
   }, [licenses, year]);
 
-  // ⭐ Monthly analytics
+  // -----------------------------------------------------
+  // MONTHLY ANALYTICS
+  // -----------------------------------------------------
   const monthlyData = useMemo(() => {
+    const months = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+
     const map: Record<
       string,
       { total: number; dueSoon: number; expired: number }
     > = {};
 
+    months.forEach((m) => {
+      map[m] = { total: 0, dueSoon: 0, expired: 0 };
+    });
+
     filteredLicenses.forEach((lic) => {
       if (!lic.expiresAt) return;
 
       const exp = new Date(lic.expiresAt);
-      const month = exp.toLocaleString("default", { month: "long" });
-
-      if (!map[month]) {
-        map[month] = { total: 0, dueSoon: 0, expired: 0 };
-      }
+      const month = months[exp.getMonth()];
 
       map[month].total++;
 
@@ -111,7 +130,9 @@ export default function RenewalAnalyticsPage() {
     return map;
   }, [filteredLicenses]);
 
-  // ⭐ Summary totals
+  // -----------------------------------------------------
+  // SUMMARY TOTALS
+  // -----------------------------------------------------
   const summary = useMemo(() => {
     let total = 0;
     let dueSoon = 0;
@@ -126,6 +147,9 @@ export default function RenewalAnalyticsPage() {
     return { total, dueSoon, expired };
   }, [monthlyData]);
 
+  // -----------------------------------------------------
+  // RENDER
+  // -----------------------------------------------------
   return (
     <div className="p-6 space-y-8 max-w-6xl mx-auto">
 
@@ -149,20 +173,21 @@ export default function RenewalAnalyticsPage() {
 
       {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 bg-white shadow-xl rounded-2xl border border-slate-200">
-          <p className="text-sm text-slate-500">Total Renewals</p>
-          <p className="text-3xl font-extrabold text-slate-800">{summary.total}</p>
-        </div>
-
-        <div className="p-6 bg-white shadow-xl rounded-2xl border border-slate-200">
-          <p className="text-sm text-slate-500">Due Soon (≤ 30 days)</p>
-          <p className="text-3xl font-extrabold text-yellow-600">{summary.dueSoon}</p>
-        </div>
-
-        <div className="p-6 bg-white shadow-xl rounded-2xl border border-slate-200">
-          <p className="text-sm text-slate-500">Expired</p>
-          <p className="text-3xl font-extrabold text-red-600">{summary.expired}</p>
-        </div>
+        <SummaryCard
+          title="Total Renewals"
+          value={summary.total}
+          color="slate"
+        />
+        <SummaryCard
+          title="Due Soon (≤ 30 days)"
+          value={summary.dueSoon}
+          color="yellow"
+        />
+        <SummaryCard
+          title="Expired"
+          value={summary.expired}
+          color="red"
+        />
       </div>
 
       {/* MONTHLY TABLE */}
@@ -200,6 +225,32 @@ export default function RenewalAnalyticsPage() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// -----------------------------------------------------
+// SUMMARY CARD COMPONENT
+// -----------------------------------------------------
+function SummaryCard({
+  title,
+  value,
+  color,
+}: {
+  title: string;
+  value: number;
+  color: "slate" | "yellow" | "red";
+}) {
+  const colors = {
+    slate: "text-slate-800",
+    yellow: "text-yellow-600",
+    red: "text-red-600",
+  };
+
+  return (
+    <div className="p-6 bg-white shadow-xl rounded-2xl border border-slate-200">
+      <p className="text-sm text-slate-500">{title}</p>
+      <p className={`text-3xl font-extrabold ${colors[color]}`}>{value}</p>
     </div>
   );
 }

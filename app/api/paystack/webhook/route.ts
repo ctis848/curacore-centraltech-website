@@ -44,7 +44,6 @@ export async function POST(req: Request) {
     }
 
     const data = event.data;
-
     const amount = data.amount / 100;
     const paystackId = data.id;
     const meta = data.metadata || {};
@@ -67,15 +66,6 @@ export async function POST(req: Request) {
       type: meta.type,
     });
 
-    // 🔹 Link to user if exists
-    const { data: user } = await supabase
-      .from("auth.users")
-      .select("id")
-      .eq("email", customerEmail)
-      .maybeSingle();
-
-    const userId = user?.id || null;
-
     // 🔹 Prevent duplicate
     const { data: existing } = await supabase
       .from("payments")
@@ -89,8 +79,7 @@ export async function POST(req: Request) {
     }
 
     // 🔹 Insert into payments table
-    const { error: insertError } = await supabase.from("payments").insert({
-      userid: userId,
+    await supabase.from("payments").insert({
       amount,
       currency: "NGN",
       status: "success",
@@ -100,14 +89,6 @@ export async function POST(req: Request) {
       channel: event.event,
       created_at: new Date().toISOString(),
     });
-
-    if (insertError) {
-      console.log("❌ Payment insert failed:", insertError);
-      return NextResponse.json(
-        { success: false, error: "DB insert failed", details: insertError },
-        { status: 500 }
-      );
-    }
 
     console.log("✅ Payment inserted into payments table");
 
@@ -120,69 +101,28 @@ export async function POST(req: Request) {
       const companyId = meta.companyId;
       const companyName = meta.companyName;
 
-      const { data: company, error: companyError } = await supabase
+      const { data: company } = await supabase
         .from("companies")
         .select("*")
         .eq("id", companyId)
         .single();
 
-      if (companyError || !company) {
-        console.log("❌ Company not found for renewal:", companyError);
+      if (!company) {
+        console.log("❌ Company not found for renewal");
         return NextResponse.json(
-          { success: false, error: "Company not found for renewal" },
+          { success: false, error: "Company not found" },
           { status: 404 }
         );
       }
 
-      let { data: license } = await supabase
-        .from("License")
-        .select("*")
-        .eq("companyId", company.id)
-        .maybeSingle();
-
-      if (!license) {
-        const { data: newLicense, error: newLicErr } = await supabase
-          .from("License")
-          .insert({
-            companyId: company.id,
-            expiresAt: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          })
-          .select()
-          .single();
-
-        if (newLicErr) {
-          console.log("❌ Failed to create license:", newLicErr);
-          return NextResponse.json(
-            { success: false, error: "Failed to create license" },
-            { status: 500 }
-          );
-        }
-
-        license = newLicense;
-      }
-
       const now = new Date();
-      const newExpiry = new Date(
-        now.getTime() + 365 * 24 * 60 * 60 * 1000
-      ).toISOString();
-
-      await supabase
-        .from("License")
-        .update({
-          expiresAt: newExpiry,
-          updatedAt: now.toISOString(),
-        })
-        .eq("id", license.id);
-
-      const nextRenewal = new Date(
-        now.getTime() + 365 * 24 * 60 * 60 * 1000
-      ).toISOString();
+      const newExpiry = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
 
       await supabase
         .from("companies")
-        .update({ renewal_date: nextRenewal })
+        .update({
+          renewal_date: newExpiry.toISOString(),
+        })
         .eq("id", company.id);
 
       await supabase.from("AnnualPaymentHistory").insert({
@@ -194,17 +134,17 @@ export async function POST(req: Request) {
         licensecount: company.license_count,
       });
 
+      console.log("📧 Sending renewal email to client…");
+
       if (customerEmail) {
-        sendEmail({
+        await sendEmail({
           to: customerEmail,
           subject: "Annual Renewal Successful",
           html: `
             <h2>Your Annual Renewal is Complete</h2>
             <p><strong>Company:</strong> ${companyName}</p>
             <p><strong>Amount Paid:</strong> ₦${amount.toLocaleString()}</p>
-            <p><strong>Next Renewal Date:</strong> ${new Date(
-              nextRenewal
-            ).toLocaleDateString()}</p>
+            <p><strong>Next Renewal Date:</strong> ${newExpiry.toDateString()}</p>
             <p><strong>Reference:</strong> ${reference}</p>
           `,
         }).catch((e) => console.error("🔥 EMAIL ERROR:", e));
@@ -214,10 +154,10 @@ export async function POST(req: Request) {
     }
 
     // =====================================================
-    // 2️⃣ NEW LICENSE PURCHASE FLOW (CARD + TRANSFER + DVA)
+    // 2️⃣ NEW OR EXISTING CLIENT LICENSE PURCHASE FLOW
     // =====================================================
     if (meta.type !== "ANNUAL_RENEWAL") {
-      console.log("🔥 PROCESSING NEW LICENSE PURCHASE (CARD or TRANSFER)");
+      console.log("🔥 PROCESSING LICENSE PURCHASE");
 
       const plan = meta.plan;
       const quantity = Number(meta.quantity || 1);
@@ -231,16 +171,17 @@ export async function POST(req: Request) {
         .maybeSingle();
 
       let clientId;
+      let totalLicenses;
 
       if (existingClient) {
-        const newTotal =
-          (existingClient.totalLicenses || 0) + quantity;
+        totalLicenses = (existingClient.totalLicenses || 0) + quantity;
 
         const { data: updated } = await supabase
           .from("Clients")
           .update({
-            totalLicenses: newTotal,
-            companyName: companyName,
+            totalLicenses,
+            companyName,
+            annualRenewal: totalLicenses * 0.20,
           })
           .eq("id", existingClient.id)
           .select()
@@ -248,12 +189,15 @@ export async function POST(req: Request) {
 
         clientId = updated?.id || existingClient.id;
       } else {
+        totalLicenses = quantity;
+
         const { data: created } = await supabase
           .from("Clients")
           .insert({
             email: customerEmail,
-            companyName: companyName,
-            totalLicenses: quantity,
+            companyName,
+            totalLicenses,
+            annualRenewal: totalLicenses * 0.20,
           })
           .select()
           .single();
@@ -261,7 +205,7 @@ export async function POST(req: Request) {
         clientId = created?.id;
       }
 
-      // 2) Create license purchase record
+      // 2) Add payment to Client Payment History
       await supabase.from("LicensePurchases").insert({
         clientId,
         plan,
@@ -271,54 +215,54 @@ export async function POST(req: Request) {
         channel: event.event,
       });
 
-      // 3) Send receipt email
+      // 3) Send receipt email to client
       if (customerEmail) {
-        sendEmail({
+        await sendEmail({
           to: customerEmail,
-          subject: "Your CentralCore License Receipt",
+          subject: "Your CentralCore Payment Receipt",
           html: `
             <h2>Payment Successful</h2>
             <p><strong>Company:</strong> ${companyName}</p>
             <p><strong>Plan:</strong> ${plan}</p>
             <p><strong>Quantity:</strong> ${quantity}</p>
+            <p><strong>Total Licenses Now:</strong> ${totalLicenses}</p>
+            <p><strong>Annual Renewal Fee:</strong> ₦${(totalLicenses * 0.20).toLocaleString()}</p>
             <p><strong>Amount Paid:</strong> ₦${amount.toLocaleString()}</p>
             <p><strong>Reference:</strong> ${reference}</p>
             <p><strong>Payment Method:</strong> ${event.event}</p>
           `,
-        }).catch((e) => console.error("🔥 EMAIL ERROR:", e));
+        }).catch((e) => console.error("🔥 CLIENT EMAIL ERROR:", e));
       }
 
-      console.log("✅ New license purchase flow completed (CARD/TRANSFER)");
+      console.log("✅ License purchase flow completed");
     }
 
     // =====================================================
     // 3️⃣ ADMIN EMAIL NOTIFICATION
     // =====================================================
-    if (customerEmail) {
-      await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: {
-          "api-key": BREVO_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sender: { name: "CentralCore Payment", email: NOTIFY_EMAIL },
-          to: [{ email: NOTIFY_EMAIL }],
-          subject: "New Payment Received",
-          htmlContent: `
-            <h2>New Payment Received</h2>
-            <p><strong>Email:</strong> ${customerEmail}</p>
-            <p><strong>Amount:</strong> ₦${amount.toLocaleString()}</p>
-            <p><strong>Reference:</strong> ${reference}</p>
-            <p><strong>Type:</strong> ${meta.type || "UNKNOWN"}</p>
-          `,
-        }),
-      }).catch((e) => console.error("🔥 ADMIN EMAIL ERROR:", e));
-    }
+    await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": BREVO_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: "CentralCore Payment", email: NOTIFY_EMAIL },
+        to: [{ email: NOTIFY_EMAIL }],
+        subject: "New Payment Received",
+        htmlContent: `
+          <h2>New Payment Received</h2>
+          <p><strong>Email:</strong> ${customerEmail}</p>
+          <p><strong>Amount:</strong> ₦${amount.toLocaleString()}</p>
+          <p><strong>Reference:</strong> ${reference}</p>
+          <p><strong>Type:</strong> ${meta.type || "LICENSE PURCHASE"}</p>
+        `,
+      }),
+    }).catch((e) => console.error("🔥 ADMIN EMAIL ERROR:", e));
 
     console.log("🎉 WEBHOOK COMPLETED SUCCESSFULLY");
-
     return NextResponse.json({ success: true });
+
   } catch (err: any) {
     console.error("🔥 Paystack Webhook Error:", err);
     return NextResponse.json(

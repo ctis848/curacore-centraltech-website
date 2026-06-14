@@ -4,7 +4,11 @@ import { differenceInDays } from "date-fns";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL;
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || NOTIFY_EMAIL;
 
+// -----------------------------------------------------
+// SEND EMAIL (BREVO)
+// -----------------------------------------------------
 async function sendBrevoEmail(toEmail: string, subject: string, html: string) {
   const payload = {
     sender: { name: "CentralCore Renewals", email: NOTIFY_EMAIL },
@@ -25,14 +29,32 @@ async function sendBrevoEmail(toEmail: string, subject: string, html: string) {
   return res.ok;
 }
 
+// -----------------------------------------------------
+// RETRY SYSTEM (3 attempts)
+// -----------------------------------------------------
+async function retry(fn: () => Promise<boolean>, attempts = 3) {
+  for (let i = 0; i < attempts; i++) {
+    const ok = await fn();
+    if (ok) return true;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return false;
+}
+
+// -----------------------------------------------------
+// MAIN CRON HANDLER
+// -----------------------------------------------------
 export async function GET() {
   try {
-    const { data, error } = await supabaseAdmin
+    // Load companies with renewal dates
+    const { data: companies, error } = await supabaseAdmin
       .from("companies")
-      .select("id, name, renewal_date, annual_amount, email, portal_password")
+      .select(
+        "id, name, renewal_date, annual_price, contact_email, portal_password"
+      )
       .not("renewal_date", "is", null);
 
-    if (error || !data) {
+    if (error || !companies) {
       return NextResponse.json({ success: false, message: "DB error" });
     }
 
@@ -41,80 +63,102 @@ export async function GET() {
 
     let sent = 0;
 
-    for (const c of data) {
+    for (const c of companies) {
       const renewalDate = new Date(c.renewal_date);
       const daysLeft = differenceInDays(renewalDate, today);
 
-      // Skip companies not within renewal window
-      if (daysLeft > 30) continue;
+      // Only notify companies within 30-day window
+      if (daysLeft > 30 || daysLeft < 0) continue;
 
-      // -------------------------------
-      // EMAIL SUBJECT + TEMPLATE
-      // -------------------------------
+      const email = c.contact_email || NOTIFY_EMAIL;
+      if (!email) continue;
 
+      // -----------------------------------------------------
+      // PROFESSIONAL EMAIL TEMPLATE
+      // -----------------------------------------------------
       const subject = `Annual Subscription Renewal – Action Required | ${c.name}`;
 
       const html = `
-        <p>Dear Valued Client, <strong>${c.name}</strong></p>
+        <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+          <h2 style="color:#4A4A4A;">Annual Subscription Renewal Reminder</h2>
 
-        <p>This is an official reminder that your EMR Software annual subscription will expire in 
-        <strong>${daysLeft}</strong> days.</p>
+          <p>Dear <strong>${c.name}</strong>,</p>
 
-        <p>To avoid any interruption in your access to the EMR platform, patient records, reporting tools, and all associated clinical features, kindly proceed with your renewal.</p>
+          <p>Your EMR Software annual subscription will expire in 
+          <strong style="color:#d9534f;">${daysLeft} days</strong>.</p>
 
-        <p>Your continued access to the EMR system depends on completing this renewal before the due date.</p>
+          <p>To avoid interruption of your EMR access, patient records, and reporting tools, please proceed with your renewal.</p>
 
-        <h3>How to Renew Your Subscription:</h3>
-        <ol>
-          <li>Visit our website: <a href="https://www.ctistech.com">www.ctistech.com</a></li>
-          <li>Log in to your Client Portal using your credentials</li>
-          <li>Welcome Back</li>
-          <li>Email: <strong>${c.email}</strong></li>
-          <li>Password: <strong>${c.portal_password || "******"}</strong></li>
-          <li>Scroll down to <strong>Renew Annual Payment</strong></li>
-          <li>Choose your preferred payment method (Card or Bank Transfer)</li>
-        </ol>
+          <h3>Your Subscription Details</h3>
+          <ul>
+            <li><strong>Company:</strong> ${c.name}</li>
+            <li><strong>Next Renewal Date:</strong> ${new Date(
+              c.renewal_date
+            ).toLocaleDateString()}</li>
+            <li><strong>Annual Fee:</strong> ₦${c.annual_price.toLocaleString()}</li>
+          </ul>
 
-        <p><strong>Annual Payment:</strong> ₦${c.annual_amount || "0.00"}</p>
+          <h3>How to Renew</h3>
+          <ol>
+            <li>Visit <a href="https://www.ctistech.com">www.ctistech.com</a></li>
+            <li>Log in to your Client Portal</li>
+            <li>Email: <strong>${email}</strong></li>
+            <li>Password: <strong>${c.portal_password || "******"}</strong></li>
+            <li>Click <strong>Renew Annual Payment</strong></li>
+          </ol>
 
-        <p>If you have already renewed your subscription, please disregard this notice.</p>
+          <p>If you have already renewed, kindly disregard this message.</p>
 
-        <p>Thank you for your continued trust in EMR. We remain committed to delivering reliable, innovative, and professional IT solutions to support your operations.</p>
-
-        <p>Warm regards,<br/>
-        Central Tech Information System, Support Team (CTIS)<br/>
-        <a href="https://www.ctistech.com">www.ctistech.com</a></p>
+          <p>Warm regards,<br/>
+          <strong>CTIS Support Team</strong><br/>
+          <a href="https://www.ctistech.com">www.ctistech.com</a></p>
+        </div>
       `;
 
-      // -------------------------------
-      // SEND EMAIL
-      // -------------------------------
+      // -----------------------------------------------------
+      // SEND EMAIL WITH RETRY SYSTEM
+      // -----------------------------------------------------
+      const ok = await retry(() => sendBrevoEmail(email, subject, html));
 
-      const ok = await sendBrevoEmail(
-        c.email || NOTIFY_EMAIL!,
-        subject,
-        html
-      );
+      if (!ok) {
+        // -----------------------------------------------------
+        // ADMIN ALERT EMAIL
+        // -----------------------------------------------------
+        await sendBrevoEmail(
+          ADMIN_EMAIL!,
+          "CRON FAILURE ALERT – Renewal Reminder Not Sent",
+          `
+            <p><strong>CRON FAILED</strong></p>
+            <p>Company: ${c.name}</p>
+            <p>Email: ${email}</p>
+            <p>Error: Failed to send renewal reminder after 3 attempts.</p>
+          `
+        );
+      }
 
       if (ok) sent++;
     }
 
-    // Log success
+    // -----------------------------------------------------
+    // LOG SUCCESS
+    // -----------------------------------------------------
     await supabaseAdmin.from("cron_logs").insert({
       status: "success",
       companies_notified: sent,
-      message: "Full renewal reminders sent",
+      message: "Renewal reminders sent",
     });
 
     return NextResponse.json({
       success: true,
       count: sent,
-      message: "Full renewal reminders sent",
+      message: "Renewal reminders sent",
     });
-
   } catch (err) {
     console.error("Cron error:", err);
 
+    // -----------------------------------------------------
+    // LOG FAILURE
+    // -----------------------------------------------------
     await supabaseAdmin.from("cron_logs").insert({
       status: "failed",
       companies_notified: 0,

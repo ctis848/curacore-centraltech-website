@@ -1,8 +1,22 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+// -----------------------------------------------------
+// TYPES
+// -----------------------------------------------------
 type Bucket = "DUE_3" | "DUE_7" | "DUE_30" | "EXPIRED" | "OTHER" | "UNKNOWN";
 
+interface CompanyRow {
+  id: string;
+  name: string;
+  renewal_date: string | null;
+  annual_price: number | null;
+  license_count: number | null;
+}
+
+// -----------------------------------------------------
+// BUCKET LOGIC
+// -----------------------------------------------------
 function getRenewalBucket(renewalDate: string | null): Bucket {
   if (!renewalDate) return "UNKNOWN";
 
@@ -22,6 +36,9 @@ function getRenewalBucket(renewalDate: string | null): Bucket {
   return "OTHER";
 }
 
+// -----------------------------------------------------
+// MAIN HANDLER
+// -----------------------------------------------------
 export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
@@ -36,6 +53,11 @@ export async function GET() {
       );
     }
 
+    const companies: CompanyRow[] = data || [];
+
+    // -----------------------------------------------------
+    // BUCKET COUNTS
+    // -----------------------------------------------------
     const buckets: Record<Bucket, number> = {
       DUE_3: 0,
       DUE_7: 0,
@@ -45,18 +67,21 @@ export async function GET() {
       UNKNOWN: 0,
     };
 
-    const monthly: Record<string, { total: number; value: number }> = {};
+    // -----------------------------------------------------
+    // MONTHLY AGGREGATION
+    // -----------------------------------------------------
+    const monthly: Record<
+      string,
+      { total: number; value: number }
+    > = {};
 
-    for (const c of data || []) {
+    for (const c of companies) {
       const bucket = getRenewalBucket(c.renewal_date);
       buckets[bucket]++;
 
       if (c.renewal_date) {
         const d = new Date(c.renewal_date);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-          2,
-          "0"
-        )}`;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
         if (!monthly[key]) {
           monthly[key] = { total: 0, value: 0 };
@@ -67,12 +92,23 @@ export async function GET() {
       }
     }
 
+    // -----------------------------------------------------
+    // SORT MONTHLY KEYS (YYYY-MM ASC)
+    // -----------------------------------------------------
+    const sortedMonthly = Object.fromEntries(
+      Object.entries(monthly).sort(([a], [b]) => a.localeCompare(b))
+    );
+
+    // -----------------------------------------------------
+    // RESPONSE
+    // -----------------------------------------------------
     return NextResponse.json({
       success: true,
       buckets,
-      monthly,
-      totalCompanies: (data || []).length,
+      monthly: sortedMonthly,
+      totalCompanies: companies.length,
     });
+
   } catch (err: any) {
     console.error("Renewals analytics API error:", err);
     return NextResponse.json(

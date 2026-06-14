@@ -8,12 +8,13 @@ import autoTable from "jspdf-autotable";
 
 interface Payment {
   id: string;
-  userId: string;
+  clientId: string;
   amount: number;
   currency: string;
   status: string;
   reference: string;
   gateway: string;
+  channel: string;
   createdAt: string;
 }
 
@@ -47,12 +48,13 @@ export default function PaymentHistoryPage() {
   function normalizePayment(row: any): Payment {
     return {
       id: row.id,
-      userId: row.userid,
+      clientId: row.clientId,
       amount: row.amount,
       currency: row.currency,
       status: row.status,
       reference: row.reference,
       gateway: row.gateway,
+      channel: row.channel,
       createdAt: row.created_at,
     };
   }
@@ -62,6 +64,7 @@ export default function PaymentHistoryPage() {
       try {
         setLoading(true);
 
+        // Get logged‑in user
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -72,19 +75,23 @@ export default function PaymentHistoryPage() {
           return;
         }
 
+        // Get client record
+        const { data: client } = await supabase
+          .from("Clients")
+          .select("id")
+          .eq("email", user.email)
+          .maybeSingle();
+
+        if (!client) {
+          setFatalError("Client record not found.");
+          return;
+        }
+
+        // Fetch ALL payments linked to this client
         const { data, error } = await supabase
-          .from("Payment")
-          .select(`
-            id,
-            userid,
-            amount,
-            currency,
-            status,
-            reference,
-            gateway,
-            created_at
-          `)
-          .eq("userid", user.id)
+          .from("payments")
+          .select("*")
+          .eq("clientId", client.id)
           .order("created_at", { ascending: false });
 
         if (error) {
@@ -281,13 +288,8 @@ export default function PaymentHistoryPage() {
     doc.save("payment_history.pdf");
   }
 
-  const uniqueStatuses = Array.from(
-    new Set(payments.map((p) => p.status))
-  );
-
-  const uniqueGateways = Array.from(
-    new Set(payments.map((p) => p.gateway))
-  );
+  const uniqueStatuses = Array.from(new Set(payments.map((p) => p.status)));
+  const uniqueGateways = Array.from(new Set(payments.map((p) => p.gateway)));
 
   if (fatalError) {
     return (
@@ -481,12 +483,10 @@ export default function PaymentHistoryPage() {
                 <td className="px-4 py-3">
                   <span
                     className={`px-3 py-1 rounded text-sm font-semibold ${
-                      p.status === "SUCCESS"
+                      p.status === "success"
                         ? "bg-green-100 text-green-700"
-                        : p.status === "FAILED"
+                        : p.status === "failed"
                         ? "bg-red-100 text-red-700"
-                        : p.status === "REFUNDED"
-                        ? "bg-blue-100 text-blue-700"
                         : "bg-yellow-100 text-yellow-700"
                     }`}
                   >

@@ -21,7 +21,25 @@ export default function RenewAnnualPage() {
 
   useEffect(() => {
     loadCompanyData();
+    checkIfRenewalJustCompleted();
   }, []);
+
+  // ⭐ Detect if Paystack redirected back after successful payment
+  async function checkIfRenewalJustCompleted() {
+    const url = new URL(window.location.href);
+    const reference = url.searchParams.get("reference");
+
+    if (!reference) return;
+
+    // Verify payment
+    const res = await fetch(`/api/payments/verify?reference=${reference}`);
+    const data = await res.json();
+
+    if (data.success && data.status === "success") {
+      // Reload company data to show new renewal date
+      await loadCompanyData();
+    }
+  }
 
   async function loadCompanyData() {
     setLoading(true);
@@ -126,7 +144,7 @@ export default function RenewAnnualPage() {
         return;
       }
 
-      // ⭐ Direct redirect to Paystack
+      // ⭐ Redirect to Paystack
       window.location.href = data.authorization_url;
     } catch (err) {
       console.error("Payment error:", err);

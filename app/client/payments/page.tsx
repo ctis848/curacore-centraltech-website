@@ -7,12 +7,14 @@ import EmptyState from "@/components/client/payments/empty";
 
 export type ClientPayment = {
   id: string;
+  clientId: string;
   amount: number;
   currency: string | null;
   status: string | null;
   reference: string | null;
+  gateway: string | null;
+  channel: string | null;
   created_at: string | null;
-  invoice_id: string | null;
 };
 
 export default function ClientPaymentsPage() {
@@ -26,7 +28,8 @@ export default function ClientPaymentsPage() {
   const [minAmount, setMinAmount] = useState("");
   const [maxAmount, setMaxAmount] = useState("");
 
-  const [sortField, setSortField] = useState<keyof ClientPayment>("created_at");
+  const [sortField, setSortField] =
+    useState<keyof ClientPayment>("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const [page, setPage] = useState(1);
@@ -67,7 +70,8 @@ export default function ClientPaymentsPage() {
     rows = rows.filter((p) => {
       const matchesSearch =
         (p.reference ?? "").toLowerCase().includes(s) ||
-        (p.status ?? "").toLowerCase().includes(s);
+        (p.status ?? "").toLowerCase().includes(s) ||
+        (p.gateway ?? "").toLowerCase().includes(s);
 
       const matchesStatus =
         statusFilter === "ALL" ||
@@ -90,7 +94,17 @@ export default function ClientPaymentsPage() {
     });
 
     return rows;
-  }, [payments, search, statusFilter, dateFrom, dateTo, minAmount, maxAmount, sortField, sortDir]);
+  }, [
+    payments,
+    search,
+    statusFilter,
+    dateFrom,
+    dateTo,
+    minAmount,
+    maxAmount,
+    sortField,
+    sortDir,
+  ]);
 
   const totalPages = Math.ceil(processed.length / pageSize) || 1;
   const currentPage = Math.min(page, totalPages);
@@ -151,7 +165,7 @@ export default function ClientPaymentsPage() {
         {/* Search */}
         <input
           type="text"
-          placeholder="🔍 Search by reference or status..."
+          placeholder="🔍 Search by reference, status, or gateway..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400"

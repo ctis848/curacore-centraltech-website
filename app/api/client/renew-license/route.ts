@@ -3,54 +3,85 @@ import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
   try {
-    const { id } = await req.json();
+    const { companyId } = await req.json();
 
-    if (!id) {
+    if (!companyId) {
       return NextResponse.json(
-        { success: false, error: "Missing license ID" },
+        { success: false, error: "Missing company ID" },
         { status: 400 }
       );
     }
 
     const supabase = supabaseServer();
 
-    // Load license
-    const { data: license, error: loadError } = await supabase
-      .from("License")
-      .select("*")
-      .eq("id", id)
+    // Load company billing info
+    const { data: company, error: companyErr } = await supabase
+      .from("companies")
+      .select("id, name, annual_price, license_count")
+      .eq("id", companyId)
       .single();
 
-    if (loadError || !license) {
+    if (companyErr || !company) {
       return NextResponse.json(
-        { success: false, error: "License not found" },
+        { success: false, error: "Company not found" },
         { status: 404 }
       );
     }
 
-    // Extend expiration by 1 year
-    const now = new Date();
-    const newExpiry = new Date(
-      now.getTime() + 365 * 24 * 60 * 60 * 1000
-    ).toISOString();
+    // ⭐ FIX: users is ALWAYS an array → so we extract [0]
+    const { data: owner, error: ownerErr } = await supabase
+      .from("user_companies")
+      .select("users(email)")
+      .eq("company_id", companyId)
+      .single();
 
-    const { error: updateError } = await supabase
-      .from("License")
-      .update({
-        expiresAt: newExpiry,
-        updatedAt: now.toISOString(),
-      })
-      .eq("id", id);
+    const customerEmail = owner?.users?.[0]?.email;
 
-    if (updateError) {
+    if (ownerErr || !customerEmail) {
       return NextResponse.json(
-        { success: false, error: updateError.message },
+        { success: false, error: "Company owner email not found" },
+        { status: 400 }
+      );
+    }
+
+    // Create Paystack payment
+    const paystackRes = await fetch(
+      "https://api.paystack.co/transaction/initialize",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: customerEmail,
+          amount: company.annual_price * 100,
+          metadata: {
+            type: "ANNUAL_RENEWAL",
+            companyId: company.id,
+            companyName: company.name,
+            licenseCount: company.license_count,
+          },
+          callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/client/renew-annual?company_id=${company.id}`,
+        }),
+      }
+    );
+
+    const paystackJson = await paystackRes.json();
+
+    if (!paystackJson.status) {
+      return NextResponse.json(
+        { success: false, error: paystackJson.message },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      authorization_url: paystackJson.data.authorization_url,
+    });
   } catch (err: any) {
+    console.error("Renew License API Error:", err);
     return NextResponse.json(
       { success: false, error: err.message ?? "Unexpected server error" },
       { status: 500 }

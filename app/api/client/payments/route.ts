@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 
 export async function GET() {
   try {
-    // ⭐ FIX: cookies() must be awaited
+    // Read auth token from cookies
     const cookieStore = await cookies();
     const token = cookieStore.get("sb-access-token")?.value;
 
@@ -16,28 +16,43 @@ export async function GET() {
     }
 
     // Validate user from token
-    const { data: user, error: userErr } = await supabaseAdmin.auth.getUser(token);
+    const { data: userData, error: userErr } =
+      await supabaseAdmin.auth.getUser(token);
 
-    if (userErr || !user?.user) {
+    if (userErr || !userData?.user) {
       return NextResponse.json(
         { success: false, message: "Invalid user" },
         { status: 401 }
       );
     }
 
-    const userId = user.user.id;
+    const user = userData.user;
 
-    // Fetch payments for this user
-    const { data: payments, error } = await supabaseAdmin
+    // Find client record using email
+    const { data: client, error: clientErr } = await supabaseAdmin
+      .from("Clients")
+      .select("id")
+      .eq("email", user.email)
+      .maybeSingle();
+
+    if (clientErr || !client) {
+      return NextResponse.json(
+        { success: false, message: "Client record not found" },
+        { status: 404 }
+      );
+    }
+
+    // Fetch ALL payments for this client
+    const { data: payments, error: payErr } = await supabaseAdmin
       .from("payments")
       .select("*")
-      .eq("userid", userId)
+      .eq("clientId", client.id)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Client payment fetch error:", error);
+    if (payErr) {
+      console.error("Client payment fetch error:", payErr);
       return NextResponse.json(
-        { success: false, message: error.message },
+        { success: false, message: payErr.message },
         { status: 500 }
       );
     }
