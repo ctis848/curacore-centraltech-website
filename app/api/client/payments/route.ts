@@ -4,7 +4,6 @@ import { cookies } from "next/headers";
 
 export async function GET() {
   try {
-    // Read auth token from cookies
     const cookieStore = await cookies();
     const token = cookieStore.get("sb-access-token")?.value;
 
@@ -15,7 +14,6 @@ export async function GET() {
       );
     }
 
-    // Validate user from token
     const { data: userData, error: userErr } =
       await supabaseAdmin.auth.getUser(token);
 
@@ -28,9 +26,9 @@ export async function GET() {
 
     const user = userData.user;
 
-    // Find client record using email
+    // FIX 1 — Correct table name
     const { data: client, error: clientErr } = await supabaseAdmin
-      .from("Clients")
+      .from("clients")
       .select("id")
       .eq("email", user.email)
       .maybeSingle();
@@ -42,11 +40,11 @@ export async function GET() {
       );
     }
 
-    // Fetch ALL payments for this client
+    // FIX 2 — Correct column name
     const { data: payments, error: payErr } = await supabaseAdmin
       .from("payments")
       .select("*")
-      .eq("clientId", client.id)
+      .eq("client_id", client.id)
       .order("created_at", { ascending: false });
 
     if (payErr) {
@@ -57,7 +55,8 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ success: true, data: payments });
+    // FIX 3 — Return correct format
+    return NextResponse.json({ data: payments });
   } catch (err: any) {
     console.error("Client Payments API error:", err);
     return NextResponse.json(
