@@ -3,7 +3,6 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
-// Keeping your original constants for format consistency
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
 const PAYSTACK_BASE = "https://api.paystack.co";
 
@@ -21,13 +20,11 @@ export async function GET(req: Request) {
 
     console.log("🔍 VERIFYING PAYMENT:", reference);
 
-    // ----------------------------------------------------
-    // 1️⃣ CHECK SUPABASE (WEBHOOK RESULT)
-    // ----------------------------------------------------
     const supabase = supabaseServer();
 
+    // 1️⃣ Check local payments table first
     const { data: payment, error } = await supabase
-      .from("payments") // correct table
+      .from("payments")
       .select("*")
       .eq("reference", reference)
       .maybeSingle();
@@ -40,45 +37,99 @@ export async function GET(req: Request) {
       );
     }
 
-    // ----------------------------------------------------
-    // 2️⃣ PAYMENT NOT FOUND → WEBHOOK STILL PROCESSING
-    // ----------------------------------------------------
-    if (!payment) {
+    // 2️⃣ If found and marked success → trust DB
+    if (payment && String(payment.status).toLowerCase() === "success") {
+      return NextResponse.json(
+        {
+          success: true,
+          status: "success",
+          reference: payment.reference,
+          amount: payment.amount,
+          paidAt: payment.created_at,
+          message: "Payment verified successfully (from database).",
+        },
+        { status: 200 }
+      );
+    }
+
+    // 3️⃣ If not found or not success → confirm with Paystack directly
+    const paystackRes = await fetch(
+      `${PAYSTACK_BASE}/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const paystackData = await paystackRes.json();
+    console.log("📡 PAYSTACK VERIFY RESPONSE:", paystackData);
+
+    // If Paystack call itself failed
+    if (!paystackData?.status) {
+      return NextResponse.json(
+        {
+          success: false,
+          status: "failed",
+          error: "Unable to verify payment with Paystack.",
+        },
+        { status: 200 }
+      );
+    }
+
+    const tx = paystackData.data;
+
+    // Normalize Paystack status
+    const txStatus = String(tx?.status || "").toLowerCase();
+
+    if (txStatus === "success") {
+      // 4️⃣ Optionally upsert into payments table to keep in sync
+      if (!payment) {
+        const { error: upsertError } = await supabase.from("payments").insert({
+          reference,
+          amount: tx.amount / 100,
+          status: "success",
+          gateway: "paystack",
+          channel: tx.channel,
+          created_at: tx.paid_at || new Date().toISOString(),
+        });
+
+        if (upsertError) {
+          console.error("❌ UPSERT ERROR:", upsertError);
+        }
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          status: "success",
+          reference,
+          amount: tx.amount / 100,
+          paidAt: tx.paid_at || new Date().toISOString(),
+          message: "Payment verified successfully (from Paystack).",
+        },
+        { status: 200 }
+      );
+    }
+
+    if (txStatus === "pending" || txStatus === "processing") {
       return NextResponse.json(
         {
           success: true,
           status: "pending",
-          message: "Payment not found yet. Webhook may still be processing.",
+          message: "Payment is still pending on Paystack.",
         },
         { status: 200 }
       );
     }
 
-    // ----------------------------------------------------
-    // 3️⃣ PAYMENT FOUND BUT NOT SUCCESSFUL
-    // ----------------------------------------------------
-    if (payment.status !== "success") {
-      return NextResponse.json(
-        {
-          success: true,
-          status: "failed",
-          message: "Payment exists but is not marked successful.",
-        },
-        { status: 200 }
-      );
-    }
-
-    // ----------------------------------------------------
-    // 4️⃣ PAYMENT SUCCESSFUL
-    // ----------------------------------------------------
+    // Any other status → failed
     return NextResponse.json(
       {
         success: true,
-        status: "success",
-        reference: payment.reference,
-        amount: payment.amount,
-        paidAt: payment.created_at,
-        message: "Payment verified successfully.",
+        status: "failed",
+        message: `Payment not successful. Current status: ${txStatus}`,
       },
       { status: 200 }
     );
