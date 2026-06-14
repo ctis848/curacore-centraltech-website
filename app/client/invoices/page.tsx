@@ -9,7 +9,6 @@ import autoTable from "jspdf-autotable";
 type SortColumn = "id" | "amount" | "status" | "createdAt" | "currency";
 type SortDirection = "asc" | "desc";
 
-// UI-safe Invoice type
 interface Invoice {
   id: string;
   amount: number;
@@ -47,6 +46,7 @@ export default function InvoicesPage() {
     loadInvoices();
   }, []);
 
+  // ⭐ FIXED: Correct invoice loading logic
   async function loadInvoices() {
     setLoading(true);
 
@@ -61,21 +61,25 @@ export default function InvoicesPage() {
       return;
     }
 
+    // ⭐ FIX — Get client by auth_user_id
+    const { data: client, error: clientErr } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+
+    if (clientErr || !client) {
+      console.error("Client not found:", clientErr);
+      setInvoices([]);
+      setLoading(false);
+      return;
+    }
+
+    // ⭐ FIX — Load invoices by client_id
     const { data, error } = await supabase
-      .from("Invoice")
-      .select(
-        `
-        id,
-        amount,
-        status,
-        currency,
-        description,
-        created_at,
-        paid_at,
-        userId
-      `
-      )
-      .eq("userId", user.id)
+      .from("invoices")
+      .select("*")
+      .eq("client_id", client.id)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -542,7 +546,7 @@ export default function InvoicesPage() {
         </button>
       </div>
 
-            {/* MODAL */}
+      {/* MODAL */}
       {selected && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center">
           <div className="bg-white p-6 rounded shadow-lg w-full max-w-lg">
@@ -586,8 +590,6 @@ export default function InvoicesPage() {
 
             <div className="mt-6 text-right">
               <button
-                onClick={() => setSelected(null)}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
               >
                 Close
               </button>

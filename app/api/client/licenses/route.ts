@@ -28,18 +28,34 @@ export async function GET() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Read approved licenses for this user
-  const { data, error } = await supabase
-    .from("LicenseRequest")
-    .select("*")
-    .eq("userId", user.id)
-    .eq("status", "APPROVED")
-    .order("sentAt", { ascending: false });
+  // ⭐ FIX — Find client by auth_user_id
+  const { data: client, error: clientErr } = await supabase
+    .from("clients")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
 
-  if (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Failed to load licenses" }, { status: 500 });
+  if (clientErr || !client) {
+    return NextResponse.json(
+      { error: "Client record not found" },
+      { status: 404 }
+    );
   }
 
-  return NextResponse.json(data || []);
+  // ⭐ FIX — Read licenses for this client
+  const { data: licenses, error: licErr } = await supabase
+    .from("licenses")
+    .select("*")
+    .eq("client_id", client.id)
+    .order("created_at", { ascending: false });
+
+  if (licErr) {
+    console.error(licErr);
+    return NextResponse.json(
+      { error: "Failed to load licenses" },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json(licenses || []);
 }

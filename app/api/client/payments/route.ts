@@ -26,11 +26,11 @@ export async function GET() {
 
     const user = userData.user;
 
-    // FIX 1 — Correct table name
+    // ⭐ FIX — Match client by auth_user_id, not email
     const { data: client, error: clientErr } = await supabaseAdmin
       .from("clients")
       .select("id")
-      .eq("email", user.email)
+      .eq("auth_user_id", user.id)
       .maybeSingle();
 
     if (clientErr || !client) {
@@ -40,7 +40,7 @@ export async function GET() {
       );
     }
 
-    // FIX 2 — Correct column name
+    // ⭐ Fetch payments correctly
     const { data: payments, error: payErr } = await supabaseAdmin
       .from("payments")
       .select("*")
@@ -55,7 +55,7 @@ export async function GET() {
       );
     }
 
-    // FIX 3 — Return correct format
+    // ⭐ Correct response format
     return NextResponse.json({ data: payments });
   } catch (err: any) {
     console.error("Client Payments API error:", err);

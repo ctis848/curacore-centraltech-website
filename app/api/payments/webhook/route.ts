@@ -1,45 +1,51 @@
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
-import { sendReceiptEmail } from "@/lib/email/sendReceiptEmail";
+import { sendEmail } from "@/lib/email/send";
+import crypto from "crypto";
 
-const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY!;
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
+const BREVO_API_KEY = process.env.BREVO_API_KEY!;
+const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || "info@ctistech.com";
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const rawBody = await req.text();
     const signature = req.headers.get("x-paystack-signature");
 
-    const crypto = await import("crypto");
     const hash = crypto
-      .createHmac("sha512", PAYSTACK_SECRET)
+      .createHmac("sha512", PAYSTACK_SECRET_KEY)
       .update(rawBody)
       .digest("hex");
 
     if (hash !== signature) {
-      return NextResponse.json({ success: false, error: "Invalid signature" });
+      return NextResponse.json(
+        { success: false, error: "Invalid signature" },
+        { status: 400 }
+      );
     }
 
-    const body = JSON.parse(rawBody);
-    const event = body?.event;
-    const tx = body?.data;
-
-    if (event !== "charge.success") {
-      return NextResponse.json({ success: true, message: "Ignored event" });
-    }
-
-    const reference = tx.reference;
-    const email = tx.customer?.email;
-    const amount = tx.amount / 100;
-    const currency = tx.currency;
-    const metadata = tx.metadata || {};
-
+    const event = JSON.parse(rawBody);
     const supabase = supabaseServer();
 
-    // ----------------------------------------------------
+    if (event.event !== "charge.success") {
+      return NextResponse.json({ success: true, ignored: true });
+    }
+
+    const tx = event.data;
+    const amount = tx.amount / 100;
+    const reference = tx.reference;
+    const metadata = tx.metadata || {};
+
+    const customerEmail =
+      metadata.email ??
+      tx.customer?.email ??
+      tx.customer?.customer_email ??
+      null;
+
     // 1️⃣ IDEMPOTENCY CHECK
-    // ----------------------------------------------------
     const { data: existing } = await supabase
       .from("payments")
       .select("id")
@@ -47,104 +53,129 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing) {
-      return NextResponse.json({ success: true, message: "Already processed" });
+      return NextResponse.json({ success: true, duplicate: true });
     }
 
-    // ----------------------------------------------------
-    // 2️⃣ FIND OR CREATE CLIENT
-    // ----------------------------------------------------
-    let clientId = metadata.clientId ?? null;
+    // 2️⃣ INSERT PAYMENT
+    await supabase.from("payments").insert({
+      amount,
+      currency: "NGN",
+      status: "success",
+      reference,
+      email: customerEmail,
+      gateway: "paystack",
+      channel: event.event,
+      metadata,
+      created_at: new Date().toISOString(),
+    });
 
-    if (!clientId && email) {
-      const { data: client } = await supabase
+    // 3️⃣ ANNUAL RENEWAL
+    if (metadata.type === "ANNUAL_RENEWAL") {
+      const clientId = metadata.clientId;
+
+      const newExpiry = new Date(
+        new Date().setFullYear(new Date().getFullYear() + 1)
+      ).toISOString();
+
+      await supabase
         .from("clients")
-        .select("id")
-        .eq("email", email)
+        .update({ renewal_due_date: newExpiry })
+        .eq("id", clientId);
+
+      await supabase.from("renewal_history").insert({
+        client_id: clientId,
+        amount,
+        reference,
+        paid_at: tx.paid_at,
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    // 4️⃣ NEW LICENSE PURCHASE — CREATE EMPTY SLOTS
+    if (metadata.type === "NEW_LICENSE_PURCHASE") {
+      const plan = metadata.plan;
+      const quantity = Number(metadata.quantity || 1);
+      const companyName = metadata.companyName;
+
+      // Find or create client
+      const { data: existingClient } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("email", customerEmail)
         .maybeSingle();
 
-      if (client) {
-        clientId = client.id;
+      let clientId;
+
+      if (existingClient) {
+        clientId = existingClient.id;
       } else {
-        const { data: newClient } = await supabase
+        const { data: created } = await supabase
           .from("clients")
           .insert({
-            company_name: metadata.companyName ?? "Unknown Company",
-            email,
-            phone: metadata.phone ?? null,
-            address: metadata.address ?? null,
+            email: customerEmail,
+            company_name: companyName,
             created_at: new Date().toISOString(),
           })
           .select()
           .single();
 
-        clientId = newClient?.id ?? null;
+        clientId = created?.id;
       }
-    }
 
-    // ----------------------------------------------------
-    // 3️⃣ INSERT PAYMENT RECORD
-    // ----------------------------------------------------
-    await supabase.from("payments").insert({
-      client_id: clientId,
-      amount,
-      currency,
-      status: "success",
-      reference,
-      email,
-      gateway: "paystack",
-      metadata,
-      created_at: new Date().toISOString(),
-    });
+      // Create empty license slots
+      for (let i = 0; i < quantity; i++) {
+        await supabase.from("licenses").insert({
+          client_id: clientId,
+          plan,
+          license_key: null,
+          machine_id: null,
+          status: "PENDING",
+          activation_date: null,
+          expires_at: null,
+          payment_id: null,
+          invoice_id: null,
+          quantity: 1,
+          created_at: new Date().toISOString(),
+        });
+      }
 
-    // ----------------------------------------------------
-    // 4️⃣ INSERT INVOICE RECORD (YOUR REQUIREMENT)
-    // ----------------------------------------------------
-    await supabase.from("invoices").insert({
-      client_id: clientId,
-      email,
-      company_name: metadata.companyName ?? "",
-      plan: metadata.plan ?? "",
-      quantity: metadata.quantity ?? 1,
-      amount,
-      reference,
-      created_at: new Date().toISOString(),
-    });
-
-    // ----------------------------------------------------
-    // 5️⃣ SEND RECEIPT EMAIL TO CUSTOMER
-    // ----------------------------------------------------
-    if (email) {
-      await sendReceiptEmail({
-        to: email,
+      // Log purchase
+      await supabase.from("license_purchases").insert({
+        client_id: clientId,
+        plan,
+        quantity,
         amount,
-        currency,
         reference,
-        companyName: metadata.companyName ?? "",
-        plan: metadata.plan ?? "",
-        quantity: metadata.quantity ?? "",
-        type: metadata.type ?? "",
-        isAdmin: false,
+        created_at: new Date().toISOString(),
       });
     }
 
-    // ----------------------------------------------------
-    // 6️⃣ SEND RECEIPT EMAIL TO ADMIN
-    // ----------------------------------------------------
-    await sendReceiptEmail({
-      to: "info@ctistech.com",
-      amount,
-      currency,
-      reference,
-      companyName: metadata.companyName ?? "",
-      plan: metadata.plan ?? "",
-      quantity: metadata.quantity ?? "",
-      type: metadata.type ?? "",
-      isAdmin: true,
+    // 5️⃣ ADMIN EMAIL
+    await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": BREVO_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: "CentralCore Payment", email: NOTIFY_EMAIL },
+        to: [{ email: NOTIFY_EMAIL }],
+        subject: "New Payment Received",
+        htmlContent: `
+          <h2>New Payment Received</h2>
+          <p><strong>Email:</strong> ${customerEmail}</p>
+          <p><strong>Amount:</strong> ₦${amount.toLocaleString()}</p>
+          <p><strong>Reference:</strong> ${reference}</p>
+          <p><strong>Type:</strong> ${metadata.type}</p>
+        `,
+      }),
     });
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("🔥 WEBHOOK ERROR:", err);
-    return NextResponse.json({ success: false, error: "Server error" });
+    return NextResponse.json(
+      { success: false, error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
