@@ -17,20 +17,32 @@ export default function PaymentModal({ payment, onClose }: Props) {
         <h2 className="text-xl font-semibold mb-4">Payment Details</h2>
 
         <div className="space-y-3 text-sm">
-          <p><strong>Amount:</strong> ₦{Number(p.amount).toLocaleString()}</p>
-          <p><strong>Status:</strong> {p.status}</p>
-          <p><strong>Reference:</strong> {p.reference}</p>
-          <p><strong>Invoice ID:</strong> {p.invoice_id || "—"}</p>
+          <p>
+            <strong>Amount:</strong> ₦{Number(p.amount).toLocaleString()}
+          </p>
+
+          <p>
+            <strong>Status:</strong> {p.status}
+          </p>
+
+          <p>
+            <strong>Reference:</strong> {p.reference}
+          </p>
+
           <p>
             <strong>Date:</strong>{" "}
-            {p.created_at ? new Date(p.created_at).toLocaleString() : "—"}
+            {p.created_at
+              ? new Date(p.created_at).toLocaleString("en-NG", {
+                  timeZone: "Africa/Lagos",
+                })
+              : "—"}
           </p>
         </div>
 
         <div className="flex justify-end gap-3 mt-6">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-200 rounded"
+            className="px-4 py-2 bg-slate-200 rounded hover:bg-slate-300 transition"
           >
             Close
           </button>
