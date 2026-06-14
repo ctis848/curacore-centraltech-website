@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import PaymentList from "@/components/client/payments/list";
 import PaymentModal from "@/components/client/payments/modal";
 import EmptyState from "@/components/client/payments/empty";
 
@@ -138,7 +137,6 @@ export default function ClientPaymentsPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8">
-
       {/* Title */}
       <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
         My Payments
@@ -161,8 +159,6 @@ export default function ClientPaymentsPage() {
 
       {/* Filters Section */}
       <div className="p-6 bg-white rounded-xl shadow-md border border-slate-200 space-y-6">
-
-        {/* Search */}
         <input
           type="text"
           placeholder="🔍 Search by reference, status, or gateway..."
@@ -171,9 +167,7 @@ export default function ClientPaymentsPage() {
           className="w-full px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400"
         />
 
-        {/* Filters Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-
           <div>
             <label className="text-xs font-semibold text-slate-600">Date From</label>
             <input
@@ -215,7 +209,6 @@ export default function ClientPaymentsPage() {
           </div>
         </div>
 
-        {/* Status Filter */}
         <div>
           <label className="text-xs font-semibold text-slate-600">Status</label>
           <select
@@ -235,7 +228,6 @@ export default function ClientPaymentsPage() {
 
       {/* Table */}
       {loading && <p className="text-slate-500">Loading payments…</p>}
-
       {!loading && processed.length === 0 && <EmptyState />}
 
       {!loading && processed.length > 0 && (

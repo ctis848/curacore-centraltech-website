@@ -1,5 +1,9 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
 
 export async function GET(req: Request) {
   try {
@@ -15,32 +19,39 @@ export async function GET(req: Request) {
       `https://api.paystack.co/transaction/verify/${reference}`,
       {
         headers: {
-          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`
-        }
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        },
       }
     );
 
     const data = await verifyRes.json();
 
-    if (!data.status || data.data.status !== "success") {
-      return NextResponse.json({ status: "failed" });
+    if (!data.status) {
+      return NextResponse.json({ status: "failed" }, { status: 200 });
     }
 
-    const invoiceId = data.data.reference.split("-")[1]; // CTIS-{id}-{timestamp}
+    if (data.data.status !== "success") {
+      return NextResponse.json({ status: data.data.status }, { status: 200 });
+    }
 
-    // Connect to Supabase
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    // Extract invoice ID
+    const parts = reference.split("-");
+    const invoiceId = parts.length >= 3 ? parts[1] : null;
 
-    // Update invoice status
-    await supabase
+    if (!invoiceId) {
+      return NextResponse.json(
+        { status: "failed", error: "Invalid reference format" },
+        { status: 400 }
+      );
+    }
+
+    // Update invoice
+    await supabaseAdmin
       .from("ServiceRequests")
       .update({
         status: "paid",
         payment_reference: reference,
-        payment_date: new Date().toISOString()
+        payment_date: new Date().toISOString(),
       })
       .eq("id", invoiceId);
 
