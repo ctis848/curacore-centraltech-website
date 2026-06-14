@@ -31,51 +31,47 @@ function StatusContent() {
       }
 
       let attempts = 0;
+      let finalStatus: StatusType = "pending";
 
       while (attempts < 5) {
         try {
           const res = await fetch(`/api/payments/verify?reference=${reference}`);
           const data = await res.json();
 
-          // If backend confirms success
-          if (data?.status === "success") {
-            setStatus("success");
-
-            // Load purchase history
-            const historyRes = await fetch("/api/my-history");
-            const historyData = await historyRes.json();
-
-            const latest = historyData?.find(
-              (h: any) => h.reference === reference
-            );
+          // Backend confirms success
+          if (data?.success && data?.status === "success") {
+            finalStatus = "success";
 
             setPayment({
-              amount: latest?.amount || 0,
-              reference,
-              paidAt: latest?.paidAt || new Date().toISOString(),
-              licenseCount: latest?.licenseCount,
+              amount: data.amount || 0,
+              reference: data.reference || reference,
+              paidAt: data.paidAt || new Date().toISOString(),
+              licenseCount: data.licenseCount,
             });
 
-            setLoading(false);
-            return;
+            break;
           }
 
-          // If backend says pending
+          // Backend says pending
           if (data?.status === "pending") {
-            setStatus("pending");
+            finalStatus = "pending";
           }
 
+          // Backend says failed
+          if (data?.status === "failed") {
+            finalStatus = "failed";
+            break;
+          }
         } catch (err) {
           console.error("Verification error:", err);
         }
 
-        // Wait 2 seconds before retry
         attempts++;
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
-      // After 5 attempts, still no success
-      setStatus("failed");
+      // After retries, use whatever finalStatus we ended with
+      setStatus(finalStatus);
       setLoading(false);
     }
 

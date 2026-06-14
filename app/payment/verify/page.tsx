@@ -8,20 +8,33 @@ function PaymentVerifyContent() {
   const reference = params?.get("reference") ?? null;
 
   useEffect(() => {
-    if (!reference) return;
+    if (!reference) {
+      window.location.href = "/payment/failed";
+      return;
+    }
 
     async function verify() {
       try {
-        // Call your API route
-        await fetch(`/api/payments/verify?reference=${reference}`, {
-          method: "GET",
-        });
+        const res = await fetch(`/api/payments/verify?reference=${reference}`);
+        const data = await res.json();
 
-        // Redirect to dashboard
-        window.location.href = "/client/dashboard";
+        // Backend confirms success
+        if (data?.success && data?.status === "success") {
+          window.location.href = "/client/dashboard";
+          return;
+        }
+
+        // Pending → retry page
+        if (data?.status === "pending") {
+          window.location.href = `/payment/status?reference=${reference}`;
+          return;
+        }
+
+        // Anything else → failed
+        window.location.href = `/payment/failed?reference=${reference}`;
       } catch (err) {
         console.error("VERIFY PAGE ERROR:", err);
-        window.location.href = "/payment/failed";
+        window.location.href = `/payment/failed?reference=${reference}`;
       }
     }
 
