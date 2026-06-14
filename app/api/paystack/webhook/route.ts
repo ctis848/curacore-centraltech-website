@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     const signature = req.headers.get("x-paystack-signature");
 
     // ----------------------------------------------------
-    // 0️⃣ SECURITY: VERIFY SIGNATURE
+    // 0️⃣ VERIFY SIGNATURE
     // ----------------------------------------------------
     const hash = crypto
       .createHmac("sha512", PAYSTACK_SECRET_KEY)
@@ -24,7 +24,6 @@ export async function POST(req: Request) {
       .digest("hex");
 
     if (hash !== signature) {
-      console.error("❌ Invalid Paystack signature");
       return NextResponse.json(
         { success: false, error: "Invalid signature" },
         { status: 400 }
@@ -34,12 +33,8 @@ export async function POST(req: Request) {
     const event = JSON.parse(rawBody);
     const supabase = supabaseServer();
 
-    console.log("📨 Paystack Event:", event.event);
-
     const allowedEvents = ["charge.success"];
-
     if (!allowedEvents.includes(event.event)) {
-      console.log("ℹ️ Ignored event:", event.event);
       return NextResponse.json({ success: true, ignored: true });
     }
 
@@ -47,18 +42,12 @@ export async function POST(req: Request) {
     const amount = tx.amount / 100;
     const reference = tx.reference;
     const metadata = tx.metadata || {};
+
     const customerEmail =
       metadata.email ??
       tx.customer?.email ??
       tx.customer?.customer_email ??
       null;
-
-    console.log("💳 Payment received:", {
-      email: customerEmail,
-      amount,
-      reference,
-      type: metadata.type,
-    });
 
     // ----------------------------------------------------
     // 1️⃣ IDEMPOTENCY CHECK
@@ -70,7 +59,6 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (existing) {
-      console.log("⚠️ Duplicate payment — skipping");
       return NextResponse.json({ success: true, duplicate: true });
     }
 
@@ -89,18 +77,13 @@ export async function POST(req: Request) {
       created_at: new Date().toISOString(),
     });
 
-    console.log("✅ Payment inserted into payments table");
-
     // ----------------------------------------------------
     // 3️⃣ HANDLE ANNUAL RENEWAL
     // ----------------------------------------------------
     if (metadata.type === "ANNUAL_RENEWAL") {
-      console.log("🔥 Processing Annual Renewal");
-
       const clientId = metadata.clientId;
 
       if (!clientId) {
-        console.error("❌ Missing clientId for renewal");
         return NextResponse.json(
           { success: false, error: "Missing clientId" },
           { status: 400 }
@@ -114,16 +97,14 @@ export async function POST(req: Request) {
         .single();
 
       if (!client) {
-        console.error("❌ Client not found");
         return NextResponse.json(
           { success: false, error: "Client not found" },
           { status: 404 }
         );
       }
 
-      const now = new Date();
       const newExpiry = new Date(
-        now.setFullYear(now.getFullYear() + 1)
+        new Date().setFullYear(new Date().getFullYear() + 1)
       ).toISOString();
 
       await supabase
@@ -154,16 +135,12 @@ export async function POST(req: Request) {
           `,
         });
       }
-
-      console.log("✅ Annual renewal completed");
     }
 
     // ----------------------------------------------------
-    // 4️⃣ HANDLE NEW LICENSE PURCHASE
+    // 4️⃣ HANDLE NEW LICENSE PURCHASE (CREATE EMPTY SLOTS)
     // ----------------------------------------------------
     if (metadata.type === "NEW_LICENSE_PURCHASE") {
-      console.log("🔥 Processing License Purchase");
-
       const plan = metadata.plan;
       const quantity = Number(metadata.quantity || 1);
       const companyName = metadata.companyName;
@@ -193,19 +170,20 @@ export async function POST(req: Request) {
         clientId = created?.id;
       }
 
-      // 2) Create licenses
+      // 2) Create EMPTY license slots (Admin will assign license_key later)
       for (let i = 0; i < quantity; i++) {
         await supabase.from("licenses").insert({
           client_id: clientId,
-          product_name: plan,
-          license_key: crypto.randomUUID(),
-          status: "ACTIVE",
-          purchased_at: new Date().toISOString(),
-          activated_at: new Date().toISOString(),
-          renewal_status: "NOT_DUE",
-          renewal_due_date: new Date(
-            new Date().setFullYear(new Date().getFullYear() + 1)
-          ).toISOString(),
+          plan,
+          license_key: null,        // Admin generates manually
+          machine_id: null,         // Client provides later
+          status: "PENDING",        // Not active yet
+          activation_date: null,
+          expires_at: null,
+          payment_id: null,
+          invoice_id: null,
+          quantity: 1,
+          created_at: new Date().toISOString(),
         });
       }
 
@@ -234,8 +212,6 @@ export async function POST(req: Request) {
           `,
         });
       }
-
-      console.log("✅ License purchase completed");
     }
 
     // ----------------------------------------------------
@@ -261,7 +237,6 @@ export async function POST(req: Request) {
       }),
     });
 
-    console.log("🎉 WEBHOOK COMPLETED SUCCESSFULLY");
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("🔥 WEBHOOK ERROR:", err);
