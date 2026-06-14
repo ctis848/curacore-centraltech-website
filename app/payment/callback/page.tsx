@@ -7,12 +7,11 @@ export default function PaymentCallbackPage() {
   const params = useSearchParams();
   const router = useRouter();
 
-  const [status, setStatus] = useState<"verifying" | "success" | "failed">(
+  const [status, setStatus] = useState<"verifying" | "success" | "pending" | "failed">(
     "verifying"
   );
   const [reference, setReference] = useState<string | null>(null);
 
-  // NEW STATES
   const [existingUser, setExistingUser] = useState<boolean | null>(null);
   const [customerEmail, setCustomerEmail] = useState<string | null>(null);
 
@@ -33,10 +32,17 @@ export default function PaymentCallbackPage() {
       const res = await fetch(`/api/payments/verify?reference=${ref}`);
       const data = await res.json();
 
-      if (res.ok && data.success) {
-        setExistingUser(data.existingUser);
+      if (!res.ok) {
+        setStatus("failed");
+        return;
+      }
+
+      if (data.status === "success") {
+        setExistingUser(data.existingUser ?? null);
         setCustomerEmail(data.email ?? null);
         setStatus("success");
+      } else if (data.status === "pending") {
+        setStatus("pending");
       } else {
         setStatus("failed");
       }
@@ -75,6 +81,29 @@ export default function PaymentCallbackPage() {
       <div className="min-h-screen flex flex-col items-center justify-center text-center">
         <div className="animate-spin rounded-full h-20 w-20 border-t-4 border-teal-600 border-solid"></div>
         <p className="mt-6 text-xl text-gray-700">Verifying your payment…</p>
+      </div>
+    );
+  }
+
+  // -------------------------------
+  // PENDING STATE
+  // -------------------------------
+  if (status === "pending") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-center">
+        <h1 className="text-3xl font-bold text-yellow-600">
+          Payment Pending
+        </h1>
+        <p className="mt-4 text-gray-700">
+          Your payment is still being processed by Paystack.
+        </p>
+
+        <button
+          onClick={() => reference && verifyPayment(reference)}
+          className="mt-6 px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700"
+        >
+          Refresh Status
+        </button>
       </div>
     );
   }
@@ -121,11 +150,7 @@ export default function PaymentCallbackPage() {
             strokeWidth="2"
             viewBox="0 0 24 24"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 13l4 4L19 7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
       </div>
@@ -142,11 +167,10 @@ export default function PaymentCallbackPage() {
         Download Receipt
       </button>
 
-      {/* NEW LOGIC BUTTON */}
       <button
         onClick={() => {
           if (existingUser) {
-            router.push("/login");
+            router.push("/auth/client/login");
           } else {
             const emailParam = customerEmail ? `?email=${customerEmail}` : "";
             router.push(`/signup${emailParam}`);

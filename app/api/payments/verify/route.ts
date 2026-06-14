@@ -22,37 +22,32 @@ export async function GET(req: Request) {
 
     const supabase = supabaseServer();
 
-    // 1️⃣ Check local payments table first
-    const { data: payment, error } = await supabase
+    // -------------------------------
+    // 1️⃣ CHECK LOCAL DATABASE FIRST
+    // -------------------------------
+    const { data: payment } = await supabase
       .from("payments")
       .select("*")
       .eq("reference", reference)
       .maybeSingle();
 
-    if (error) {
-      console.error("❌ DB ERROR:", error);
-      return NextResponse.json(
-        { success: false, status: "failed", error: "Database error" },
-        { status: 500 }
-      );
-    }
-
-    // 2️⃣ If found and marked success → trust DB
-    if (payment && String(payment.status).toLowerCase() === "success") {
+    if (payment && payment.status === "success") {
       return NextResponse.json(
         {
           success: true,
           status: "success",
-          reference: payment.reference,
+          reference,
           amount: payment.amount,
           paidAt: payment.created_at,
-          message: "Payment verified successfully (from database).",
+          message: "Payment verified successfully (database).",
         },
         { status: 200 }
       );
     }
 
-    // 3️⃣ If not found or not success → confirm with Paystack directly
+    // -------------------------------
+    // 2️⃣ VERIFY DIRECTLY WITH PAYSTACK
+    // -------------------------------
     const paystackRes = await fetch(
       `${PAYSTACK_BASE}/transaction/verify/${reference}`,
       {
@@ -63,57 +58,120 @@ export async function GET(req: Request) {
       }
     );
 
-    const paystackData = await paystackRes.json();
-    console.log("📡 PAYSTACK VERIFY RESPONSE:", paystackData);
+    const raw = await paystackRes.text();
+    const trimmed = raw.trim();
 
-    // If Paystack call itself failed
-    if (!paystackData?.status) {
+    if (trimmed.startsWith("<")) {
       return NextResponse.json(
         {
           success: false,
           status: "failed",
-          error: "Unable to verify payment with Paystack.",
+          error: "Paystack returned HTML. Try again.",
+        },
+        { status: 500 }
+      );
+    }
+
+    let paystackData;
+    try {
+      paystackData = JSON.parse(trimmed);
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          status: "failed",
+          error: "Invalid Paystack JSON response",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!paystackData?.status || !paystackData?.data) {
+      return NextResponse.json(
+        {
+          success: false,
+          status: "failed",
+          error: "Unable to verify payment with Paystack",
         },
         { status: 200 }
       );
     }
 
     const tx = paystackData.data;
+    const txStatus = String(tx.status || "").toLowerCase();
 
-    // Normalize Paystack status
-    const txStatus = String(tx?.status || "").toLowerCase();
+    console.log("📡 PAYSTACK STATUS:", txStatus);
 
+    // -------------------------------
+    // 3️⃣ HANDLE SUCCESSFUL PAYMENT
+    // -------------------------------
     if (txStatus === "success") {
-      // 4️⃣ Optionally upsert into payments table to keep in sync
-      if (!payment) {
-        const { error: upsertError } = await supabase.from("payments").insert({
+      const paidAmount = tx.amount / 100;
+      const paidAt = tx.paid_at || new Date().toISOString();
+      const email = tx.customer?.email;
+      const metadata = tx.metadata || {};
+
+      // Find client
+      let clientId = null;
+
+      if (email) {
+        const { data: client } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("email", email)
+          .maybeSingle();
+
+        if (client) clientId = client.id;
+      }
+
+      // Save payment
+      await supabase.from("payments").upsert(
+        {
           reference,
-          amount: tx.amount / 100,
+          client_id: clientId,
+          email,
+          amount: paidAmount,
           status: "success",
           gateway: "paystack",
           channel: tx.channel,
-          created_at: tx.paid_at || new Date().toISOString(),
-        });
+          metadata,
+          created_at: paidAt,
+        },
+        { onConflict: "reference" }
+      );
 
-        if (upsertError) {
-          console.error("❌ UPSERT ERROR:", upsertError);
-        }
-      }
+      // Save invoice (if not already created by webhook)
+      await supabase.from("invoices").upsert(
+        {
+          reference,
+          client_id: clientId,
+          email,
+          company_name: metadata.companyName ?? "",
+          plan: metadata.plan ?? "",
+          quantity: metadata.quantity ?? 1,
+          amount: paidAmount,
+          created_at: paidAt,
+        },
+        { onConflict: "reference" }
+      );
 
       return NextResponse.json(
         {
           success: true,
           status: "success",
           reference,
-          amount: tx.amount / 100,
-          paidAt: tx.paid_at || new Date().toISOString(),
-          message: "Payment verified successfully (from Paystack).",
+          amount: paidAmount,
+          paidAt,
+          message: "Payment verified successfully (Paystack).",
         },
         { status: 200 }
       );
     }
 
-    if (txStatus === "pending" || txStatus === "processing") {
+    // -------------------------------
+    // 4️⃣ HANDLE PENDING PAYMENT
+    // -------------------------------
+    if (["pending", "processing"].includes(txStatus)) {
       return NextResponse.json(
         {
           success: true,
@@ -124,12 +182,14 @@ export async function GET(req: Request) {
       );
     }
 
-    // Any other status → failed
+    // -------------------------------
+    // 5️⃣ FAILED / ABANDONED / REVERSED
+    // -------------------------------
     return NextResponse.json(
       {
         success: true,
         status: "failed",
-        message: `Payment not successful. Current status: ${txStatus}`,
+        message: `Payment not successful. Status: ${txStatus}`,
       },
       { status: 200 }
     );

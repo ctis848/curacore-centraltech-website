@@ -2,9 +2,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 import { supabaseServer } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email/send";
+import crypto from "crypto";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
 const BREVO_API_KEY = process.env.BREVO_API_KEY!;
@@ -15,12 +15,16 @@ export async function POST(req: Request) {
     const rawBody = await req.text();
     const signature = req.headers.get("x-paystack-signature");
 
+    // ----------------------------------------------------
+    // 0️⃣ SECURITY: VERIFY SIGNATURE
+    // ----------------------------------------------------
     const hash = crypto
       .createHmac("sha512", PAYSTACK_SECRET_KEY)
       .update(rawBody)
       .digest("hex");
 
     if (hash !== signature) {
+      console.error("❌ Invalid Paystack signature");
       return NextResponse.json(
         { success: false, error: "Invalid signature" },
         { status: 400 }
@@ -32,41 +36,33 @@ export async function POST(req: Request) {
 
     console.log("📨 Paystack Event:", event.event);
 
-    const allowedEvents = [
-      "charge.success",
-      "transfer.success",
-      "dedicatedaccount.payment",
-    ];
+    const allowedEvents = ["charge.success"];
 
     if (!allowedEvents.includes(event.event)) {
       console.log("ℹ️ Ignored event:", event.event);
       return NextResponse.json({ success: true, ignored: true });
     }
 
-    const data = event.data;
-    const amount = data.amount / 100;
-    const paystackId = data.id;
-    const meta = data.metadata || {};
-
+    const tx = event.data;
+    const amount = tx.amount / 100;
+    const reference = tx.reference;
+    const metadata = tx.metadata || {};
     const customerEmail =
-      meta.email ??
-      data.customer?.email ??
-      data.customer?.customer_email ??
+      metadata.email ??
+      tx.customer?.email ??
+      tx.customer?.customer_email ??
       null;
-
-    const reference =
-      data.reference ||
-      data.transfer_code ||
-      `DVA-${paystackId}`;
 
     console.log("💳 Payment received:", {
       email: customerEmail,
       amount,
       reference,
-      type: meta.type,
+      type: metadata.type,
     });
 
-    // 🔹 Prevent duplicate
+    // ----------------------------------------------------
+    // 1️⃣ IDEMPOTENCY CHECK
+    // ----------------------------------------------------
     const { data: existing } = await supabase
       .from("payments")
       .select("id")
@@ -78,7 +74,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, duplicate: true });
     }
 
-    // 🔹 Insert into payments table
+    // ----------------------------------------------------
+    // 2️⃣ INSERT PAYMENT RECORD
+    // ----------------------------------------------------
     await supabase.from("payments").insert({
       amount,
       currency: "NGN",
@@ -87,54 +85,59 @@ export async function POST(req: Request) {
       email: customerEmail,
       gateway: "paystack",
       channel: event.event,
+      metadata,
       created_at: new Date().toISOString(),
     });
 
     console.log("✅ Payment inserted into payments table");
 
-    // =====================================================
-    // 1️⃣ ANNUAL RENEWAL FLOW
-    // =====================================================
-    if (meta.type === "ANNUAL_RENEWAL") {
-      console.log("🔥 PROCESSING ANNUAL RENEWAL");
+    // ----------------------------------------------------
+    // 3️⃣ HANDLE ANNUAL RENEWAL
+    // ----------------------------------------------------
+    if (metadata.type === "ANNUAL_RENEWAL") {
+      console.log("🔥 Processing Annual Renewal");
 
-      const companyId = meta.companyId;
-      const companyName = meta.companyName;
+      const clientId = metadata.clientId;
 
-      const { data: company } = await supabase
-        .from("companies")
+      if (!clientId) {
+        console.error("❌ Missing clientId for renewal");
+        return NextResponse.json(
+          { success: false, error: "Missing clientId" },
+          { status: 400 }
+        );
+      }
+
+      const { data: client } = await supabase
+        .from("clients")
         .select("*")
-        .eq("id", companyId)
+        .eq("id", clientId)
         .single();
 
-      if (!company) {
-        console.log("❌ Company not found for renewal");
+      if (!client) {
+        console.error("❌ Client not found");
         return NextResponse.json(
-          { success: false, error: "Company not found" },
+          { success: false, error: "Client not found" },
           { status: 404 }
         );
       }
 
       const now = new Date();
-      const newExpiry = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+      const newExpiry = new Date(
+        now.setFullYear(now.getFullYear() + 1)
+      ).toISOString();
 
       await supabase
-        .from("companies")
-        .update({
-          renewal_date: newExpiry.toISOString(),
-        })
-        .eq("id", company.id);
+        .from("clients")
+        .update({ renewal_due_date: newExpiry })
+        .eq("id", clientId);
 
-      await supabase.from("AnnualPaymentHistory").insert({
-        companyId: company.id,
+      await supabase.from("renewal_history").insert({
+        client_id: clientId,
         amount,
         reference,
-        status: "success",
-        paidat: data.paid_at,
-        licensecount: company.license_count,
+        paid_at: tx.paid_at,
+        created_at: new Date().toISOString(),
       });
-
-      console.log("📧 Sending renewal email to client…");
 
       if (customerEmail) {
         await sendEmail({
@@ -142,62 +145,47 @@ export async function POST(req: Request) {
           subject: "Annual Renewal Successful",
           html: `
             <h2>Your Annual Renewal is Complete</h2>
-            <p><strong>Company:</strong> ${companyName}</p>
+            <p><strong>Company:</strong> ${metadata.companyName}</p>
             <p><strong>Amount Paid:</strong> ₦${amount.toLocaleString()}</p>
-            <p><strong>Next Renewal Date:</strong> ${newExpiry.toDateString()}</p>
+            <p><strong>Next Renewal Date:</strong> ${new Date(
+              newExpiry
+            ).toDateString()}</p>
             <p><strong>Reference:</strong> ${reference}</p>
           `,
-        }).catch((e) => console.error("🔥 EMAIL ERROR:", e));
+        });
       }
 
-      console.log("✅ Annual renewal flow completed");
+      console.log("✅ Annual renewal completed");
     }
 
-    // =====================================================
-    // 2️⃣ NEW OR EXISTING CLIENT LICENSE PURCHASE FLOW
-    // =====================================================
-    if (meta.type !== "ANNUAL_RENEWAL") {
-      console.log("🔥 PROCESSING LICENSE PURCHASE");
+    // ----------------------------------------------------
+    // 4️⃣ HANDLE NEW LICENSE PURCHASE
+    // ----------------------------------------------------
+    if (metadata.type === "NEW_LICENSE_PURCHASE") {
+      console.log("🔥 Processing License Purchase");
 
-      const plan = meta.plan;
-      const quantity = Number(meta.quantity || 1);
-      const companyName = meta.companyName;
+      const plan = metadata.plan;
+      const quantity = Number(metadata.quantity || 1);
+      const companyName = metadata.companyName;
 
-      // 1) Check if client exists
+      // 1) Find or create client
       const { data: existingClient } = await supabase
-        .from("Clients")
+        .from("clients")
         .select("*")
         .eq("email", customerEmail)
         .maybeSingle();
 
       let clientId;
-      let totalLicenses;
 
       if (existingClient) {
-        totalLicenses = (existingClient.totalLicenses || 0) + quantity;
-
-        const { data: updated } = await supabase
-          .from("Clients")
-          .update({
-            totalLicenses,
-            companyName,
-            annualRenewal: totalLicenses * 0.20,
-          })
-          .eq("id", existingClient.id)
-          .select()
-          .single();
-
-        clientId = updated?.id || existingClient.id;
+        clientId = existingClient.id;
       } else {
-        totalLicenses = quantity;
-
         const { data: created } = await supabase
-          .from("Clients")
+          .from("clients")
           .insert({
             email: customerEmail,
-            companyName,
-            totalLicenses,
-            annualRenewal: totalLicenses * 0.20,
+            company_name: companyName,
+            created_at: new Date().toISOString(),
           })
           .select()
           .single();
@@ -205,17 +193,33 @@ export async function POST(req: Request) {
         clientId = created?.id;
       }
 
-      // 2) Add payment to Client Payment History
-      await supabase.from("LicensePurchases").insert({
-        clientId,
+      // 2) Create licenses
+      for (let i = 0; i < quantity; i++) {
+        await supabase.from("licenses").insert({
+          client_id: clientId,
+          product_name: plan,
+          license_key: crypto.randomUUID(),
+          status: "ACTIVE",
+          purchased_at: new Date().toISOString(),
+          activated_at: new Date().toISOString(),
+          renewal_status: "NOT_DUE",
+          renewal_due_date: new Date(
+            new Date().setFullYear(new Date().getFullYear() + 1)
+          ).toISOString(),
+        });
+      }
+
+      // 3) Log purchase
+      await supabase.from("license_purchases").insert({
+        client_id: clientId,
         plan,
         quantity,
         amount,
         reference,
-        channel: event.event,
+        created_at: new Date().toISOString(),
       });
 
-      // 3) Send receipt email to client
+      // 4) Send receipt email
       if (customerEmail) {
         await sendEmail({
           to: customerEmail,
@@ -225,21 +229,18 @@ export async function POST(req: Request) {
             <p><strong>Company:</strong> ${companyName}</p>
             <p><strong>Plan:</strong> ${plan}</p>
             <p><strong>Quantity:</strong> ${quantity}</p>
-            <p><strong>Total Licenses Now:</strong> ${totalLicenses}</p>
-            <p><strong>Annual Renewal Fee:</strong> ₦${(totalLicenses * 0.20).toLocaleString()}</p>
             <p><strong>Amount Paid:</strong> ₦${amount.toLocaleString()}</p>
             <p><strong>Reference:</strong> ${reference}</p>
-            <p><strong>Payment Method:</strong> ${event.event}</p>
           `,
-        }).catch((e) => console.error("🔥 CLIENT EMAIL ERROR:", e));
+        });
       }
 
-      console.log("✅ License purchase flow completed");
+      console.log("✅ License purchase completed");
     }
 
-    // =====================================================
-    // 3️⃣ ADMIN EMAIL NOTIFICATION
-    // =====================================================
+    // ----------------------------------------------------
+    // 5️⃣ SEND ADMIN EMAIL
+    // ----------------------------------------------------
     await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
@@ -255,18 +256,17 @@ export async function POST(req: Request) {
           <p><strong>Email:</strong> ${customerEmail}</p>
           <p><strong>Amount:</strong> ₦${amount.toLocaleString()}</p>
           <p><strong>Reference:</strong> ${reference}</p>
-          <p><strong>Type:</strong> ${meta.type || "LICENSE PURCHASE"}</p>
+          <p><strong>Type:</strong> ${metadata.type}</p>
         `,
       }),
-    }).catch((e) => console.error("🔥 ADMIN EMAIL ERROR:", e));
+    });
 
     console.log("🎉 WEBHOOK COMPLETED SUCCESSFULLY");
     return NextResponse.json({ success: true });
-
-  } catch (err: any) {
-    console.error("🔥 Paystack Webhook Error:", err);
+  } catch (err) {
+    console.error("🔥 WEBHOOK ERROR:", err);
     return NextResponse.json(
-      { success: false, error: "Internal server error", details: String(err) },
+      { success: false, error: "Internal server error" },
       { status: 500 }
     );
   }

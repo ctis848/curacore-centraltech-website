@@ -10,14 +10,14 @@ export async function POST(request: Request) {
   try {
     if (!APP_URL) {
       return NextResponse.json(
-        { error: "NEXT_PUBLIC_APP_URL is missing" },
+        { success: false, error: "NEXT_PUBLIC_APP_URL is missing" },
         { status: 500 }
       );
     }
 
     if (!PAYSTACK_SECRET_KEY) {
       return NextResponse.json(
-        { error: "PAYSTACK_SECRET_KEY is missing" },
+        { success: false, error: "PAYSTACK_SECRET_KEY is missing" },
         { status: 500 }
       );
     }
@@ -38,48 +38,48 @@ export async function POST(request: Request) {
     // -------------------------------
     if (!email || !email.includes("@"))
       return NextResponse.json(
-        { error: "Valid email is required" },
+        { success: false, error: "Valid email is required" },
         { status: 400 }
       );
 
     if (!companyName)
       return NextResponse.json(
-        { error: "Company name is required" },
+        { success: false, error: "Company name is required" },
         { status: 400 }
       );
 
     if (!plan)
       return NextResponse.json(
-        { error: "Plan is required" },
+        { success: false, error: "Plan is required" },
         { status: 400 }
       );
 
     if (!quantity || quantity <= 0)
       return NextResponse.json(
-        { error: "Valid quantity is required" },
+        { success: false, error: "Valid quantity is required" },
         { status: 400 }
       );
 
     if (!annualFee || annualFee <= 0)
       return NextResponse.json(
-        { error: "Valid annual fee is required" },
+        { success: false, error: "Valid annual fee is required" },
         { status: 400 }
       );
 
     if (!amount || amount <= 0)
       return NextResponse.json(
-        { error: "Valid amount is required" },
+        { success: false, error: "Valid amount is required" },
         { status: 400 }
       );
 
     if (!type)
       return NextResponse.json(
-        { error: "Payment type is required" },
+        { success: false, error: "Payment type is required" },
         { status: 400 }
       );
 
     // -------------------------------
-    // METADATA (Webhook + Admin Dashboard)
+    // METADATA
     // -------------------------------
     const metadata = {
       type,
@@ -116,10 +116,9 @@ export async function POST(request: Request) {
       reference,
       metadata,
 
-      // ⭐ Unified callback page
-      callback_url: `${APP_URL}/payment/status?reference=${reference}`,
+      // Correct callback URL
+      callback_url: `${APP_URL}/payments/status?reference=${reference}`,
 
-      // ⭐ VALID CHANNELS (CARD + BANK + TRANSFER + USSD + QR)
       channels: ["card", "bank", "bank_transfer", "ussd", "qr"],
     };
 
@@ -136,40 +135,41 @@ export async function POST(request: Request) {
     });
 
     const raw = await response.text();
+    const trimmed = raw.trim();
 
-    // Paystack sometimes returns HTML when rate-limited
-    if (raw.startsWith("<")) {
+    if (trimmed.startsWith("<")) {
       return NextResponse.json(
-        { error: "Paystack returned HTML. Invalid payload." },
+        { success: false, error: "Paystack returned HTML. Try again." },
         { status: 400 }
       );
     }
 
     let data;
     try {
-      data = JSON.parse(raw);
+      data = JSON.parse(trimmed);
     } catch {
       return NextResponse.json(
-        { error: "Paystack returned invalid JSON" },
+        { success: false, error: "Paystack returned invalid JSON" },
         { status: 400 }
       );
     }
 
     if (!response.ok || !data.status) {
       return NextResponse.json(
-        { error: data.message || "Paystack rejected the request" },
+        { success: false, error: data.message || "Paystack rejected the request" },
         { status: 400 }
       );
     }
 
     return NextResponse.json({
+      success: true,
       authorization_url: data.data.authorization_url,
       reference,
     });
   } catch (error) {
     console.error("🔥 SERVER CRASH:", error);
     return NextResponse.json(
-      { error: "Something went wrong initializing payment" },
+      { success: false, error: "Something went wrong initializing payment" },
       { status: 500 }
     );
   }

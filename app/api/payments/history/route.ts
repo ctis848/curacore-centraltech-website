@@ -22,13 +22,27 @@ export async function GET() {
     const email = user.email;
 
     // ----------------------------------------------------
-    // FETCH PAYMENTS BY EMAIL (NOT userid)
-    // Because your webhook stores email, not auth userId
+    // FIND CLIENT BY EMAIL
+    // ----------------------------------------------------
+    const { data: client } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (!client) {
+      return NextResponse.json({ data: [] });
+    }
+
+    const clientId = client.id;
+
+    // ----------------------------------------------------
+    // FETCH PAYMENTS BY client_id
     // ----------------------------------------------------
     const { data: payments, error } = await supabase
-      .from("Payment")
+      .from("payments")
       .select("*")
-      .eq("email", email)
+      .eq("client_id", clientId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -42,13 +56,11 @@ export async function GET() {
 
     // ----------------------------------------------------
     // ENRICH PAYMENTS WITH METADATA
-    // (plan, quantity, paymentType, companyName, licenseCount)
     // ----------------------------------------------------
     const enriched = payments.map((p) => {
       let meta: any = {};
 
       try {
-        // Some webhook versions store metadata as JSON string
         if (typeof p.metadata === "string") {
           meta = JSON.parse(p.metadata);
         } else if (typeof p.metadata === "object" && p.metadata !== null) {
@@ -64,9 +76,6 @@ export async function GET() {
         plan: meta.plan ?? null,
         quantity: meta.quantity ?? null,
         companyName: meta.companyName ?? null,
-        licenseId: meta.licenseId ?? null,
-        clientId: meta.clientId ?? null,
-        licenseCount: meta.quantity ?? null,
       };
     });
 

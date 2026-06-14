@@ -6,7 +6,7 @@ import EmptyState from "@/components/client/payments/empty";
 
 export type ClientPayment = {
   id: string;
-  clientId: string;
+  client_id: string;
   amount: number;
   currency: string | null;
   status: string | null;
@@ -14,6 +14,12 @@ export type ClientPayment = {
   gateway: string | null;
   channel: string | null;
   created_at: string | null;
+
+  // ⭐ NEW FIELDS FROM API
+  paymentType?: string | null;
+  plan?: string | null;
+  quantity?: number | string | null;
+  companyName?: string | null;
 };
 
 export default function ClientPaymentsPage() {
@@ -44,7 +50,10 @@ export default function ClientPaymentsPage() {
     setLoading(true);
     const res = await fetch("/api/client/payments");
     const json = await res.json();
-    if (json.success) setPayments(json.data);
+
+    // ⭐ FIX: API returns { data: [...] }
+    if (json.data) setPayments(json.data);
+
     setLoading(false);
   }
 
@@ -70,7 +79,9 @@ export default function ClientPaymentsPage() {
       const matchesSearch =
         (p.reference ?? "").toLowerCase().includes(s) ||
         (p.status ?? "").toLowerCase().includes(s) ||
-        (p.gateway ?? "").toLowerCase().includes(s);
+        (p.gateway ?? "").toLowerCase().includes(s) ||
+        (p.plan ?? "").toLowerCase().includes(s) ||
+        (p.companyName ?? "").toLowerCase().includes(s);
 
       const matchesStatus =
         statusFilter === "ALL" ||
@@ -161,12 +172,13 @@ export default function ClientPaymentsPage() {
       <div className="p-6 bg-white rounded-xl shadow-md border border-slate-200 space-y-6">
         <input
           type="text"
-          placeholder="🔍 Search by reference, status, or gateway..."
+          placeholder="🔍 Search by reference, status, plan, or company..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400"
         />
 
+        {/* Date + Amount Filters */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="text-xs font-semibold text-slate-600">Date From</label>
@@ -209,6 +221,7 @@ export default function ClientPaymentsPage() {
           </div>
         </div>
 
+        {/* Status Filter */}
         <div>
           <label className="text-xs font-semibold text-slate-600">Status</label>
           <select

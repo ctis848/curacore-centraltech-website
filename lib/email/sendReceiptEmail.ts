@@ -14,12 +14,13 @@ async function pdfToBuffer(doc: InstanceType<typeof PDFDocument>): Promise<Buffe
   });
 }
 
+// ⭐ FIXED: licenseId is now OPTIONAL
 interface ReceiptPayload {
   to: string;
   amount: number;
   currency: string;
   reference: string;
-  licenseId: string | null;
+  licenseId?: string | null;   // ⭐ OPTIONAL NOW
   companyName?: string;
   plan?: string;
   quantity?: number | string;
@@ -32,7 +33,7 @@ export async function sendReceiptEmail({
   amount,
   currency,
   reference,
-  licenseId,
+  licenseId = null,   // ⭐ DEFAULT VALUE
   companyName = "",
   plan = "",
   quantity = "",
@@ -54,9 +55,11 @@ export async function sendReceiptEmail({
   doc.text(`Payment Type: ${type}`);
   doc.text(`Amount Paid: ₦${amount.toLocaleString()}`);
   doc.text(`Currency: ${currency}`);
-  doc.text(`License ID: ${licenseId ?? "N/A"}`);
-  doc.moveDown();
 
+  // ⭐ FIXED: License ID is optional
+  doc.text(`License ID: ${licenseId ?? "N/A"}`);
+
+  doc.moveDown();
   doc.text("Thank you for choosing CentralCore EMR.", { align: "center" });
 
   const pdfBuffer = await pdfToBuffer(doc);
@@ -104,7 +107,7 @@ export async function sendReceiptEmail({
   `;
 
   // ----------------------------------------------------
-  // 3. Send Email with PDF Attachment (FIXED)
+  // 3. Send Email with PDF Attachment
   // ----------------------------------------------------
   await resend.emails.send({
     from: "CTIS Tech <no-reply@ctistech.com>",
