@@ -3,11 +3,15 @@ import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
   try {
-    const { old_machine_id, new_device_id } = await req.json();
+    const { oldLicenseKey, newRequestKey, productName, companyName } =
+      await req.json();
 
-    if (!old_machine_id || !new_device_id) {
+    if (!oldLicenseKey || !newRequestKey) {
       return NextResponse.json(
-        { success: false, message: "Missing old_machine_id or new_device_id" },
+        {
+          success: false,
+          message: "Old license key and new request-key are required.",
+        },
         { status: 400 }
       );
     }
@@ -19,84 +23,84 @@ export async function POST(req: Request) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (!user || !user.email) {
       return NextResponse.json(
         { success: false, message: "You must be logged in." },
         { status: 401 }
       );
     }
 
-    // 2️⃣ Fetch the old machine
-    const { data: oldMachine, error: oldErr } = await supabase
-      .from("machines")
-      .select("id, company_id, active")
-      .eq("id", old_machine_id)
-      .single();
+    // 2️⃣ Confirm old license exists and belongs to this user
+    const { data: oldReq, error: oldErr } = await supabase
+      .from("LicenseRequest")
+      .select("*")
+      .eq("licenseKey", oldLicenseKey)
+      .eq("userEmail", user.email)
+      .eq("status", "APPROVED")
+      .maybeSingle();
 
-    if (oldErr || !oldMachine) {
+    if (oldErr || !oldReq) {
       return NextResponse.json(
-        { success: false, message: "Old machine not found." },
+        {
+          success: false,
+          message:
+            "Old license key not found or does not belong to your account.",
+        },
         { status: 404 }
       );
     }
 
-    // 3️⃣ Verify the user belongs to the same company
-    const { data: companyUser, error: companyErr } = await supabase
-      .from("CompanyUsers")
-      .select("company_id")
-      .eq("user_id", user.id)
-      .single();
+    // 3️⃣ Ensure new request-key is not already used
+    const { data: existingReq } = await supabase
+      .from("LicenseRequest")
+      .select("id")
+      .eq("requestKey", newRequestKey)
+      .maybeSingle();
 
-    if (companyErr || !companyUser) {
+    if (existingReq) {
       return NextResponse.json(
-        { success: false, message: "You are not assigned to any company." },
-        { status: 403 }
+        {
+          success: false,
+          message: "This request-key has already been used.",
+        },
+        { status: 400 }
       );
     }
 
-    if (companyUser.company_id !== oldMachine.company_id) {
-      return NextResponse.json(
-        { success: false, message: "This machine does not belong to your company." },
-        { status: 403 }
-      );
-    }
-
-    // 4️⃣ Deactivate old machine
-    const { error: deactivateErr } = await supabase
-      .from("machines")
-      .update({ active: false })
-      .eq("id", old_machine_id);
-
-    if (deactivateErr) {
-      return NextResponse.json(
-        { success: false, message: "Failed to deactivate old machine." },
-        { status: 500 }
-      );
-    }
-
-    // 5️⃣ Activate new machine
-    const { error: insertErr } = await supabase
-      .from("machines")
-      .insert({
-        company_id: oldMachine.company_id,
-        device_id: new_device_id,
-        active: true,
-      });
+    // 4️⃣ Create new transfer request
+    const { error: insertErr } = await supabase.from("LicenseRequest").insert({
+      userId: oldReq.userId,
+      clientId: oldReq.clientId,
+      productName: productName ?? oldReq.productName,
+      requestKey: newRequestKey,
+      licenseKey: oldLicenseKey,
+      status: "PENDING",
+      notes: "TRANSFER REQUEST",
+      userEmail: user.email,
+      companyName: companyName ?? oldReq.companyName,
+    });
 
     if (insertErr) {
       return NextResponse.json(
-        { success: false, message: "Failed to activate new machine." },
+        {
+          success: false,
+          message: "Failed to submit transfer request.",
+        },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      message: "License transferred successfully.",
+      message:
+        "Transfer request submitted successfully. Admin will review and approve.",
     });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, message: err.message ?? "Unexpected server error" },
+      {
+        success: false,
+        message: err.message ?? "Unexpected server error",
+      },
       { status: 500 }
     );
   }

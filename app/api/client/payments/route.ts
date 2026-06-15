@@ -1,64 +1,55 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("sb-access-token")?.value;
 
-    if (!token) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+        },
+      }
+    );
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
       return NextResponse.json(
         { success: false, message: "Not authenticated" },
         { status: 401 }
       );
     }
 
-    const { data: userData, error: userErr } =
-      await supabaseAdmin.auth.getUser(token);
-
-    if (userErr || !userData?.user) {
-      return NextResponse.json(
-        { success: false, message: "Invalid user" },
-        { status: 401 }
-      );
-    }
-
-    const user = userData.user;
-
-    // ⭐ FIX — Match client by auth_user_id, not email
-    const { data: client, error: clientErr } = await supabaseAdmin
+    const { data: client } = await supabase
       .from("clients")
       .select("id")
       .eq("auth_user_id", user.id)
       .maybeSingle();
 
-    if (clientErr || !client) {
+    if (!client) {
       return NextResponse.json(
         { success: false, message: "Client record not found" },
         { status: 404 }
       );
     }
 
-    // ⭐ Fetch payments correctly
-    const { data: payments, error: payErr } = await supabaseAdmin
+    const { data: payments } = await supabase
       .from("payments")
       .select("*")
       .eq("client_id", client.id)
       .order("created_at", { ascending: false });
 
-    if (payErr) {
-      console.error("Client payment fetch error:", payErr);
-      return NextResponse.json(
-        { success: false, message: payErr.message },
-        { status: 500 }
-      );
-    }
-
-    // ⭐ Correct response format
-    return NextResponse.json({ data: payments });
-  } catch (err: any) {
-    console.error("Client Payments API error:", err);
+    return NextResponse.json({ success: true, data: payments });
+  } catch (err) {
     return NextResponse.json(
       { success: false, message: "Unexpected server error" },
       { status: 500 }

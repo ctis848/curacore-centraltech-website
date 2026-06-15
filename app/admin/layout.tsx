@@ -52,15 +52,19 @@ const navItems: NavGroup[] = [
   },
 
   {
-    section: "Licensing System",
-    items: [
-      { label: "License Overview", href: "/admin/license-overview", icon: ChartBarIcon },
-      { label: "Machine History", href: "/admin/machine-history", icon: WrenchScrewdriverIcon },
-      { label: "Active Licenses", href: "/admin/active-licenses", icon: KeyIcon },
-      { label: "License Requests", href: "/admin/license-requests", icon: ClipboardDocumentListIcon },
-      { label: "Renewals", href: "/admin/renewals", icon: ClockIcon },
-    ],
-  },
+  section: "Licensing System",
+  items: [
+    { label: "License Overview", href: "/admin/license-overview", icon: ChartBarIcon },
+    { label: "Machine History", href: "/admin/machine-history", icon: WrenchScrewdriverIcon },
+    { label: "Active Licenses", href: "/admin/active-licenses", icon: KeyIcon },
+    { label: "License Requests", href: "/admin/license-requests", icon: ClipboardDocumentListIcon },
+
+    // ⭐ NEW ITEM ADDED HERE
+    { label: "License-Transfers", href: "/admin/license-transfers", icon: ClipboardDocumentCheckIcon },
+
+    { label: "Renewals", href: "/admin/renewals", icon: ClockIcon },
+  ],
+},
 
   {
     section: "Finance",
