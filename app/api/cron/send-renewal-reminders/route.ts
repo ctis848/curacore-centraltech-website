@@ -67,14 +67,16 @@ export async function GET() {
       const renewalDate = new Date(c.renewal_date);
       const daysLeft = differenceInDays(renewalDate, today);
 
-      // Only notify companies within 30-day window
-      if (daysLeft > 30 || daysLeft < 0) continue;
+      // -----------------------------------------------------
+      // DAILY REMINDER FROM 30 DAYS → 1 DAY
+      // -----------------------------------------------------
+      if (daysLeft > 30 || daysLeft < 1) continue;
 
       const email = c.contact_email || NOTIFY_EMAIL;
       if (!email) continue;
 
       // -----------------------------------------------------
-      // PROFESSIONAL EMAIL TEMPLATE
+      // EMAIL TEMPLATE
       // -----------------------------------------------------
       const subject = `Annual Subscription Renewal – Action Required | ${c.name}`;
 
@@ -121,9 +123,7 @@ export async function GET() {
       const ok = await retry(() => sendBrevoEmail(email, subject, html));
 
       if (!ok) {
-        // -----------------------------------------------------
         // ADMIN ALERT EMAIL
-        // -----------------------------------------------------
         await sendBrevoEmail(
           ADMIN_EMAIL!,
           "CRON FAILURE ALERT – Renewal Reminder Not Sent",
@@ -143,15 +143,16 @@ export async function GET() {
     // LOG SUCCESS
     // -----------------------------------------------------
     await supabaseAdmin.from("cron_logs").insert({
+      job_name: "renewal_reminder",
       status: "success",
       companies_notified: sent,
-      message: "Renewal reminders sent",
+      message: "Daily renewal reminders sent",
     });
 
     return NextResponse.json({
       success: true,
       count: sent,
-      message: "Renewal reminders sent",
+      message: "Daily renewal reminders sent",
     });
   } catch (err) {
     console.error("Cron error:", err);
@@ -160,6 +161,7 @@ export async function GET() {
     // LOG FAILURE
     // -----------------------------------------------------
     await supabaseAdmin.from("cron_logs").insert({
+      job_name: "renewal_reminder",
       status: "failed",
       companies_notified: 0,
       message: "Cron failed",

@@ -31,18 +31,30 @@ async function sendBrevoEmail(toEmail: string, subject: string, html: string) {
 }
 
 // -----------------------------------------------------
-// MAIN CRON HANDLER
+// BULK NOTIFY HANDLER
 // -----------------------------------------------------
-export async function GET() {
+export async function POST(req: Request) {
   try {
-    // Load companies with renewal dates
-    const { data, error } = await supabaseAdmin
+    const { ids } = await req.json();
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({
+        success: false,
+        message: "No company IDs provided",
+      });
+    }
+
+    // Load selected companies
+    const { data: companies, error } = await supabaseAdmin
       .from("companies")
       .select("id, name, renewal_date, annual_amount, email, portal_password")
-      .not("renewal_date", "is", null);
+      .in("id", ids);
 
-    if (error || !data) {
-      return NextResponse.json({ success: false, message: "DB error" });
+    if (error || !companies) {
+      return NextResponse.json({
+        success: false,
+        message: "Failed to load companies",
+      });
     }
 
     const today = new Date();
@@ -50,13 +62,11 @@ export async function GET() {
 
     let sent = 0;
 
-    for (const c of data) {
+    for (const c of companies) {
       const renewalDate = new Date(c.renewal_date);
       const daysLeft = differenceInDays(renewalDate, today);
 
-      // -----------------------------------------------------
-      // SEND REMINDERS ONLY FROM 30 DAYS → 1 DAY
-      // -----------------------------------------------------
+      // Only notify within 30 → 1 days
       if (daysLeft > 30 || daysLeft < 1) continue;
 
       const subject = `Annual Subscription Renewal – Action Required | ${c.name}`;
@@ -65,15 +75,12 @@ export async function GET() {
       <div style="font-family: Arial, sans-serif; background:#f5f7fa; padding:20px;">
         <div style="max-width:600px; margin:auto; background:white; border-radius:10px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
 
-          <!-- HEADER -->
           <div style="background:#1e3a8a; padding:20px; text-align:center;">
             <img src="https://ctistech.com/logo.png" alt="CTIS Logo" style="width:120px; margin-bottom:10px;" />
             <h2 style="color:white; margin:0;">Central Tech Information System</h2>
           </div>
 
-          <!-- BODY -->
           <div style="padding:25px; color:#333; line-height:1.6;">
-
             <p>Dear <strong>${c.name}</strong>,</p>
 
             <p>Your EMR Software annual subscription will expire in 
@@ -102,7 +109,6 @@ export async function GET() {
             <p>If you have already renewed your subscription, please disregard this notice.</p>
           </div>
 
-          <!-- FOOTER -->
           <div style="background:#f0f0f0; padding:15px; text-align:center; font-size:13px; color:#555;">
             <p>Central Tech Information System (CTIS)</p>
             <p><a href="https://www.ctistech.com">www.ctistech.com</a></p>
@@ -119,35 +125,25 @@ export async function GET() {
         html
       );
 
-      if (ok) sent++;
-    }
+      if (ok) {
+        sent++;
 
-    // -----------------------------------------------------
-    // LOG SUCCESS
-    // -----------------------------------------------------
-    await supabaseAdmin.from("cron_logs").insert({
-      job_name: "renewal_reminder",
-      status: "success",
-      companies_notified: sent,
-      message: "Daily renewal reminders sent",
-    });
+        // Log reminder history
+        await supabaseAdmin.from("renewal_reminder_history").insert({
+          company_id: c.id,
+          days_left: daysLeft,
+          sent_at: new Date().toISOString(),
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,
+      message: `Bulk reminders sent (${sent})`,
       count: sent,
-      message: "Daily renewal reminders sent",
     });
-
   } catch (err) {
-    console.error("Cron error:", err);
-
-    await supabaseAdmin.from("cron_logs").insert({
-      job_name: "renewal_reminder",
-      status: "failed",
-      companies_notified: 0,
-      message: "Cron failed",
-      error: String(err),
-    });
+    console.error("Bulk notify error:", err);
 
     return NextResponse.json(
       { success: false, message: "Server error" },
