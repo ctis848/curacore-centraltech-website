@@ -211,7 +211,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         return (
                           <form
                             key={item.href}
-                            action="/app/auth/admin/login"
+                            action="/auth/admin/login"
                             method="POST"
                             className="w-full"
                           >
@@ -262,7 +262,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       return (
                         <form
                           key={item.href}
-                          action="/app/auth/admin/login"
+                          action="/auth/admin/login"
                           method="POST"
                           className="w-full"
                         >
