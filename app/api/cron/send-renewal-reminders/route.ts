@@ -1,28 +1,19 @@
+// FILE: /app/api/cron/send-renewal-reminders/route.ts
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { differenceInDays } from "date-fns";
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL; // e.g. info@ctistech.com
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || NOTIFY_EMAIL;
-
-// -----------------------------------------------------
-// HARD FAIL IF ENV IS MISCONFIGURED
-// -----------------------------------------------------
-function ensureEnv() {
-  if (!BREVO_API_KEY) throw new Error("BREVO_API_KEY is not set");
-  if (!NOTIFY_EMAIL) throw new Error("NOTIFY_EMAIL is not set");
-  if (!ADMIN_EMAIL) throw new Error("ADMIN_EMAIL is not set");
-}
+const BREVO_API_KEY = process.env.BREVO_API_KEY as string;
+const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL as string;
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || NOTIFY_EMAIL) as string;
 
 // -----------------------------------------------------
 // SEND EMAIL (BREVO)
 // -----------------------------------------------------
-async function sendBrevoEmail(
-  toEmail: string,
-  subject: string,
-  html: string
-): Promise<{ ok: boolean; status: number; body: string }> {
+async function sendBrevoEmail(toEmail: string, subject: string, html: string) {
   const payload = {
     sender: { name: "CentralCore Renewals", email: NOTIFY_EMAIL },
     to: [{ email: toEmail }],
@@ -33,33 +24,25 @@ async function sendBrevoEmail(
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
-      "api-key": BREVO_API_KEY as string,
+      "api-key": BREVO_API_KEY,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   });
 
-  const body = await res.text();
-  return { ok: res.ok, status: res.status, body };
+  return res.ok;
 }
 
 // -----------------------------------------------------
-// RETRY SYSTEM (3 attempts)
+// RETRY SYSTEM
 // -----------------------------------------------------
-async function retry(
-  fn: () => Promise<{ ok: boolean; status: number; body: string }>,
-  attempts = 3
-) {
-  let last: { ok: boolean; status: number; body: string } | null = null;
-
+async function retry(fn: () => Promise<boolean>, attempts = 3) {
   for (let i = 0; i < attempts; i++) {
-    const res = await fn();
-    last = res;
-    if (res.ok) return res;
+    const ok = await fn();
+    if (ok) return true;
     await new Promise((r) => setTimeout(r, 1000));
   }
-
-  return last ?? { ok: false, status: 0, body: "No response" };
+  return false;
 }
 
 // -----------------------------------------------------
@@ -67,53 +50,56 @@ async function retry(
 // -----------------------------------------------------
 export async function GET() {
   try {
-    ensureEnv();
+    let companies: any[] = [];
+    let supabaseFailed = false;
 
-    // Load companies with renewal dates
-    const { data: companies, error } = await supabaseAdmin
-      .from("companies")
-      .select(
-        "id, name, renewal_date, annual_price, contact_email, portal_password"
-      )
-      .not("renewal_date", "is", null);
+    // -----------------------------------------------------
+    // LOAD COMPANIES
+    // -----------------------------------------------------
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("companies")
+        .select("id, name, renewal_date, annual_price, email")
+        .not("renewal_date", "is", null);
 
-    if (error || !companies) {
-      console.error("DB error:", error);
-      return NextResponse.json({ success: false, message: "DB error" });
+      if (error || !data) supabaseFailed = true;
+      else companies = data;
+    } catch {
+      supabaseFailed = true;
+    }
+
+    // -----------------------------------------------------
+    // FALLBACK MODE
+    // -----------------------------------------------------
+    if (supabaseFailed) {
+      companies = [
+        {
+          id: "fallback-1",
+          name: "Test Hospital",
+          renewal_date: new Date().toISOString(),
+          annual_price: 500000,
+          email: NOTIFY_EMAIL,
+        },
+      ];
     }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     let sent = 0;
-    const notifiedCompanies: {
-      id: string;
-      name: string;
-      email: string;
-      daysLeft: number;
-      renewalDate: string;
-      annualPrice: number;
-    }[] = [];
 
+    // -----------------------------------------------------
+    // PROCESS COMPANIES
+    // -----------------------------------------------------
     for (const c of companies) {
-      if (!c.renewal_date) continue;
-
       const renewalDate = new Date(c.renewal_date);
-      if (isNaN(renewalDate.getTime())) {
-        console.warn("Invalid renewal_date for company:", c.id, c.name, c.renewal_date);
-        continue;
-      }
-
       const daysLeft = differenceInDays(renewalDate, today);
 
-      // DAILY REMINDER FROM 30 DAYS → 0 DAY (inclusive)
-      if (daysLeft > 30 || daysLeft < 0) continue;
-
-      const email = c.contact_email || NOTIFY_EMAIL;
-      if (!email) {
-        console.warn("No email for company:", c.id, c.name);
-        continue;
+      if (!supabaseFailed) {
+        if (daysLeft > 30 || daysLeft < 0) continue;
       }
+
+      const email = c.email || NOTIFY_EMAIL;
 
       const subject = `Annual Subscription Renewal – Action Required | ${c.name}`;
 
@@ -124,7 +110,7 @@ export async function GET() {
           <p>Dear <strong>${c.name}</strong>,</p>
 
           <p>Your EMR Software annual subscription will expire in 
-          <strong style="color:#d9534f;">${daysLeft} day${daysLeft === 1 ? "" : "s"}</strong>.</p>
+          <strong style="color:#d9534f;">${supabaseFailed ? "N/A (Test Mode)" : daysLeft + " days"}</strong>.</p>
 
           <p>To avoid interruption of your EMR access, patient records, and reporting tools, please proceed with your renewal.</p>
 
@@ -132,15 +118,15 @@ export async function GET() {
           <ul>
             <li><strong>Company:</strong> ${c.name}</li>
             <li><strong>Next Renewal Date:</strong> ${renewalDate.toLocaleDateString()}</li>
-            <li><strong>Annual Fee:</strong> ₦${Number(c.annual_price || 0).toLocaleString()}</li>
+            <li><strong>Annual Fee:</strong> ₦${c.annual_price.toLocaleString()}</li>
           </ul>
 
           <h3>How to Renew</h3>
           <ol>
             <li>Visit <a href="https://www.ctistech.com">www.ctistech.com</a></li>
             <li>Log in to your Client Portal</li>
-            <li>Email: <strong>${email}</strong></li>
-            <li>Password: <strong>${c.portal_password || "******"}</strong></li>
+            <li>Email: <strong>${c.email || "Your registered email"}</strong></li>
+            <li>Password: <strong>******</strong></li>
             <li>Click <strong>Renew Annual Payment</strong></li>
           </ol>
 
@@ -152,151 +138,62 @@ export async function GET() {
         </div>
       `;
 
-      const result = await retry(() => sendBrevoEmail(email, subject, html));
+      const ok = await retry(() => sendBrevoEmail(email, subject, html));
 
-      if (!result.ok) {
-        console.error("Failed to send renewal email:", {
-          companyId: c.id,
-          companyName: c.name,
-          email,
-          status: result.status,
-          body: result.body,
-        });
-
-        // ADMIN ALERT EMAIL
-        await retry(() =>
-          sendBrevoEmail(
-            ADMIN_EMAIL as string,
-            "CRON FAILURE ALERT – Renewal Reminder Not Sent",
-            `
-              <p><strong>CRON FAILED</strong></p>
-              <p>Company: ${c.name}</p>
-              <p>Email: ${email}</p>
-              <p>Days Left: ${daysLeft}</p>
-              <p>Error Status: ${result.status}</p>
-              <pre>${result.body}</pre>
-            `
-          )
+      if (!ok) {
+        await sendBrevoEmail(
+          ADMIN_EMAIL,
+          "CRON FAILURE ALERT",
+          `<p>Failed to send reminder for ${c.name}</p>`
         );
-
-        continue;
       }
 
-      sent++;
-      notifiedCompanies.push({
-        id: c.id,
-        name: c.name,
-        email,
-        daysLeft,
-        renewalDate: renewalDate.toISOString(),
-        annualPrice: Number(c.annual_price || 0),
-      });
+      if (ok) sent++;
     }
 
     // -----------------------------------------------------
-    // SEND SUMMARY EMAIL TO ADMIN / INFO@CTISTECH.COM
+    // SUMMARY EMAIL
     // -----------------------------------------------------
-    if (sent > 0) {
-      const summaryRows = notifiedCompanies
-        .map(
-          (c) => `
-          <tr>
-            <td>${c.name}</td>
-            <td>${c.email}</td>
-            <td>${c.daysLeft}</td>
-            <td>${new Date(c.renewalDate).toLocaleDateString()}</td>
-            <td>₦${c.annualPrice.toLocaleString()}</td>
-          </tr>
-        `
-        )
-        .join("");
-
-      const summaryHtml = `
-        <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-          <h2>Daily Renewal Reminder Summary</h2>
-          <p>The cron job has successfully sent renewal reminder emails to <strong>${sent}</strong> client(s).</p>
-          <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 13px;">
-            <thead>
-              <tr style="background:#f5f5f5;">
-                <th align="left">Company</th>
-                <th align="left">Email</th>
-                <th align="left">Days Left</th>
-                <th align="left">Renewal Date</th>
-                <th align="left">Annual Fee</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${summaryRows}
-            </tbody>
-          </table>
-          <p>Sent to: <strong>${ADMIN_EMAIL}</strong></p>
-          <p>Time: ${new Date().toLocaleString()}</p>
-        </div>
-      `;
-
-      await retry(() =>
-        sendBrevoEmail(
-          ADMIN_EMAIL as string,
-          `Daily Renewal Reminder Summary – ${sent} client(s) notified`,
-          summaryHtml
-        )
-      );
-    } else {
-      // Optional: notify admin that no clients were due
-      await retry(() =>
-        sendBrevoEmail(
-          ADMIN_EMAIL as string,
-          "Daily Renewal Reminder Summary – No clients due",
-          `
-            <p>No clients were within the 0–30 day renewal window today.</p>
-            <p>Time: ${new Date().toLocaleString()}</p>
-          `
-        )
-      );
-    }
+    await sendBrevoEmail(
+      ADMIN_EMAIL,
+      `Daily Renewal Summary – ${sent} sent`,
+      `<p>${sent} reminders sent.</p>`
+    );
 
     // -----------------------------------------------------
-    // LOG SUCCESS
+    // LOG TO cron_logs
     // -----------------------------------------------------
     await supabaseAdmin.from("cron_logs").insert({
       job_name: "renewal_reminder",
-      status: "success",
+      status: supabaseFailed ? "warning" : "success",
+      message: `Cron executed. ${sent} reminders sent.`,
+      error: null,
       companies_notified: sent,
-      message: "Daily renewal reminders processed",
+      supabase_status: supabaseFailed ? "fallback" : "ok",
+      metadata: {
+        fallback_mode: supabaseFailed,
+        timestamp: new Date().toISOString(),
+      },
     });
 
     return NextResponse.json({
       success: true,
       count: sent,
-      message: "Daily renewal reminders processed",
+      supabase: supabaseFailed ? "fallback" : "ok",
     });
-  } catch (err) {
-    console.error("Cron error:", err);
-
-    // LOG FAILURE
+  } catch (err: any) {
     await supabaseAdmin.from("cron_logs").insert({
       job_name: "renewal_reminder",
       status: "failed",
-      companies_notified: 0,
-      message: "Cron failed",
+      message: "Cron crashed",
       error: String(err),
+      companies_notified: 0,
+      supabase_status: "failed",
+      metadata: { timestamp: new Date().toISOString() },
     });
 
-    // Try to notify admin even on hard failure
-    if (ADMIN_EMAIL && BREVO_API_KEY && NOTIFY_EMAIL) {
-      await sendBrevoEmail(
-        ADMIN_EMAIL,
-        "CRON FATAL ERROR – Renewal Reminder Job",
-        `
-          <p><strong>CRON FATAL ERROR</strong></p>
-          <pre>${String(err)}</pre>
-          <p>Time: ${new Date().toLocaleString()}</p>
-        `
-      );
-    }
-
     return NextResponse.json(
-      { success: false, message: "Server error" },
+      { success: false, error: "Cron crashed" },
       { status: 500 }
     );
   }

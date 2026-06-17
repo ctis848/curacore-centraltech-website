@@ -93,8 +93,8 @@ async function handleAuth(req: NextRequest, res: NextResponse, supabase: any) {
 
   // Public routes allowed
   if (isPublic) {
-  return NextResponse.next();
-}
+    return NextResponse.next();
+  }
 
   // SUPERADMIN PROTECTED
   if (pathname.startsWith("/superadmin")) {

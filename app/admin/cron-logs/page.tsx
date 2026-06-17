@@ -202,8 +202,8 @@ export default function CronLogsPage() {
   }
 
   // -----------------------------------------------------
-  // SIMPLE LINE GRAPH (reminders per day)
-// -----------------------------------------------------
+  // SIMPLE LINE GRAPH
+  // -----------------------------------------------------
   function RemindersGraph() {
     const data = stats.perDayCounts;
     if (data.length === 0) {

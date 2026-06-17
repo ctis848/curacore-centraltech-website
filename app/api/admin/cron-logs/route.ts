@@ -1,3 +1,4 @@
+// FILE: /app/api/admin/cron-logs/route.ts
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -7,9 +8,6 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
 
-    // -----------------------------------------------------
-    // QUERY PARAMETERS
-    // -----------------------------------------------------
     const status = searchParams.get("status") || "ALL";
     const jobName = searchParams.get("job_name") || "ALL";
     const search = searchParams.get("search") || "";
@@ -29,38 +27,19 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false });
 
     // -----------------------------------------------------
-    // FILTER: STATUS
+    // FILTERS
     // -----------------------------------------------------
-    if (status !== "ALL") {
-      query = query.eq("status", status);
-    }
+    if (status !== "ALL") query = query.eq("status", status);
+    if (jobName !== "ALL") query = query.eq("job_name", jobName);
 
-    // -----------------------------------------------------
-    // FILTER: JOB NAME
-    // -----------------------------------------------------
-    if (jobName !== "ALL") {
-      query = query.eq("job_name", jobName);
-    }
-
-    // -----------------------------------------------------
-    // FILTER: SEARCH (message + error)
-    // -----------------------------------------------------
     if (search.trim()) {
       query = query.or(
-        `message.ilike.%${search}%,error.ilike.%${search}%`
+        `message.ilike.%${search}%,error.ilike.%${search}%,job_name.ilike.%${search}%`
       );
     }
 
-    // -----------------------------------------------------
-    // FILTER: DATE RANGE
-    // -----------------------------------------------------
-    if (dateFrom) {
-      query = query.gte("created_at", `${dateFrom}T00:00:00`);
-    }
-
-    if (dateTo) {
-      query = query.lte("created_at", `${dateTo}T23:59:59`);
-    }
+    if (dateFrom) query = query.gte("created_at", `${dateFrom}T00:00:00`);
+    if (dateTo) query = query.lte("created_at", `${dateTo}T23:59:59`);
 
     // -----------------------------------------------------
     // PAGINATION
@@ -68,7 +47,7 @@ export async function GET(req: Request) {
     query = query.range(offset, offset + limit - 1);
 
     // -----------------------------------------------------
-    // EXECUTE QUERY
+    // EXECUTE
     // -----------------------------------------------------
     const { data, error, count } = await query;
 
@@ -81,7 +60,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       success: true,
-      data: data || [],
+      data,
       pagination: {
         page,
         limit,
@@ -91,10 +70,7 @@ export async function GET(req: Request) {
     });
   } catch (err: any) {
     return NextResponse.json(
-      {
-        success: false,
-        error: err.message || "Unknown server error",
-      },
+      { success: false, error: err.message },
       { status: 500 }
     );
   }
