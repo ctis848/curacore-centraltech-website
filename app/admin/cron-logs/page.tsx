@@ -30,6 +30,23 @@ const PAGE_SIZE = 20;
 const AUTO_REFRESH_MS = 30_000;
 
 // -----------------------------------------------------
+// TOAST COMPONENT
+// -----------------------------------------------------
+function Toast({ message, type }: { message: string; type: "success" | "error" }) {
+  return (
+    <div
+      className={`
+        fixed top-5 right-5 px-4 py-3 rounded-lg shadow-lg text-white text-sm z-50
+        transition-all duration-300
+        ${type === "success" ? "bg-emerald-600" : "bg-red-600"}
+      `}
+    >
+      {message}
+    </div>
+  );
+}
+
+// -----------------------------------------------------
 // COMPONENT
 // -----------------------------------------------------
 export default function CronLogsPage() {
@@ -43,8 +60,14 @@ export default function CronLogsPage() {
   const [dateTo, setDateTo] = useState("");
 
   const [page, setPage] = useState(1);
-
   const [selectedLog, setSelectedLog] = useState<CronLog | null>(null);
+
+  const [runningCron, setRunningCron] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  // ROLE-BASED ACCESS
+  const userRole = "admin"; // Replace with real auth later
 
   // -----------------------------------------------------
   // LOAD LOGS (with auto-refresh)
@@ -69,6 +92,62 @@ export default function CronLogsPage() {
       setLoading(false);
     }
   }
+
+  // -----------------------------------------------------
+  // MANUAL RUN CRON
+  // -----------------------------------------------------
+  async function runCronNow() {
+    try {
+      setRunningCron(true);
+      setShowConfirm(false);
+
+      const res = await fetch("/api/cron/send-renewal-reminders");
+      const json = await res.json();
+
+      if (json.success) {
+        setToast({ message: `Cron executed successfully. Sent: ${json.count}`, type: "success" });
+        await loadLogs();
+      } else {
+        setToast({ message: "Cron executed but returned an error.", type: "error" });
+      }
+    } catch (err) {
+      setToast({ message: "Failed to run cron.", type: "error" });
+    } finally {
+      setRunningCron(false);
+
+      setTimeout(() => setToast(null), 3000);
+    }
+  }
+
+  // -----------------------------------------------------
+  // CONFIRMATION MODAL
+  // -----------------------------------------------------
+  const ConfirmModal = () => (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4">
+        <h2 className="text-lg font-semibold text-slate-800">Run Cron Now?</h2>
+        <p className="text-sm text-slate-600">
+          This will immediately execute the renewal reminder cron job.
+        </p>
+
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={() => setShowConfirm(false)}
+            className="px-4 py-2 bg-slate-200 rounded-lg hover:bg-slate-300 text-sm"
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={runCronNow}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm"
+          >
+            Yes, Run Now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   // -----------------------------------------------------
   // FILTERING
@@ -126,7 +205,6 @@ export default function CronLogsPage() {
 
     const lastRun = sorted[0]?.created_at || null;
 
-    // Next run: assume cron runs every day at 00:05 Africa/Lagos
     const now = new Date();
     const next = new Date();
     next.setDate(now.getDate() + 1);
@@ -269,13 +347,41 @@ export default function CronLogsPage() {
   // -----------------------------------------------------
   return (
     <div className="p-10 max-w-7xl mx-auto space-y-8">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
-          Cron Job Dashboard
-        </h1>
-        <p className="text-xs text-slate-500">
-          Auto-refresh every 30 seconds
-        </p>
+
+      {/* TOAST */}
+      {toast && <Toast message={toast.message} type={toast.type} />}
+
+      {/* CONFIRM MODAL */}
+      {showConfirm && <ConfirmModal />}
+
+      {/* HEADER + MANUAL CRON BUTTON */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+            Cron Job Dashboard
+          </h1>
+          <p className="text-xs text-slate-500">
+            Auto-refresh every 30 seconds
+          </p>
+        </div>
+
+        {userRole === "admin" && (
+          <button
+            onClick={() => setShowConfirm(true)}
+            disabled={runningCron}
+            className={`px-5 py-2 rounded-lg text-white font-semibold shadow flex items-center gap-2
+              ${
+                runningCron
+                  ? "bg-slate-400 cursor-not-allowed"
+                  : "bg-emerald-600 hover:bg-emerald-700"
+              }`}
+          >
+            {runningCron && (
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            )}
+            {runningCron ? "Running…" : "Run Cron Now"}
+          </button>
+        )}
       </div>
 
       {/* DASHBOARD CARDS */}
@@ -316,7 +422,6 @@ export default function CronLogsPage() {
           </p>
         </div>
       </div>
-
       {/* GRAPH */}
       <div className="bg-white rounded-xl shadow p-6 border space-y-3">
         <h2 className="text-lg font-semibold text-slate-800">
@@ -520,6 +625,7 @@ export default function CronLogsPage() {
                 <span className="font-semibold">Error:</span>{" "}
                 {selectedLog.error || "—"}
               </p>
+
               {selectedLog.metadata && (
                 <div>
                   <p className="font-semibold">Metadata:</p>
