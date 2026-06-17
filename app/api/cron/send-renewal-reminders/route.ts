@@ -103,38 +103,98 @@ export async function GET() {
 
       const subject = `Annual Subscription Renewal – Action Required | ${c.name}`;
 
+      const headerImage = "https://via.placeholder.com/600x150/1a237e/ffffff?text=CTIS+Technologies";
+      // Replace with your real CTIS banner URL
+
       const html = `
-        <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-          <h2 style="color:#4A4A4A;">Annual Subscription Renewal Reminder</h2>
+        <div style="font-family: Arial, sans-serif; background:#f5f7fa; padding:20px;">
+          <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:10px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
 
-          <p>Dear <strong>${c.name}</strong>,</p>
+            <!-- HEADER IMAGE -->
+            <div style="width:100%; text-align:center; background:#1a237e;">
+              <img src="${headerImage}" alt="CTIS Technologies" style="width:100%; max-width:600px; display:block;" />
+            </div>
 
-          <p>Your EMR Software annual subscription will expire in 
-          <strong style="color:#d9534f;">${supabaseFailed ? "N/A (Test Mode)" : daysLeft + " days"}</strong>.</p>
+            <!-- HEADER TITLE -->
+            <div style="background:#1a237e; padding:20px; text-align:center;">
+              <h1 style="color:#ffffff; margin:0; font-size:22px; font-weight:700;">
+                CTIS Annual Subscription Renewal
+              </h1>
+            </div>
 
-          <p>To avoid interruption of your EMR access, patient records, and reporting tools, please proceed with your renewal.</p>
+            <!-- BODY -->
+            <div style="padding:30px; color:#333; line-height:1.7;">
 
-          <h3>Your Subscription Details</h3>
-          <ul>
-            <li><strong>Company:</strong> ${c.name}</li>
-            <li><strong>Next Renewal Date:</strong> ${renewalDate.toLocaleDateString()}</li>
-            <li><strong>Annual Fee:</strong> ₦${c.annual_price.toLocaleString()}</li>
-          </ul>
+              <p style="font-size:16px;">Dear <strong>${c.name}</strong>,</p>
 
-          <h3>How to Renew</h3>
-          <ol>
-            <li>Visit <a href="https://www.ctistech.com">www.ctistech.com</a></li>
-            <li>Log in to your Client Portal</li>
-            <li>Email: <strong>${c.email || "Your registered email"}</strong></li>
-            <li>Password: <strong>******</strong></li>
-            <li>Click <strong>Renew Annual Payment</strong></li>
-          </ol>
+              <p style="font-size:15px;">
+                This is a reminder that your EMR Software annual subscription will expire in 
+                <strong style="color:#d9534f;">${supabaseFailed ? "N/A (Test Mode)" : daysLeft + " days"}</strong>.
+              </p>
 
-          <p>If you have already renewed, kindly disregard this message.</p>
+              <p style="font-size:15px;">
+                To avoid interruption of your EMR access, patient records, and reporting tools, please proceed with your renewal.
+              </p>
 
-          <p>Warm regards,<br/>
-          <strong>CTIS Support Team</strong><br/>
-          <a href="https://www.ctistech.com">www.ctistech.com</a></p>
+              <h3 style="margin-top:25px; color:#1a237e;">Your Subscription Details</h3>
+              <table style="width:100%; font-size:15px; margin-top:10px;">
+                <tr>
+                  <td style="padding:6px 0;"><strong>Company:</strong></td>
+                  <td>${c.name}</td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 0;"><strong>Next Renewal Date:</strong></td>
+                  <td>${renewalDate.toLocaleDateString()}</td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 0;"><strong>Annual Fee:</strong></td>
+                  <td>₦${c.annual_price.toLocaleString()}</td>
+                </tr>
+              </table>
+
+              <h3 style="margin-top:25px; color:#1a237e;">How to Renew</h3>
+              <ol style="font-size:15px; padding-left:18px; margin-top:10px;">
+                <li>Visit <a href="https://www.ctistech.com" style="color:#1a237e;">www.ctistech.com</a></li>
+                <li>Log in to your Client Portal</li>
+                <li>Email: <strong>${c.email}</strong></li>
+                <li>Password: <strong>******</strong></li>
+                <li>Click <strong>Renew Annual Payment</strong></li>
+              </ol>
+
+              <!-- BUTTON -->
+              <div style="text-align:center; margin:30px 0;">
+                <a href="https://www.ctistech.com"
+                  style="
+                    background:#1a237e;
+                    color:#ffffff;
+                    padding:12px 25px;
+                    border-radius:6px;
+                    text-decoration:none;
+                    font-size:16px;
+                    font-weight:600;
+                    display:inline-block;
+                  ">
+                  Renew Now
+                </a>
+              </div>
+
+              <p style="font-size:14px; color:#555;">
+                If you have already renewed, kindly disregard this message.
+              </p>
+
+              <p style="font-size:14px; margin-top:25px;">
+                Warm regards,<br/>
+                <strong>CTIS Support Team</strong><br/>
+                <a href="https://www.ctistech.com" style="color:#1a237e;">www.ctistech.com</a>
+              </p>
+            </div>
+
+            <!-- FOOTER -->
+            <div style="background:#eceff1; padding:15px; text-align:center; font-size:12px; color:#555;">
+              © ${new Date().getFullYear()} CTIS Technologies. All rights reserved.
+            </div>
+
+          </div>
         </div>
       `;
 
