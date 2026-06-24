@@ -64,15 +64,15 @@ export async function POST(req: Request) {
         id: newId,
         userId,
         userEmail,
-        companyName,
-        companyname: companyName, // your schema has both
+        companyName,          // ✔ correct column
         productName,
-        requestKey,
+        requestKey: requestKey.trim(), // ✔ sanitize
         notes: notes || null,
         status: "PENDING",
       })
       .select()
       .single();
+
 
     if (error) {
       console.error("🔥 SUPABASE INSERT ERROR:", error);
