@@ -1,6 +1,5 @@
 import type { NextConfig } from "next";
 
-/** @type {import('next').NextConfig} */
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
@@ -10,13 +9,13 @@ const nextConfig: NextConfig = {
     },
   },
 
-  // ⭐ Force Webpack instead of Turbopack (Next.js 16 supported way)
+  // ⭐ Explicitly disable Turbopack by providing an empty config
+  turbopack: {},
+
+  // ⭐ Force Webpack build
   webpack: (config) => {
     return config;
   },
-
-  // ⭐ Disable Turbopack by enabling Webpack compiler
-  compiler: {},
 };
 
 export default nextConfig;
