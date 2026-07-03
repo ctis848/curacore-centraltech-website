@@ -15,10 +15,12 @@ export async function GET(req: Request) {
 
     const supabase = supabaseServer();
 
-    // Fetch license
+    // ----------------------------------------------------
+    // FETCH LICENSE
+    // ----------------------------------------------------
     const { data: license, error: licErr } = await supabase
-      .from("License") // MUST match your actual table name
-      .select("id, userId, annualFeePercent, annualFeePaidUntil")
+      .from("License")
+      .select("id, userId, plan, quantity, annualFeePaidUntil")
       .eq("id", licenseId)
       .single();
 
@@ -29,7 +31,9 @@ export async function GET(req: Request) {
       );
     }
 
-    // Fetch logged‑in user
+    // ----------------------------------------------------
+    // AUTHENTICATED USER
+    // ----------------------------------------------------
     const { data: userData } = await supabase.auth.getUser();
     const user = userData?.user;
 
@@ -54,35 +58,45 @@ export async function GET(req: Request) {
       );
     }
 
-    // Calculate renewal amount
-    const basePrice = 100000; // Replace with your real license price
-    const percent = license.annualFeePercent ?? 20; // fallback safety
-    const amount = Math.round((percent / 100) * basePrice);
+    // ----------------------------------------------------
+    // CALCULATE ANNUAL RENEWAL FEE
+    // ----------------------------------------------------
+    let planPrice = 0;
 
-    if (amount <= 0) {
+    if (license.plan === "Starter") planPrice = 250000;
+    if (license.plan === "Pro") planPrice = 350000;
+    if (license.plan === "Enterprise") planPrice = 550000;
+
+    const maintenanceFeePerLicense = 0.20 * planPrice;
+    const annualRenewalAmount = maintenanceFeePerLicense * license.quantity;
+
+    if (annualRenewalAmount <= 0) {
       return NextResponse.json(
         { error: "Invalid renewal amount" },
         { status: 400 }
       );
     }
 
-    // Validate Paystack key
+    // ----------------------------------------------------
+    // VALIDATE ENVIRONMENT VARIABLES
+    // ----------------------------------------------------
     if (!process.env.PAYSTACK_SECRET_KEY) {
       return NextResponse.json(
-        { error: "Paystack secret key missing in environment variables" },
+        { error: "Paystack secret key missing" },
         { status: 500 }
       );
     }
 
-    // Validate callback base URL
     if (!process.env.NEXT_PUBLIC_BASE_URL) {
       return NextResponse.json(
-        { error: "NEXT_PUBLIC_BASE_URL is missing" },
+        { error: "NEXT_PUBLIC_BASE_URL missing" },
         { status: 500 }
       );
     }
 
-    // Create Paystack session
+    // ----------------------------------------------------
+    // INITIALIZE PAYSTACK PAYMENT
+    // ----------------------------------------------------
     const paystackRes = await fetch(
       "https://api.paystack.co/transaction/initialize",
       {
@@ -93,10 +107,14 @@ export async function GET(req: Request) {
         },
         body: JSON.stringify({
           email: user.email,
-          amount: amount * 100, // Paystack uses kobo
+          amount: annualRenewalAmount * 100, // Paystack uses kobo
           metadata: {
             licenseId,
             renewal: true,
+            plan: license.plan,
+            quantity: license.quantity,
+            maintenanceFeePerLicense,
+            annualRenewalAmount,
           },
           callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/payments/renew-annual/verify`,
         }),
@@ -115,6 +133,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       checkoutUrl: paystackData.data.authorization_url,
+      annualRenewalAmount,
     });
   } catch (err) {
     console.error("Renew annual API error:", err);

@@ -10,7 +10,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing reference" }, { status: 400 });
     }
 
-    // Verify with Paystack
+    // ----------------------------------------------------
+    // VERIFY PAYMENT WITH PAYSTACK
+    // ----------------------------------------------------
     const verifyRes = await fetch(
       `https://api.paystack.co/transaction/verify/${reference}`,
       {
@@ -31,41 +33,48 @@ export async function GET(req: Request) {
 
     const supabase = supabaseServer();
 
-    // Get license
+    // ----------------------------------------------------
+    // GET LICENSE
+    // ----------------------------------------------------
     const { data: license } = await supabase
       .from("License")
       .select("annualFeePaidUntil")
       .eq("id", licenseId)
       .single();
 
-    // Extend renewal by 1 year
+    // ----------------------------------------------------
+    // EXTEND RENEWAL BY 1 YEAR
+    // ----------------------------------------------------
     const current = license?.annualFeePaidUntil
       ? new Date(license.annualFeePaidUntil)
       : new Date();
 
     current.setFullYear(current.getFullYear() + 1);
 
-    // Update license
     await supabase
       .from("License")
       .update({ annualFeePaidUntil: current.toISOString() })
       .eq("id", licenseId);
 
-    // Log renewal history
+    // ----------------------------------------------------
+    // LOG RENEWAL HISTORY
+    // ----------------------------------------------------
     await supabase.from("RenewalHistory").insert({
       licenseId,
       reference,
-      amount: verifyData.data.amount / 100,
+      amount: metadata.annualRenewalAmount,
       paidAt: new Date().toISOString(),
     });
 
-    // Send receipt email
+    // ----------------------------------------------------
+    // SEND RECEIPT EMAIL
+    // ----------------------------------------------------
     await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/email/renewal-receipt`, {
       method: "POST",
       body: JSON.stringify({
         email: verifyData.data.customer.email,
         licenseId,
-        amount: verifyData.data.amount / 100,
+        amount: metadata.annualRenewalAmount,
         reference,
       }),
     });

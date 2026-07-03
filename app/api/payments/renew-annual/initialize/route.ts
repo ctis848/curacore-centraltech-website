@@ -9,11 +9,11 @@ export async function POST(req: NextRequest) {
     const supabase = supabaseServer();
     const body = await req.json();
 
-    const { licenseId, amount, clientId, companyName, plan, quantity } = body;
+    const { licenseId, clientId, companyName, plan, quantity } = body;
 
-    if (!licenseId || !amount) {
+    if (!licenseId || !plan || !quantity) {
       return NextResponse.json(
-        { error: "Missing licenseId or amount" },
+        { error: "Missing licenseId, plan, or quantity" },
         { status: 400 }
       );
     }
@@ -38,6 +38,18 @@ export async function POST(req: NextRequest) {
     }
 
     // ----------------------------------------------------
+    // CALCULATE ANNUAL RENEWAL FEE
+    // ----------------------------------------------------
+    let planPrice = 0;
+
+    if (plan === "Starter") planPrice = 250000;
+    if (plan === "Pro") planPrice = 350000;
+    if (plan === "Enterprise") planPrice = 550000;
+
+    const maintenanceFeePerLicense = 0.20 * planPrice;
+    const annualRenewalAmount = maintenanceFeePerLicense * quantity;
+
+    // ----------------------------------------------------
     // INITIALIZE PAYSTACK PAYMENT
     // ----------------------------------------------------
     const initRes = await fetch(
@@ -50,19 +62,20 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify({
           email,
-          amount: amount * 100,
+          amount: annualRenewalAmount * 100, // Paystack expects kobo
           currency: "NGN",
           callback_url: `${APP_BASE_URL}/payment/status?reference={reference}`,
 
-          // ⭐ EXTENDED METADATA FOR WEBHOOK + ADMIN DASHBOARD
           metadata: {
             type: "ANNUAL_RENEWAL",
             licenseId,
             userId: user.id,
             clientId: clientId ?? null,
             companyName: companyName ?? "",
-            plan: plan ?? "",
-            quantity: quantity ?? 1,
+            plan,
+            quantity,
+            maintenanceFeePerLicense,
+            annualRenewalAmount,
           },
         }),
       }
@@ -80,6 +93,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       authorization_url: initData.data.authorization_url,
       reference: initData.data.reference,
+      annualRenewalAmount,
     });
   } catch (err) {
     console.error("RENEW-ANNUAL INITIALIZE ERROR:", err);

@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     // Load company billing info
     const { data: company, error: companyErr } = await supabase
       .from("companies")
-      .select("id, name, annual_price, license_count")
+      .select("id, name, license_plan_price, license_count")
       .eq("id", companyId)
       .single();
 
@@ -28,7 +28,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // ⭐ FIX: users is ALWAYS an array → so we extract [0]
+    // ⭐ Annual Maintenance Fee Per License = 20% × plan price
+    const maintenanceFeePerLicense = 0.20 * company.license_plan_price;
+
+    // ⭐ Annual Renewal = maintenanceFeePerLicense × license_count
+    const annualRenewalAmount = maintenanceFeePerLicense * company.license_count;
+
+    // Load company owner email
     const { data: owner, error: ownerErr } = await supabase
       .from("user_companies")
       .select("users(email)")
@@ -55,12 +61,14 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           email: customerEmail,
-          amount: company.annual_price * 100,
+          amount: annualRenewalAmount * 100, // Paystack expects amount in kobo
           metadata: {
             type: "ANNUAL_RENEWAL",
             companyId: company.id,
             companyName: company.name,
             licenseCount: company.license_count,
+            maintenanceFeePerLicense,
+            annualRenewalAmount,
           },
           callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/client/renew-annual?company_id=${company.id}`,
         }),
@@ -79,6 +87,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       authorization_url: paystackJson.data.authorization_url,
+      annualRenewalAmount,
     });
   } catch (err: any) {
     console.error("Renew License API Error:", err);
