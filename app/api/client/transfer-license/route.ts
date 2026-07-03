@@ -74,6 +74,26 @@ export async function POST(req: Request) {
       );
     }
 
+    // ---------------------------------------------------------
+    // ⭐ NEW RULE: Only clients with active licenses can transfer
+    // ---------------------------------------------------------
+    const { data: activeLicenses } = await supabase
+      .from("LicenseRequest")
+      .select("id")
+      .eq("userEmail", user.email)
+      .eq("status", "APPROVED");
+
+    if (!activeLicenses || activeLicenses.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "You cannot transfer a license because you do not have any active licenses.",
+        },
+        { status: 403 }
+      );
+    }
+
     // Confirm old license exists
     const { data: oldReq, error: oldErr } = await supabase
       .from("LicenseRequest")

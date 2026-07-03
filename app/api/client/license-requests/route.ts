@@ -53,6 +53,38 @@ export async function POST(req: Request) {
       );
     }
 
+    // ---------------------------------------------------------
+    // ⭐ NEW RULE: Client must purchase additional license first
+    // ---------------------------------------------------------
+
+    // 1️⃣ Count active licenses
+    const { data: activeLicenses } = await supabaseAdmin
+      .from("ActiveLicenses")
+      .select("id")
+      .eq("userId", userId);
+
+    const activeCount = activeLicenses?.length || 0;
+
+    // 2️⃣ Count purchased licenses
+    const { data: purchasedLicenses } = await supabaseAdmin
+      .from("Payments")
+      .select("id")
+      .eq("userId", userId)
+      .eq("status", "PAID");
+
+    const purchasedCount = purchasedLicenses?.length || 0;
+
+    // 3️⃣ If all purchased licenses are already active → BLOCK
+    if (activeCount >= purchasedCount) {
+      return NextResponse.json(
+        {
+          error:
+            "You have used all your purchased licenses. Please purchase an additional license before requesting a new License Request Key.",
+        },
+        { status: 403 }
+      );
+    }
+
     // -------------------------------
     // INSERT INTO LicenseRequest TABLE
     // -------------------------------
@@ -64,15 +96,14 @@ export async function POST(req: Request) {
         id: newId,
         userId,
         userEmail,
-        companyName,          // ✔ correct column
+        companyName,
         productName,
-        requestKey: requestKey.trim(), // ✔ sanitize
+        requestKey: requestKey.trim(),
         notes: notes || null,
         status: "PENDING",
       })
       .select()
       .single();
-
 
     if (error) {
       console.error("🔥 SUPABASE INSERT ERROR:", error);
