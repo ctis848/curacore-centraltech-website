@@ -11,6 +11,7 @@ export default function ClientDashboardPage() {
   const [daysRemaining, setDaysRemaining] = useState<number>(0);
   const [renewalStatus, setRenewalStatus] =
     useState<"DUE" | "NOT_DUE">("NOT_DUE");
+  const [renewalCount, setRenewalCount] = useState<number>(0);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -23,6 +24,7 @@ export default function ClientDashboardPage() {
 
       const userId = user.id;
 
+      // Get company membership
       const { data: membership } = await supabase
         .from("user_companies")
         .select("company_id")
@@ -31,6 +33,7 @@ export default function ClientDashboardPage() {
 
       if (!membership) return;
 
+      // Get company details
       const { data: companyData } = await supabase
         .from("companies")
         .select("*")
@@ -39,16 +42,23 @@ export default function ClientDashboardPage() {
 
       setCompany(companyData);
 
+      // Get license renewal info
       const { data: renewalData } = await supabase
         .from("License")
-        .select("annualFeePaidUntil")
+        .select("annualFeePaidUntil, renewalCount")
         .eq("userId", userId)
         .eq("status", "ACTIVE")
         .order("annualFeePaidUntil", { ascending: false })
         .limit(1);
 
       if (renewalData && renewalData.length > 0) {
-        const nextDate = new Date(renewalData[0].annualFeePaidUntil);
+        const license = renewalData[0];
+
+        // Set renewal count
+        setRenewalCount(license.renewalCount ?? 0);
+
+        // Set next renewal date
+        const nextDate = new Date(license.annualFeePaidUntil);
         setNextRenewal(nextDate);
 
         const today = new Date();
@@ -91,8 +101,8 @@ export default function ClientDashboardPage() {
         <DashboardCard
           title="Renewal Date"
           value={
-            company?.renewal_date
-              ? new Date(company.renewal_date).toLocaleDateString()
+            nextRenewal
+              ? nextRenewal.toLocaleDateString()
               : "—"
           }
         />
@@ -100,6 +110,12 @@ export default function ClientDashboardPage() {
         <DashboardCard
           title="Total Licenses Allowed"
           value={company?.license_count ?? "—"}
+        />
+
+        {/* ⭐ NEW: Renewal Count */}
+        <DashboardCard
+          title="Total Renewals"
+          value={renewalCount}
         />
       </div>
 

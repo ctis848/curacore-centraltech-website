@@ -38,22 +38,35 @@ export async function GET(req: Request) {
     // ----------------------------------------------------
     const { data: license } = await supabase
       .from("License")
-      .select("annualFeePaidUntil")
+      .select("annualFeePaidUntil, renewalCount")
       .eq("id", licenseId)
       .single();
+
+    if (!license) {
+      return NextResponse.json(
+        { error: "License not found" },
+        { status: 404 }
+      );
+    }
 
     // ----------------------------------------------------
     // EXTEND RENEWAL BY 1 YEAR
     // ----------------------------------------------------
-    const current = license?.annualFeePaidUntil
+    const current = license.annualFeePaidUntil
       ? new Date(license.annualFeePaidUntil)
       : new Date();
 
     current.setFullYear(current.getFullYear() + 1);
 
+    // ----------------------------------------------------
+    // UPDATE LICENSE: NEXT PAYMENT DATE + RENEWAL COUNT
+    // ----------------------------------------------------
     await supabase
       .from("License")
-      .update({ annualFeePaidUntil: current.toISOString() })
+      .update({
+        annualFeePaidUntil: current.toISOString(),
+        renewalCount: (license.renewalCount ?? 0) + 1
+      })
       .eq("id", licenseId);
 
     // ----------------------------------------------------
