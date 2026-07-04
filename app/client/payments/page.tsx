@@ -12,14 +12,8 @@ export type ClientPayment = {
   status: string | null;
   reference: string | null;
   gateway: string | null;
-  channel: string | null;
+  purpose: string | null;       // ⭐ Correct field
   created_at: string | null;
-
-  // ⭐ NEW FIELDS FROM API
-  paymentType?: string | null;
-  plan?: string | null;
-  quantity?: number | string | null;
-  companyName?: string | null;
 };
 
 export default function ClientPaymentsPage() {
@@ -51,7 +45,6 @@ export default function ClientPaymentsPage() {
     const res = await fetch("/api/client/payments");
     const json = await res.json();
 
-    // ⭐ FIX: API returns { data: [...] }
     if (json.data) setPayments(json.data);
 
     setLoading(false);
@@ -80,8 +73,7 @@ export default function ClientPaymentsPage() {
         (p.reference ?? "").toLowerCase().includes(s) ||
         (p.status ?? "").toLowerCase().includes(s) ||
         (p.gateway ?? "").toLowerCase().includes(s) ||
-        (p.plan ?? "").toLowerCase().includes(s) ||
-        (p.companyName ?? "").toLowerCase().includes(s);
+        (p.purpose ?? "").toLowerCase().includes(s);   // ⭐ Correct search field
 
       const matchesStatus =
         statusFilter === "ALL" ||
@@ -172,7 +164,7 @@ export default function ClientPaymentsPage() {
       <div className="p-6 bg-white rounded-xl shadow-md border border-slate-200 space-y-6">
         <input
           type="text"
-          placeholder="🔍 Search by reference, status, plan, or company..."
+          placeholder="🔍 Search by reference, status, gateway, or purpose..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full px-4 py-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400"

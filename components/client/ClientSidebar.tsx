@@ -88,6 +88,7 @@ export default function ClientSidebar() {
       icon: Wallet,
       items: [
         { href: "/client/payments", label: "Payments", icon: CreditCard },
+        { href: "/client/service-payments", label: "Service Payments", icon: Headphones },
         { href: "/client/invoice-history", label: "Invoice History", icon: FileText },
         { href: "/client/renew-annual", label: "Renew Annual Payment", icon: RefreshCcw },
         { href: "/client/renewal-history", label: "Renewal History", icon: History },

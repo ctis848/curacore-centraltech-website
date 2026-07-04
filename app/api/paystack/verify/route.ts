@@ -34,7 +34,6 @@ export async function GET(req: Request) {
     const raw = await verifyRes.text();
     const trimmed = raw.trim();
 
-    // Paystack sometimes returns HTML when rate-limited
     if (trimmed.startsWith("<")) {
       return NextResponse.json(
         { success: false, status: "failed", error: "Paystack returned HTML" },
@@ -87,7 +86,25 @@ export async function GET(req: Request) {
     }
 
     // ----------------------------------------------------
-    // 4️⃣ UPDATE INVOICE AS PAID
+    // 4️⃣ FETCH INVOICE TO GET USER ID
+    // ----------------------------------------------------
+    const { data: invoice, error: invoiceErr } = await supabaseAdmin
+      .from("invoices")
+      .select("id, user_id")
+      .eq("id", invoiceId)
+      .single();
+
+    if (invoiceErr || !invoice) {
+      return NextResponse.json(
+        { success: false, error: "Invoice not found" },
+        { status: 404 }
+      );
+    }
+
+    const userId = invoice.user_id;
+
+    // ----------------------------------------------------
+    // 5️⃣ UPDATE INVOICE AS PAID
     // ----------------------------------------------------
     const { error: updateErr } = await supabaseAdmin
       .from("invoices")
@@ -106,6 +123,22 @@ export async function GET(req: Request) {
       );
     }
 
+    // ----------------------------------------------------
+    // 6️⃣ INSERT PAYMENT RECORD (NEW)
+    // ----------------------------------------------------
+    await supabaseAdmin.from("Payment").insert({
+      userid: userId,
+      amount: tx.amount / 100, // Paystack returns amount in kobo
+      currency: tx.currency,
+      status: tx.status,
+      reference: reference,
+      gateway: "paystack",
+      purpose: "invoice payment",
+    });
+
+    // ----------------------------------------------------
+    // 7️⃣ RETURN SUCCESS
+    // ----------------------------------------------------
     return NextResponse.json(
       {
         success: true,

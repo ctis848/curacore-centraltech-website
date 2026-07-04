@@ -1,3 +1,5 @@
+// PATH: app/api/payments/renew-annual/route.ts
+
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -7,10 +9,7 @@ export async function GET(req: Request) {
     const licenseId = searchParams.get("licenseId");
 
     if (!licenseId) {
-      return NextResponse.json(
-        { error: "Missing licenseId" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing licenseId" }, { status: 400 });
     }
 
     const supabase = supabaseServer();
@@ -25,10 +24,7 @@ export async function GET(req: Request) {
       .single();
 
     if (licErr || !license) {
-      return NextResponse.json(
-        { error: "License not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "License not found" }, { status: 404 });
     }
 
     // ----------------------------------------------------
@@ -38,10 +34,7 @@ export async function GET(req: Request) {
     const user = userData?.user;
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     if (user.id !== license.userId) {
@@ -71,27 +64,7 @@ export async function GET(req: Request) {
     const annualRenewalAmount = maintenanceFeePerLicense * license.quantity;
 
     if (annualRenewalAmount <= 0) {
-      return NextResponse.json(
-        { error: "Invalid renewal amount" },
-        { status: 400 }
-      );
-    }
-
-    // ----------------------------------------------------
-    // VALIDATE ENVIRONMENT VARIABLES
-    // ----------------------------------------------------
-    if (!process.env.PAYSTACK_SECRET_KEY) {
-      return NextResponse.json(
-        { error: "Paystack secret key missing" },
-        { status: 500 }
-      );
-    }
-
-    if (!process.env.NEXT_PUBLIC_BASE_URL) {
-      return NextResponse.json(
-        { error: "NEXT_PUBLIC_BASE_URL missing" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Invalid renewal amount" }, { status: 400 });
     }
 
     // ----------------------------------------------------
@@ -107,13 +80,13 @@ export async function GET(req: Request) {
         },
         body: JSON.stringify({
           email: user.email,
-          amount: annualRenewalAmount * 100, // Paystack uses kobo
+          amount: annualRenewalAmount * 100,
           metadata: {
+            type: "ANNUAL_RENEWAL",
+            userId: user.id,
             licenseId,
-            renewal: true,
             plan: license.plan,
             quantity: license.quantity,
-            maintenanceFeePerLicense,
             annualRenewalAmount,
           },
           callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/payments/renew-annual/verify`,
@@ -137,9 +110,6 @@ export async function GET(req: Request) {
     });
   } catch (err) {
     console.error("Renew annual API error:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

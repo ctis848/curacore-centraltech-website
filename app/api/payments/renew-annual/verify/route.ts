@@ -1,3 +1,5 @@
+// PATH: app/api/payments/renew-annual/verify/route.ts
+
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -30,6 +32,7 @@ export async function GET(req: Request) {
 
     const metadata = verifyData.data.metadata;
     const licenseId = metadata.licenseId;
+    const amount = metadata.annualRenewalAmount;
 
     const supabase = supabaseServer();
 
@@ -38,15 +41,12 @@ export async function GET(req: Request) {
     // ----------------------------------------------------
     const { data: license } = await supabase
       .from("License")
-      .select("annualFeePaidUntil, renewalCount")
+      .select("annualFeePaidUntil, renewalCount, userId")
       .eq("id", licenseId)
       .single();
 
     if (!license) {
-      return NextResponse.json(
-        { error: "License not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "License not found" }, { status: 404 });
     }
 
     // ----------------------------------------------------
@@ -59,15 +59,29 @@ export async function GET(req: Request) {
     current.setFullYear(current.getFullYear() + 1);
 
     // ----------------------------------------------------
-    // UPDATE LICENSE: NEXT PAYMENT DATE + RENEWAL COUNT
+    // UPDATE LICENSE
     // ----------------------------------------------------
     await supabase
       .from("License")
       .update({
         annualFeePaidUntil: current.toISOString(),
-        renewalCount: (license.renewalCount ?? 0) + 1
+        renewalCount: (license.renewalCount ?? 0) + 1,
       })
       .eq("id", licenseId);
+
+    // ----------------------------------------------------
+    // LOG PAYMENT (NO ERRORS)
+    // ----------------------------------------------------
+    await supabase.from("Payment").insert({
+      userid: license.userId,
+      amount,
+      currency: "NGN",
+      status: "success",
+      reference,
+      gateway: "paystack",
+      purpose: "annual renewal",
+      created_at: new Date().toISOString(),
+    });
 
     // ----------------------------------------------------
     // LOG RENEWAL HISTORY
@@ -75,7 +89,7 @@ export async function GET(req: Request) {
     await supabase.from("RenewalHistory").insert({
       licenseId,
       reference,
-      amount: metadata.annualRenewalAmount,
+      amount,
       paidAt: new Date().toISOString(),
     });
 
@@ -87,7 +101,7 @@ export async function GET(req: Request) {
       body: JSON.stringify({
         email: verifyData.data.customer.email,
         licenseId,
-        amount: metadata.annualRenewalAmount,
+        amount,
         reference,
       }),
     });
@@ -97,9 +111,6 @@ export async function GET(req: Request) {
     );
   } catch (err) {
     console.error("Verification error:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -33,8 +33,7 @@ export async function POST(req: Request) {
     const event = JSON.parse(rawBody);
     const supabase = supabaseServer();
 
-    const allowedEvents = ["charge.success"];
-    if (!allowedEvents.includes(event.event)) {
+    if (event.event !== "charge.success") {
       return NextResponse.json({ success: true, ignored: true });
     }
 
@@ -53,7 +52,7 @@ export async function POST(req: Request) {
     // 1️⃣ IDEMPOTENCY CHECK
     // ----------------------------------------------------
     const { data: existing } = await supabase
-      .from("payments")
+      .from("Payment")
       .select("id")
       .eq("reference", reference)
       .maybeSingle();
@@ -63,17 +62,16 @@ export async function POST(req: Request) {
     }
 
     // ----------------------------------------------------
-    // 2️⃣ INSERT PAYMENT RECORD
+    // 2️⃣ INSERT PAYMENT RECORD (NO ERRORS)
     // ----------------------------------------------------
-    await supabase.from("payments").insert({
+    await supabase.from("Payment").insert({
+      userid: metadata.userId ?? null,
       amount,
       currency: "NGN",
       status: "success",
       reference,
-      email: customerEmail,
       gateway: "paystack",
-      channel: event.event,
-      metadata,
+      purpose: metadata.type ?? "general",
       created_at: new Date().toISOString(),
     });
 
@@ -138,14 +136,13 @@ export async function POST(req: Request) {
     }
 
     // ----------------------------------------------------
-    // 4️⃣ HANDLE NEW LICENSE PURCHASE (CREATE EMPTY SLOTS)
+    // 4️⃣ HANDLE NEW LICENSE PURCHASE
     // ----------------------------------------------------
     if (metadata.type === "NEW_LICENSE_PURCHASE") {
       const plan = metadata.plan;
       const quantity = Number(metadata.quantity || 1);
       const companyName = metadata.companyName;
 
-      // 1) Find or create client
       const { data: existingClient } = await supabase
         .from("clients")
         .select("*")
@@ -170,14 +167,13 @@ export async function POST(req: Request) {
         clientId = created?.id;
       }
 
-      // 2) Create EMPTY license slots (Admin will assign license_key later)
       for (let i = 0; i < quantity; i++) {
         await supabase.from("licenses").insert({
           client_id: clientId,
           plan,
-          license_key: null,        // Admin generates manually
-          machine_id: null,         // Client provides later
-          status: "PENDING",        // Not active yet
+          license_key: null,
+          machine_id: null,
+          status: "PENDING",
           activation_date: null,
           expires_at: null,
           payment_id: null,
@@ -187,7 +183,6 @@ export async function POST(req: Request) {
         });
       }
 
-      // 3) Log purchase
       await supabase.from("license_purchases").insert({
         client_id: clientId,
         plan,
@@ -197,7 +192,6 @@ export async function POST(req: Request) {
         created_at: new Date().toISOString(),
       });
 
-      // 4) Send receipt email
       if (customerEmail) {
         await sendEmail({
           to: customerEmail,
