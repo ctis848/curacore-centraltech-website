@@ -225,11 +225,11 @@ export default function BuyLicensePage() {
                 </p>
 
                 <span className="inline-block mt-2 bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                  Max 5 systems
+                  Max 8 systems
                 </span>
 
                 <p className="text-sm text-gray-600 mt-3">
-                  Cannot install on more than 5 systems
+                  Cannot install on more than 8 systems
                 </p>
               </div>
 
@@ -434,7 +434,7 @@ export default function BuyLicensePage() {
                 <strong>Bank:</strong> First Bank Nigeria
               </p>
               <p className="text-sm">
-                <strong>Account Number:</strong> 2022362320
+                <strong>Account Number:</strong> 2027076008
               </p>
               <p className="text-sm">
                 <strong>Account Name:</strong> Central Tech Information System Ltd
@@ -446,7 +446,7 @@ export default function BuyLicensePage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button
-                onClick={() => navigator.clipboard.writeText("2022362320")}
+                onClick={() => navigator.clipboard.writeText("2027076008")}
                 className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
               >
                 Copy Account Number
