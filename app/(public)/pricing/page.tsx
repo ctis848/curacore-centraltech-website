@@ -8,38 +8,44 @@ export default function PricingPage() {
     {
       id: "starter",
       title: "Starter",
-      price: "₦250,000 (One‑Time)",
-      desc: "Full access to all CentralCore EMR features — perfect for small clinics.",
+      price: "$5",
+      period: "per computer / month",
+      desc: "For small clinics. Maximum of 3 computers only.",
       features: [
         "Complete EMR Suite",
         "All modules included",
-        "Up to 3 users",
-        "20% annual support fee included",
+        "$5 per computer / month",
+        "Maximum of 3 computers total",
+        "Cannot install on more than 3 systems",
       ],
     },
     {
       id: "pro",
       title: "Pro",
-      price: "₦350,000 (One‑Time)",
-      desc: "Ideal for growing hospitals with more staff and departments.",
+      price: "$10",
+      period: "per system / month",
+      desc: "For growing hospitals. Maximum of 8 systems only.",
       features: [
         "Complete EMR Suite",
         "All modules included",
-        "Up to 5 users",
-        "20% annual support fee included",
+        "$10 per system / month",
+        "Maximum of 8 systems total",
+        "Cannot install on more than 8 systems",
       ],
       highlight: true,
     },
     {
       id: "enterprise",
       title: "Enterprise",
-      price: "₦550,000 (One‑Time)",
-      desc: "For large institutions, networks, and multi‑facility operations.",
+      price: "$20",
+      period: "per system / month",
+      desc: "For large institutions. Unlimited systems.",
       features: [
         "Complete EMR Suite",
         "All modules included",
-        "Unlimited users",
-        "20% annual support fee included",
+        "$20 per system / month",
+        "Unlimited computers",
+        "Install on as many systems as you need",
       ],
     },
   ];
@@ -65,7 +71,7 @@ export default function PricingPage() {
           </h1>
 
           <p className="text-xl md:text-2xl font-light max-w-3xl opacity-95 drop-shadow-[0_2px_10px_rgba(0,0,0,0.4)]">
-            Simple, transparent pricing designed for hospitals of all sizes.
+            Simple monthly pricing charged per computer. Each plan has a clear limit.
           </p>
         </div>
       </section>
@@ -86,14 +92,21 @@ export default function PricingPage() {
                   : "bg-white dark:bg-gray-800 dark:text-white border-teal-200 dark:border-gray-700"
               }`}
             >
-              <h3 className="text-3xl font-bold mb-3">{p.title}</h3>
-              <p className="text-4xl font-black mb-4">{p.price}</p>
+              <h3 className="text-3xl font-bold mb-2">{p.title}</h3>
+
+              <div className="mb-1">
+                <span className="text-5xl font-black">{p.price}</span>
+              </div>
+              <p className={`text-sm mb-4 ${p.highlight ? "text-teal-100" : "text-gray-500 dark:text-gray-400"}`}>
+                {p.period}
+              </p>
+
               <p className="mb-6 opacity-90">{p.desc}</p>
 
               <ul className="space-y-3 mb-8">
                 {p.features.map((f, idx) => (
-                  <li key={idx} className="flex items-center gap-2">
-                    <span className="text-green-500 text-xl">✔</span>
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-green-500 text-xl mt-0.5">✔</span>
                     <span>{f}</span>
                   </li>
                 ))}

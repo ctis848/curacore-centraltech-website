@@ -17,11 +17,17 @@ export default function BuyLicensePage() {
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState("");
 
-  // PRICING
+  // Monthly pricing per system
   const planPrices: Record<string, number> = {
-    starter: 250000,
-    pro: 350000,
-    enterprise: 550000,
+    starter: 5,
+    pro: 10,
+    enterprise: 20,
+  };
+
+  const planMaxQuantity: Record<string, number> = {
+    starter: 3,
+    pro: 5,
+    enterprise: 100,
   };
 
   const VAT_RATE = 0.075;
@@ -40,17 +46,18 @@ export default function BuyLicensePage() {
   const vatAmount = subtotal * VAT_RATE;
   const totalAmount = subtotal + vatAmount;
 
-  const annualFees: Record<string, number> = {
-    starter: planPrices.starter * 0.2 * quantity,
-    pro: planPrices.pro * 0.2 * quantity,
-    enterprise: planPrices.enterprise * 0.2 * quantity,
-  };
+  const formatUSD = (num: number) =>
+    num.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
-  const formatNaira = (num: number) =>
-    num.toLocaleString("en-NG", { style: "currency", currency: "NGN" });
+  const maxQty = planMaxQuantity[plan];
 
-  const increaseQty = () => setQuantity((prev) => Math.min(prev + 1, 50));
+  const increaseQty = () => setQuantity((prev) => Math.min(prev + 1, maxQty));
   const decreaseQty = () => setQuantity((prev) => Math.max(prev - 1, 1));
+
+  const handlePlanChange = (newPlan: "starter" | "pro" | "enterprise") => {
+    setPlan(newPlan);
+    setQuantity(1);
+  };
 
   // COUPON
   async function applyCoupon() {
@@ -96,28 +103,22 @@ export default function BuyLicensePage() {
     try {
       setLoading(true);
 
-      // Paystack expects amount in kobo
-      const amountInNaira = Math.round(totalAmount);
-
       const res = await fetch("/api/payments/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: amountInNaira,
+          amount: Math.round(totalAmount),
           email,
           companyName,
           plan,
           quantity,
-          annualFee: annualFees[plan],
           type: "NEW_LICENSE_PURCHASE",
           couponCode: appliedCoupon?.code || null,
-          // Extra metadata to help backend store into DB
           metadata: {
             companyName,
             email,
             plan,
             quantity,
-            annualFee: annualFees[plan],
             baseAmount,
             discountAmount,
             vatAmount,
@@ -140,12 +141,8 @@ export default function BuyLicensePage() {
         return;
       }
 
-      // Optional: store reference locally for success page
       if (data.reference) {
-        sessionStorage.setItem(
-          "last_paystack_reference",
-          String(data.reference)
-        );
+        sessionStorage.setItem("last_paystack_reference", String(data.reference));
       }
 
       window.location.href = data.authorization_url;
@@ -166,7 +163,7 @@ export default function BuyLicensePage() {
             Buy CentralCore EMR License
           </h1>
           <p className="mt-4 text-lg opacity-90">
-            One‑time license fee • Annual maintenance billed next year
+            Monthly subscription • Billed per computer/system
           </p>
         </div>
 
@@ -180,10 +177,7 @@ export default function BuyLicensePage() {
             <div className="grid md:grid-cols-3 gap-6">
               {/* Starter */}
               <div
-                onClick={() => {
-                  setPlan("starter");
-                  setQuantity(1);
-                }}
+                onClick={() => handlePlanChange("starter")}
                 className={`cursor-pointer p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
                   plan === "starter"
                     ? "border-teal-600 bg-teal-50 shadow-xl"
@@ -196,22 +190,21 @@ export default function BuyLicensePage() {
                 </div>
 
                 <p className="text-teal-700 font-semibold mt-3">
-                  ₦250,000 / license
+                  $5 / computer / month
                 </p>
 
                 <span className="inline-block mt-2 bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                  Annual Fee: ₦50,000 / year
+                  Max 3 computers
                 </span>
 
-                <p className="text-sm text-gray-600 mt-3">Up to 3 Users</p>
+                <p className="text-sm text-gray-600 mt-3">
+                  Cannot install on more than 3 systems
+                </p>
               </div>
 
               {/* Pro */}
               <div
-                onClick={() => {
-                  setPlan("pro");
-                  setQuantity(1);
-                }}
+                onClick={() => handlePlanChange("pro")}
                 className={`relative cursor-pointer p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
                   plan === "pro"
                     ? "border-teal-600 bg-teal-50 shadow-xl"
@@ -228,22 +221,21 @@ export default function BuyLicensePage() {
                 </div>
 
                 <p className="text-teal-700 font-semibold mt-3">
-                  ₦350,000 / license
+                  $10 / system / month
                 </p>
 
                 <span className="inline-block mt-2 bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                  Annual Fee: ₦70,000 / year
+                  Max 5 systems
                 </span>
 
-                <p className="text-sm text-gray-600 mt-3">Up to 5 Users</p>
+                <p className="text-sm text-gray-600 mt-3">
+                  Cannot install on more than 5 systems
+                </p>
               </div>
 
               {/* Enterprise */}
               <div
-                onClick={() => {
-                  setPlan("enterprise");
-                  setQuantity(1);
-                }}
+                onClick={() => handlePlanChange("enterprise")}
                 className={`cursor-pointer p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] ${
                   plan === "enterprise"
                     ? "border-teal-600 bg-teal-50 shadow-xl"
@@ -252,20 +244,20 @@ export default function BuyLicensePage() {
               >
                 <div className="flex items-center gap-3">
                   <span className="text-3xl">🏥</span>
-                  <h3 className="text-xl font-bold text-gray-800">
-                    Enterprise
-                  </h3>
+                  <h3 className="text-xl font-bold text-gray-800">Enterprise</h3>
                 </div>
 
                 <p className="text-teal-700 font-semibold mt-3">
-                  ₦550,000 / license
+                  $20 / system / month
                 </p>
 
                 <span className="inline-block mt-2 bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                  Annual Fee: ₦110,000 / year
+                  Unlimited systems
                 </span>
 
-                <p className="text-sm text-gray-600 mt-3">Unlimited Users</p>
+                <p className="text-sm text-gray-600 mt-3">
+                  Install on as many computers as needed
+                </p>
               </div>
             </div>
           </div>
@@ -273,7 +265,7 @@ export default function BuyLicensePage() {
           {/* Quantity Selector */}
           <div className="space-y-4">
             <label className="block text-xl font-semibold text-gray-800">
-              Number of Licenses
+              Number of Computers / Systems
             </label>
 
             <div className="flex items-center gap-6">
@@ -291,17 +283,17 @@ export default function BuyLicensePage() {
                 value={quantity}
                 onChange={(e) => {
                   const val = Number(e.target.value);
-                  if (val >= 1 && val <= 50) setQuantity(val);
+                  if (val >= 1 && val <= maxQty) setQuantity(val);
                 }}
                 className="w-24 text-center text-3xl font-bold border border-gray-300 rounded-xl py-3"
                 min="1"
-                max="50"
+                max={maxQty}
               />
 
               <button
                 type="button"
                 onClick={increaseQty}
-                disabled={quantity >= 50}
+                disabled={quantity >= maxQty}
                 className="w-14 h-14 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-50 text-2xl font-bold"
               >
                 +
@@ -309,7 +301,9 @@ export default function BuyLicensePage() {
             </div>
 
             <p className="text-sm text-gray-600">
-              You can buy up to 50 licenses at once
+              {plan === "enterprise"
+                ? "You can buy as many systems as you need"
+                : `Maximum of ${maxQty} systems for this plan`}
             </p>
           </div>
 
@@ -328,7 +322,7 @@ export default function BuyLicensePage() {
                 className="flex-1 p-4 text-lg border border-gray-300 rounded-xl"
               />
 
-            <button
+              <button
                 type="button"
                 onClick={applyCoupon}
                 className="px-6 py-3 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700"
@@ -342,7 +336,7 @@ export default function BuyLicensePage() {
                 Applied <strong>{appliedCoupon.code}</strong> —{" "}
                 {appliedCoupon.type === "percentage"
                   ? `${appliedCoupon.value}% off`
-                  : `₦${appliedCoupon.value} off × ${quantity}`}
+                  : `$${appliedCoupon.value} off × ${quantity}`}
               </p>
             )}
 
@@ -355,38 +349,29 @@ export default function BuyLicensePage() {
           <div className="bg-teal-50 p-8 rounded-2xl border border-teal-100 space-y-2">
             <div className="flex justify-between text-lg text-gray-700">
               <span>
-                License Fee ({quantity} × {formatNaira(planPrices[plan])})
+                Monthly Fee ({quantity} × {formatUSD(planPrices[plan])})
               </span>
-              <span>{formatNaira(baseAmount)}</span>
+              <span>{formatUSD(baseAmount)}</span>
             </div>
 
             {discountAmount > 0 && (
               <div className="flex justify-between text-lg text-green-700">
                 <span>Discount</span>
-                <span>-{formatNaira(discountAmount)}</span>
+                <span>-{formatUSD(discountAmount)}</span>
               </div>
             )}
 
             <div className="flex justify-between text-lg text-gray-700">
               <span>VAT (7.5%)</span>
-              <span>{formatNaira(vatAmount)}</span>
+              <span>{formatUSD(vatAmount)}</span>
             </div>
 
             <hr className="my-3" />
 
             <div className="flex justify-between text-2xl font-extrabold text-teal-800">
-              <span>Total (Pay Now)</span>
-              <span>{formatNaira(totalAmount)}</span>
+              <span>Total (This Month)</span>
+              <span>{formatUSD(totalAmount)}</span>
             </div>
-
-            <p className="text-sm text-gray-600 pt-2">
-              <strong>Annual Maintenance Fee:</strong>{" "}
-              {formatNaira(annualFees[plan])} / year
-              <br />
-              <span className="text-teal-700 font-semibold">
-                (Starts next year — NOT charged today)
-              </span>
-            </p>
           </div>
 
           {/* Company Name */}
@@ -429,10 +414,10 @@ export default function BuyLicensePage() {
           >
             {loading
               ? "Processing..."
-              : `Pay ${formatNaira(totalAmount)} Securely`}
+              : `Pay ${formatUSD(totalAmount)} Securely`}
           </button>
 
-          {/* BANK TRANSFER MODULE — EXACT SAME AS RENEW PAGE */}
+          {/* BANK TRANSFER MODULE */}
           <div className="bg-white/80 backdrop-blur-xl border border-slate-200 rounded-2xl p-6 shadow-lg space-y-6 mt-10">
             <h2 className="text-lg font-semibold text-slate-900">
               Pay by Bank Transfer (First Bank Nigeria)
@@ -444,7 +429,6 @@ export default function BuyLicensePage() {
               activated.
             </p>
 
-            {/* BANK DETAILS */}
             <div className="bg-slate-100 rounded-xl p-4 space-y-2">
               <p className="text-sm">
                 <strong>Bank:</strong> First Bank Nigeria
@@ -453,17 +437,14 @@ export default function BuyLicensePage() {
                 <strong>Account Number:</strong> 2022362320
               </p>
               <p className="text-sm">
-                <strong>Account Name:</strong> Central Tech Information System
-                Ltd
+                <strong>Account Name:</strong> Central Tech Information System Ltd
               </p>
               <p className="text-xs text-slate-500">
                 (This is your dedicated Paystack DVA)
               </p>
             </div>
 
-            {/* BUTTONS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* OPTION A — COPY ACCOUNT NUMBER */}
               <button
                 onClick={() => navigator.clipboard.writeText("2022362320")}
                 className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
@@ -471,7 +452,6 @@ export default function BuyLicensePage() {
                 Copy Account Number
               </button>
 
-              {/* OPTION B — I HAVE PAID */}
               <button
                 onClick={() =>
                   alert(
@@ -483,7 +463,6 @@ export default function BuyLicensePage() {
                 I Have Paid — Confirm Transfer
               </button>
 
-              {/* OPTION C — UPLOAD PROOF */}
               <label className="w-full py-3 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition text-center cursor-pointer">
                 Upload Proof of Payment
                 <input
@@ -496,11 +475,9 @@ export default function BuyLicensePage() {
                 />
               </label>
 
-              {/* OPTION D — OPEN BANK APP */}
               <button
                 onClick={() => {
-                  window.location.href =
-                    "intent://bankapp#Intent;scheme=bank;end";
+                  window.location.href = "intent://bankapp#Intent;scheme=bank;end";
                 }}
                 className="w-full py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition"
               >
@@ -508,7 +485,6 @@ export default function BuyLicensePage() {
               </button>
             </div>
 
-            {/* OPTION E — BIG GREEN BUTTON */}
             <button
               onClick={() =>
                 alert(
@@ -521,8 +497,7 @@ export default function BuyLicensePage() {
             </button>
 
             <p className="text-xs text-slate-500 text-center">
-              After payment, your license will be confirmed automatically via
-              Paystack.
+              After payment, your license will be confirmed automatically via Paystack.
             </p>
           </div>
         </div>

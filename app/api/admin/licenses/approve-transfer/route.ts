@@ -1,89 +1,108 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendLicenseEmail } from "@/lib/email/sendLicenseEmail";
 
 export async function POST(req: Request) {
-  const supabase = supabaseServer();
-  const body = await req.json();
-  const { requestId, newLicenseKey, notes } = body;
+  try {
+    const body = await req.json();
+    const { requestId, newLicenseKey, notes } = body;
 
-  if (!requestId || !newLicenseKey) {
-    return NextResponse.json(
-      { success: false, message: "requestId and newLicenseKey are required." },
-      { status: 400 }
-    );
-  }
+    if (!requestId || !newLicenseKey) {
+      return NextResponse.json(
+        { success: false, message: "requestId and newLicenseKey are required." },
+        { status: 400 }
+      );
+    }
 
-  // Admin user
-  const {
-    data: { user: admin },
-  } = await supabase.auth.getUser();
+    // Fetch the request
+    const { data: reqRow, error: fetchError } = await supabaseAdmin
+      .from("LicenseRequest")
+      .select("*")
+      .eq("id", requestId)
+      .eq("status", "PENDING")
+      .maybeSingle();
 
-  if (!admin) {
-    return NextResponse.json(
-      { success: false, message: "Not authorized." },
-      { status: 401 }
-    );
-  }
+    if (fetchError || !reqRow) {
+      return NextResponse.json(
+        { success: false, message: "Request not found or already processed." },
+        { status: 404 }
+      );
+    }
 
-  // Fetch request
-  const { data: reqRow } = await supabase
-    .from("LicenseRequest")
-    .select("*")
-    .eq("id", requestId)
-    .eq("status", "PENDING")
-    .maybeSingle();
+    const processedAt = new Date().toISOString();
 
-  if (!reqRow) {
-    return NextResponse.json(
-      { success: false, message: "Request not found or already processed." },
-      { status: 404 }
-    );
-  }
+    // Update ONLY safe fields on LicenseRequest
+    const { error: updateError } = await supabaseAdmin
+      .from("LicenseRequest")
+      .update({
+        status: "APPROVED",
+        processedAt,
+        notes: notes ?? reqRow.notes,
+      })
+      .eq("id", requestId);
 
-  const processedAt = new Date().toISOString();
+    if (updateError) {
+      console.error("Update error:", updateError);
+      return NextResponse.json(
+        { success: false, message: "Failed to update request", details: updateError.message },
+        { status: 500 }
+      );
+    }
 
-  // Update DB
-  await supabase
-    .from("LicenseRequest")
-    .update({
-      status: "APPROVED",
+    // Update licenseKey separately (in case of trigger issues)
+    await supabaseAdmin
+      .from("LicenseRequest")
+      .update({ licenseKey: newLicenseKey })
+      .eq("id", requestId);
+
+    // Deactivate old license if it exists
+    if (reqRow.licenseKey) {
+      await supabaseAdmin
+        .from("License")
+        .update({ status: "DEACTIVATED" })
+        .eq("licenseKey", reqRow.licenseKey);
+    }
+
+    // Insert new License
+    await supabaseAdmin.from("License").insert({
+      licenseRequestId: requestId,
+      userId: reqRow.userId,
+      productName: reqRow.productName,
       licenseKey: newLicenseKey,
-      processedAt,
-      processedBy: admin.id,
-      notes: notes ?? reqRow.notes,
-    })
-    .eq("id", requestId);
-
-  // Send email
-  if (reqRow.userEmail) {
-    const txtContent = [
-      `Product: ${reqRow.productName ?? ""}`,
-      `License Key: ${newLicenseKey}`,
-      `Request Key: ${reqRow.requestKey ?? ""}`,
-      `Company: ${reqRow.companyName ?? ""}`,
-      `Email: ${reqRow.userEmail ?? ""}`,
-      `Approved At: ${processedAt}`,
-    ].join("\r\n");
-
-    const emailResult = await sendLicenseEmail({
-      to: reqRow.userEmail,
-      subject: `Your new license key for ${reqRow.productName ?? "your product"}`,
-      bodyText: `Your license transfer has been approved. Your license file is attached.`,
-      txtFilename: `license_${requestId}.txt`,
-      txtContent,
+      userEmail: reqRow.userEmail,
+      status: "ACTIVE",
+      createdAt: processedAt,
     });
 
-    if (emailResult.success) {
-      await supabase
-        .from("LicenseRequest")
-        .update({ sentAt: new Date().toISOString() })
-        .eq("id", requestId);
-    }
-  }
+    // Send email
+    if (reqRow.userEmail) {
+      const txtContent = [
+        `Product: ${reqRow.productName ?? ""}`,
+        `License Key: ${newLicenseKey}`,
+        `Request Key: ${reqRow.requestKey ?? ""}`,
+        `Company: ${reqRow.companyName ?? ""}`,
+        `Email: ${reqRow.userEmail ?? ""}`,
+        `Approved At: ${processedAt}`,
+      ].join("\r\n");
 
-  return NextResponse.json({
-    success: true,
-    message: "License approved and email sent.",
-  });
+      await sendLicenseEmail({
+        to: reqRow.userEmail,
+        subject: `Your new license key for ${reqRow.productName ?? "your product"}`,
+        bodyText: "Your license transfer has been approved. Your new license key is attached.",
+        txtFilename: `license_${requestId}.txt`,
+        txtContent,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "License transfer approved successfully.",
+    });
+  } catch (err: any) {
+    console.error("Approve error:", err);
+    return NextResponse.json(
+      { success: false, message: "Server error", details: err.message },
+      { status: 500 }
+    );
+  }
 }
